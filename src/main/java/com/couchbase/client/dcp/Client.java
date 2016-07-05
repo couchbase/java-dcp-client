@@ -19,8 +19,14 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
+import com.couchbase.client.deps.io.netty.channel.Channel;
+import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
+import com.couchbase.client.deps.io.netty.channel.epoll.EpollEventLoopGroup;
+import com.couchbase.client.deps.io.netty.channel.epoll.EpollSocketChannel;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
+import com.couchbase.client.deps.io.netty.channel.oio.OioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.socket.nio.NioSocketChannel;
+import com.couchbase.client.deps.io.netty.channel.socket.oio.OioSocketChannel;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
@@ -40,7 +46,7 @@ public class Client {
     private final String bucket;
     private final String password;
     private final DcpControl dcpControl;
-
+    private final EventLoopGroup eventLoopGroup;
 
     private Client(Builder builder) {
         clusterAt = builder.clusterAt;
@@ -52,6 +58,8 @@ public class Client {
         if (builder.dataEventHandler == null) {
             throw new IllegalArgumentException("A DataEventHandler needs to be provided!");
         }
+
+        eventLoopGroup = builder.eventLoopGroup == null ? new NioEventLoopGroup() : builder.eventLoopGroup;
         dataEventHandler = builder.dataEventHandler;
     }
 
@@ -64,12 +72,18 @@ public class Client {
      */
     public Completable connect() {
 
+        Class<? extends Channel> channelClass = NioSocketChannel.class;
+        if (eventLoopGroup instanceof EpollEventLoopGroup) {
+            channelClass = EpollSocketChannel.class;
+        } else if (eventLoopGroup instanceof OioEventLoopGroup) {
+            channelClass = OioSocketChannel.class;
+        }
+
         final Bootstrap bootstrap = new Bootstrap()
             .remoteAddress(clusterAt, 11210)
-            .channel(NioSocketChannel.class)
+            .channel(channelClass)
             .handler(new DcpPipeline(connectionNameGenerator, bucket, password, dcpControl))
-            .group(new NioEventLoopGroup());
-
+            .group(eventLoopGroup);
 
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
@@ -98,6 +112,7 @@ public class Client {
     public static class Builder {
         private String clusterAt = "127.0.0.1";
         private DataEventHandler dataEventHandler;
+        private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
         private String password = "";
         private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
@@ -105,6 +120,11 @@ public class Client {
 
         public Builder clusterAt(final String clusterAt) {
             this.clusterAt = clusterAt;
+            return this;
+        }
+
+        public Builder eventLoopGroup(final EventLoopGroup eventLoopGroup) {
+            this.eventLoopGroup = eventLoopGroup;
             return this;
         }
 
