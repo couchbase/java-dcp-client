@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -40,6 +41,7 @@ import rx.Single;
  */
 public class Client {
 
+    private final Conductor conductor;
     private final String clusterAt;
     private final DataEventHandler dataEventHandler;
     private final ConnectionNameGenerator connectionNameGenerator;
@@ -61,6 +63,8 @@ public class Client {
 
         eventLoopGroup = builder.eventLoopGroup == null ? new NioEventLoopGroup() : builder.eventLoopGroup;
         dataEventHandler = builder.dataEventHandler;
+
+        conductor = new Conductor(clusterAt, bucket, password);
     }
 
     public static Builder configure() {
@@ -72,7 +76,10 @@ public class Client {
      */
     public Completable connect() {
 
-        Class<? extends Channel> channelClass = NioSocketChannel.class;
+
+        return conductor.connect();
+
+        /*Class<? extends Channel> channelClass = NioSocketChannel.class;
         if (eventLoopGroup instanceof EpollEventLoopGroup) {
             channelClass = EpollSocketChannel.class;
         } else if (eventLoopGroup instanceof OioEventLoopGroup) {
@@ -99,7 +106,7 @@ public class Client {
                     }
                 });
             }
-        });
+        });*/
     }
 
     /**
