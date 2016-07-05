@@ -65,6 +65,10 @@ public class DcpConnectHandler
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+        if (!MessageUtil.isComplete(msg)) {
+            return;
+        }
+
         short status = MessageUtil.getStatus(msg);
         if (status == 0) {
             originalPromise.setSuccess();

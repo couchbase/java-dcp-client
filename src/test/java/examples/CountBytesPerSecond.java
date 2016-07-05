@@ -17,6 +17,7 @@ package examples;
 
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import java.util.concurrent.TimeUnit;

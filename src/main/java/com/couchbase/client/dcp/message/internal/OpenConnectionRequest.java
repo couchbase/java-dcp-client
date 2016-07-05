@@ -38,7 +38,8 @@ public enum OpenConnectionRequest {
      */
     public static void init(final ByteBuf buffer) {
         MessageUtil.initRequest(OPEN_CONNECTION_OPCODE, buffer);
-        MessageUtil.setExtras(Unpooled.buffer(8).writeLong(0), buffer);
+        // Initialize lower parts of extras flag  to producer ("1" set)
+        MessageUtil.setExtras(Unpooled.buffer(8).writeInt(0).writeInt(1), buffer);
     }
 
     /**

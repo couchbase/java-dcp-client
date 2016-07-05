@@ -64,6 +64,10 @@ public class AuthHandler
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+        if (!MessageUtil.isComplete(msg)) {
+            return;
+        }
+
         if (SaslListMechsResponse.is(msg)) {
             handleListMechsResponse(ctx, msg);
         } else if (SaslAuthResponse.is(msg)) {

@@ -34,6 +34,18 @@ public class MessageUtil {
     public static final byte SASL_LIST_MECHS_OPCODE = 0x20;
     public static final byte SASL_AUTH_OPCODE = 0x21;
     public static final byte SASL_STEP_OPCODE = 0x22;
+    public static final byte DCP_CONTROL_OPCODE = 0x5e;
+
+    /**
+     * Returns true if message can be processed and false if more data is needed.
+     */
+    public static boolean isComplete(final ByteBuf buffer) {
+        int readable = buffer.readableBytes();
+        if (readable < HEADER_SIZE) {
+            return false;
+        }
+        return readable >= (HEADER_SIZE + buffer.getInt(BODY_LENGTH_OFFSET));
+    }
 
     /**
      * Dumps the given ByteBuf in the "wire format".
