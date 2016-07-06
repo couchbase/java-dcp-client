@@ -17,9 +17,8 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
-public class MessageUtil {
-
-    private MessageUtil() {}
+public enum MessageUtil {
+    ;
 
     public static final int HEADER_SIZE = 24;
     public static final byte MAGIC_REQ = (byte) 0x80;

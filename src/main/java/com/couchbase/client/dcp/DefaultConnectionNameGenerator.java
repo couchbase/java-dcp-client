@@ -15,7 +15,6 @@
  */
 package com.couchbase.client.dcp;
 
-
 import java.util.UUID;
 
 public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {

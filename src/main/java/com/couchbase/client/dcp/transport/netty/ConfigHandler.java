@@ -1,5 +1,21 @@
+/*
+ * Copyright (c) 2016 Couchbase, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -7,6 +23,7 @@ import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
 import com.couchbase.client.deps.io.netty.handler.codec.base64.Base64;
 import com.couchbase.client.deps.io.netty.handler.codec.http.*;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import rx.subjects.Subject;
 
 
 public class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
@@ -15,11 +32,14 @@ public class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     private final String bucket;
     private final String password;
     private ByteBuf responseContent;
+    private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
 
-    public ConfigHandler(String hostname, String bucket, String password) {
+    public ConfigHandler(String hostname, String bucket, String password,
+        Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
         this.hostname = hostname;
         this.bucket = bucket;
         this.password = password;
+        this.configStream = configStream;
     }
 
     @Override
@@ -41,8 +61,7 @@ public class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
                 .trim()
                 .replace("$HOST", hostname);
 
-            // TODO: emit into subject here.
-
+            configStream.onNext((CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig));
             responseContent.clear();
             responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(CharsetUtil.UTF_8));
         }
