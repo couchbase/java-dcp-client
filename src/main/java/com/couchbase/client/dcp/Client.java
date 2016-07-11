@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp;
 
 import com.couchbase.client.dcp.conductor.Conductor;
+import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -33,6 +34,9 @@ import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
 import rx.Single;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Main entry point into the DCP client.
  *
@@ -42,29 +46,26 @@ import rx.Single;
 public class Client {
 
     private final Conductor conductor;
-    private final String clusterAt;
-    private final DataEventHandler dataEventHandler;
-    private final ConnectionNameGenerator connectionNameGenerator;
-    private final String bucket;
-    private final String password;
-    private final DcpControl dcpControl;
-    private final EventLoopGroup eventLoopGroup;
+    private final ClientEnvironment env;
 
     private Client(Builder builder) {
-        clusterAt = builder.clusterAt;
-        bucket = builder.bucket;
-        password = builder.password;
-        connectionNameGenerator = builder.connectionNameGenerator;
-        dcpControl = builder.dcpControl;
-
         if (builder.dataEventHandler == null) {
             throw new IllegalArgumentException("A DataEventHandler needs to be provided!");
         }
 
-        eventLoopGroup = builder.eventLoopGroup == null ? new NioEventLoopGroup() : builder.eventLoopGroup;
-        dataEventHandler = builder.dataEventHandler;
+        EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
+            ? new NioEventLoopGroup() : builder.eventLoopGroup;
+        env = ClientEnvironment.builder()
+            .setClusterAt(builder.clusterAt)
+            .setConnectionNameGenerator(builder.connectionNameGenerator)
+            .setBucket(builder.bucket)
+            .setPassword(builder.password)
+            .setDcpControl(builder.dcpControl)
+            .setEventLoopGroup(eventLoopGroup)
+            .setDataEventHandler(builder.dataEventHandler)
+            .build();
 
-        conductor = new Conductor(clusterAt, bucket, password);
+        conductor = new Conductor(env);
     }
 
     public static Builder configure() {
@@ -78,35 +79,6 @@ public class Client {
 
 
         return conductor.connect();
-
-        /*Class<? extends Channel> channelClass = NioSocketChannel.class;
-        if (eventLoopGroup instanceof EpollEventLoopGroup) {
-            channelClass = EpollSocketChannel.class;
-        } else if (eventLoopGroup instanceof OioEventLoopGroup) {
-            channelClass = OioSocketChannel.class;
-        }
-
-        final Bootstrap bootstrap = new Bootstrap()
-            .remoteAddress(clusterAt, 11210)
-            .channel(channelClass)
-            .handler(new DcpPipeline(connectionNameGenerator, bucket, password, dcpControl))
-            .group(eventLoopGroup);
-
-        return Completable.create(new Completable.CompletableOnSubscribe() {
-            @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
-                bootstrap.connect().addListener(new GenericFutureListener<Future<? super Void>>() {
-                    @Override
-                    public void operationComplete(Future<? super Void> future) throws Exception {
-                        if (future.isSuccess()) {
-                            subscriber.onCompleted();
-                        } else {
-                            subscriber.onError(future.cause());
-                        }
-                    }
-                });
-            }
-        });*/
     }
 
     /**
@@ -117,7 +89,7 @@ public class Client {
     }
 
     public static class Builder {
-        private String clusterAt = "127.0.0.1";
+        private List<String> clusterAt = Arrays.asList("127.0.0.1");
         private DataEventHandler dataEventHandler;
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
@@ -125,7 +97,7 @@ public class Client {
         private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
         private DcpControl dcpControl = new DcpControl();
 
-        public Builder clusterAt(final String clusterAt) {
+        public Builder clusterAt(final List<String> clusterAt) {
             this.clusterAt = clusterAt;
             return this;
         }

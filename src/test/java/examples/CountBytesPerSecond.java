@@ -19,12 +19,14 @@ import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
+import java.util.Arrays;
+
 public class CountBytesPerSecond {
 
     public static void main(String... args) throws Exception {
         Client client = Client
             .configure()
-            .clusterAt("127.0.0.1")
+            .clusterAt(Arrays.asList("10.142.150.101"))
             .bucket("travel-sample")
             .dataEventHandler(new DataEventHandler() {
                 @Override

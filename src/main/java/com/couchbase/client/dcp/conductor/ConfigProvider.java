@@ -19,6 +19,9 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
 import com.couchbase.client.deps.io.netty.channel.Channel;
@@ -36,6 +39,7 @@ import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -49,17 +53,14 @@ public class ConfigProvider {
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigProvider.class);
 
     private final AtomicReference<List<String>> remoteHosts;
-    private final String bucket;
-    private final String password;
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
     private volatile boolean stopped = false;
-    private final EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
     private volatile Channel channel;
+    private final ClientEnvironment env;
 
-    public ConfigProvider(List<String> bootHosts, String bucket, String password) {
-        this.remoteHosts = new AtomicReference<List<String>>(bootHosts);
-        this.bucket = bucket;
-        this.password = password;
+    public ConfigProvider(ClientEnvironment env) {
+        this.env = env;
+        this.remoteHosts = new AtomicReference<List<String>>(env.clusterAt());
         this.configStream = PublishSubject.<CouchbaseBucketConfig>create().toSerialized();
 
         configStream.doOnNext(new Action1<CouchbaseBucketConfig>() {
@@ -108,9 +109,9 @@ public class ConfigProvider {
     private Completable tryConnectHost(final String hostname) {
         final Bootstrap bootstrap = new Bootstrap()
             .remoteAddress(hostname, 8091)
-            .channel(NioSocketChannel.class)
-            .handler(new ConfigPipeline(hostname, bucket, password, configStream))
-            .group(eventLoopGroup);
+            .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
+            .handler(new ConfigPipeline(hostname, env.bucket(), env.password(), configStream))
+            .group(env.eventLoopGroup());
 
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
