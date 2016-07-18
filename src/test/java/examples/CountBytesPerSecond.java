@@ -26,7 +26,7 @@ public class CountBytesPerSecond {
     public static void main(String... args) throws Exception {
         Client client = Client
             .configure()
-            .clusterAt(Arrays.asList("10.142.150.101"))
+           // .clusterAt(Arrays.asList("10.142.150.101"))
             .bucket("travel-sample")
             .dataEventHandler(new DataEventHandler() {
                 @Override
@@ -36,7 +36,11 @@ public class CountBytesPerSecond {
             })
             .build();
 
-        client.connect().subscribe();
+        client.connect().await();
+
+        Thread.sleep(1000); // TODO: fixme startup without delay
+
+        client.startFromBeginning().await();
 
         Thread.sleep(100000);
     }

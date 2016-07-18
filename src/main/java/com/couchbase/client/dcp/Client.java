@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp;
 
 import com.couchbase.client.dcp.conductor.Conductor;
+import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
@@ -32,7 +33,9 @@ import com.couchbase.client.deps.io.netty.channel.socket.oio.OioSocketChannel;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
+import rx.Observable;
 import rx.Single;
+import rx.functions.Func1;
 
 import java.util.Arrays;
 import java.util.List;
@@ -65,7 +68,7 @@ public class Client {
             .setDataEventHandler(builder.dataEventHandler)
             .build();
 
-        conductor = new Conductor(env);
+        conductor = new Conductor(env, builder.configProvider);
     }
 
     public static Builder configure() {
@@ -76,16 +79,29 @@ public class Client {
      * Connect the client and initialize everything as configured.
      */
     public Completable connect() {
-
-
         return conductor.connect();
     }
 
     /**
      * Shutdown the client and associated resources.
      */
-    public Single<Boolean> disconnect() {
-        return null;
+    public Completable disconnect() {
+        return conductor.stop();
+    }
+
+    /**
+     * Start all partition streams from beginning, so all data in the bucket will be streamed.
+     */
+    public Completable startFromBeginning() {
+        return Observable
+            .range(0, conductor.numberOfPartitions())
+            .flatMap(new Func1<Integer, Observable<?>>() {
+                @Override
+                public Observable<?> call(Integer p) {
+                    return conductor.startStreamForPartition(p.shortValue()).toObservable();
+                }
+            })
+            .toCompletable();
     }
 
     public static class Builder {
@@ -96,6 +112,7 @@ public class Client {
         private String password = "";
         private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
         private DcpControl dcpControl = new DcpControl();
+        private ConfigProvider configProvider = null;
 
         public Builder clusterAt(final List<String> clusterAt) {
             this.clusterAt = clusterAt;
@@ -129,6 +146,11 @@ public class Client {
 
         public Builder controlParam(final DcpControl.Names name, String value) {
             this.dcpControl.put(name, value);
+            return this;
+        }
+
+        public Builder configProvider(final ConfigProvider configProvider) {
+            this.configProvider = configProvider;
             return this;
         }
 

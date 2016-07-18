@@ -20,69 +20,92 @@ import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.service.ServiceType;
-import com.couchbase.client.dcp.DefaultConnectionNameGenerator;
 import com.couchbase.client.dcp.config.ClientEnvironment;
-import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.transport.netty.ChannelUtils;
-import com.couchbase.client.dcp.transport.netty.DcpPipeline;
-import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
-import com.couchbase.client.deps.io.netty.channel.Channel;
-import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
-import com.couchbase.client.deps.io.netty.channel.epoll.EpollEventLoopGroup;
-import com.couchbase.client.deps.io.netty.channel.epoll.EpollSocketChannel;
-import com.couchbase.client.deps.io.netty.channel.oio.OioEventLoopGroup;
-import com.couchbase.client.deps.io.netty.channel.socket.nio.NioSocketChannel;
-import com.couchbase.client.deps.io.netty.channel.socket.oio.OioSocketChannel;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
 import rx.Completable;
 import rx.functions.Action1;
 
 import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Conductor {
 
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Conductor.class);
 
     private final ConfigProvider configProvider;
-    private final Map<InetAddress, Channel> dataChannels;
+    private final Set<DcpChannel> channels;
     private volatile long configRev = -1;
     private final ClientEnvironment env;
+    private final AtomicReference<CouchbaseBucketConfig> currentConfig;
 
-    public Conductor(final ClientEnvironment env) {
+
+    public Conductor(final ClientEnvironment env, ConfigProvider cp) {
         this.env = env;
+        this.currentConfig = new AtomicReference<CouchbaseBucketConfig>();
 
-        configProvider = new ConfigProvider(env);
+        configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
         configProvider.configs().forEach(new Action1<CouchbaseBucketConfig>() {
             @Override
             public void call(CouchbaseBucketConfig config) {
                 if (config.rev() > configRev) {
                     configRev = config.rev();
                     LOGGER.debug("Applying new configuration, rev is now {}.", configRev);
+                    currentConfig.set(config);
                     reconfigure(config);
                 } else {
                  LOGGER.debug("Ignoring config, since rev has not changed.");
                 }
             }
         });
-        dataChannels = new ConcurrentHashMap<InetAddress, Channel>();
+        channels = new ConcurrentSet<DcpChannel>();
     }
 
     public Completable connect() {
-        return configProvider.start();
+        Completable atLeastOneConfig = configProvider.configs().first().toCompletable();
+        return configProvider.start().concatWith(atLeastOneConfig);
     }
 
-    public void stop() {
-        configProvider.stop();
+    public Completable stop() {
+        return configProvider.stop();
+    }
+
+    /**
+     * Returns the total number of partitions.
+     */
+    public int numberOfPartitions() {
+        CouchbaseBucketConfig config = currentConfig.get();
+        return config.numberOfPartitions();
+    }
+
+
+    public Completable startStreamForPartition(short partition) {
+        DcpChannel channel = masterChannelByPartition(partition);
+        return channel.openStream(partition, 0, 0, 0, 0, 0);
+    }
+
+    /**
+     * Returns the dcp channel responsible for a given vbucket id according to the current
+     * configuration.
+     *
+     * Note that this doesn't mean that the partition is enabled there, it just checks the current
+     * mapping.
+     */
+    private DcpChannel masterChannelByPartition(short partition) {
+        CouchbaseBucketConfig config = currentConfig.get();
+        int index = config.nodeIndexForMaster(partition, false);
+        NodeInfo node = config.nodeAtIndex(index);
+        for (DcpChannel ch : channels) {
+            if (ch.hostname().equals(node.hostname())) {
+                return ch;
+            }
+        }
+        throw new IllegalStateException("No DcpChannel found for partition " + partition);
     }
 
     private void reconfigure(CouchbaseBucketConfig config) {
         List<InetAddress> toAdd = new ArrayList<InetAddress>();
-        List<InetAddress> toRemove = new ArrayList<InetAddress>();
+        List<DcpChannel> toRemove = new ArrayList<DcpChannel>();
 
         for (NodeInfo node : config.nodes()) {
             InetAddress hostname = node.hostname();
@@ -90,13 +113,13 @@ public class Conductor {
                 || node.sslServices().containsKey(ServiceType.BINARY))) {
                 continue; // we only care about kv nodes
             }
-            if (!dataChannels.containsKey(hostname)) {
+            if (!channels.contains(hostname)) {
                 toAdd.add(hostname);
                 LOGGER.debug("Planning to add {}", hostname);
             }
         }
 
-        for (InetAddress chan : dataChannels.keySet()) {
+        for (DcpChannel chan : channels) {
             boolean found = false;
             for (NodeInfo node : config.nodes()) {
                 InetAddress hostname = node.hostname();
@@ -115,47 +138,24 @@ public class Conductor {
             add(add);
         }
 
-        for (InetAddress remove : toRemove) {
+        for (DcpChannel remove : toRemove) {
             remove(remove);
         }
     }
 
     private void add(final InetAddress node) {
-        if (dataChannels.containsKey(node)) {
+        if (channels.contains(node)) {
             return;
         }
 
-
-        final Bootstrap bootstrap = new Bootstrap()
-            .remoteAddress(node, 11210)
-            .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-            // FIXME
-            .handler(new DcpPipeline(DefaultConnectionNameGenerator.INSTANCE, env.bucket(), env.password(), new DcpControl()))
-            .group(env.eventLoopGroup());
-
-        bootstrap.connect().addListener(new GenericFutureListener<ChannelFuture>() {
-            @Override
-            public void operationComplete(ChannelFuture future) throws Exception {
-                if (future.isSuccess()) {
-                    dataChannels.put(node, future.channel());
-                } else {
-                    LOGGER.warn("IMPLEMENT ME!!! (retry on failure until removed)");
-                }
-            }
-        });
+        DcpChannel channel = new DcpChannel(node, env);
+        channels.add(channel);
+        channel.connect();
     }
 
-    private void remove(InetAddress node) {
-        Channel channel = dataChannels.remove(node);
-        if (channel != null) {
-            channel.close().addListener(new GenericFutureListener<ChannelFuture>() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if (!future.isSuccess()) {
-                        LOGGER.debug("Error during channel close.", future.cause());
-                    }
-                }
-            });
-        }
+    private void remove(DcpChannel node) {
+       if(channels.remove(node)) {
+           node.disconnect();
+       }
     }
 }
