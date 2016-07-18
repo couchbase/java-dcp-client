@@ -19,7 +19,7 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.message.internal.OpenConnectionRequest;
+import com.couchbase.client.dcp.message.OpenConnectionRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -65,10 +65,6 @@ public class DcpConnectHandler
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        if (!MessageUtil.isComplete(msg)) {
-            return;
-        }
-
         short status = MessageUtil.getStatus(msg);
         if (status == 0) {
             originalPromise.setSuccess();

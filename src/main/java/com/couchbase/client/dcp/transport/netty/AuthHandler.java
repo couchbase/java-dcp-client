@@ -19,8 +19,7 @@ import com.couchbase.client.core.endpoint.kv.AuthenticationException;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.security.sasl.Sasl;
-import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.message.internal.*;
+import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.*;
@@ -64,10 +63,6 @@ public class AuthHandler
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        if (!MessageUtil.isComplete(msg)) {
-            return;
-        }
-
         if (SaslListMechsResponse.is(msg)) {
             handleListMechsResponse(ctx, msg);
         } else if (SaslAuthResponse.is(msg)) {

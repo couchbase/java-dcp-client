@@ -81,7 +81,7 @@ public class Conductor {
 
     public Completable startStreamForPartition(short partition) {
         DcpChannel channel = masterChannelByPartition(partition);
-        return channel.openStream(partition, 0, 0, 0, 0, 0);
+        return channel.openStream(partition, 0, 0, 0xffffffff, 0, 0);
     }
 
     /**

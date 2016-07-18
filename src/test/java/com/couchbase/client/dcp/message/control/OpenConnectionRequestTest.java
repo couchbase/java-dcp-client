@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.message.control;
 
-import com.couchbase.client.dcp.message.internal.OpenConnectionRequest;
+import com.couchbase.client.dcp.message.OpenConnectionRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;

@@ -13,28 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.dcp.message.internal;
+package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
-import static com.couchbase.client.dcp.message.MessageUtil.SASL_AUTH_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.SASL_STEP_OPCODE;
 
-public enum SaslAuthResponse {
+public enum SaslStepResponse {
     ;
 
     /**
-     * If the given buffer is a {@link SaslAuthResponse} message.
+     * If the given buffer is a {@link SaslStepResponse} message.
      */
     public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == SASL_AUTH_OPCODE;
-    }
-
-    /**
-     * Returns the server challenge.
-     */
-    public static ByteBuf challenge(final ByteBuf buffer) {
-        return MessageUtil.getContent(buffer);
+        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == SASL_STEP_OPCODE;
     }
 
 }

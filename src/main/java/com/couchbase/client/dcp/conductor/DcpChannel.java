@@ -3,8 +3,8 @@ package com.couchbase.client.dcp.conductor;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.ClientEnvironment;
-import com.couchbase.client.dcp.message.control.ControlEvent;
-import com.couchbase.client.dcp.message.internal.DcpOpenStreamRequest;
+import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
@@ -14,6 +14,7 @@ import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
+import rx.functions.Action1;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
@@ -30,13 +31,21 @@ public class DcpChannel {
 
     private final ClientEnvironment env;
     private final InetAddress inetAddress;
-    private final Subject<ControlEvent, ControlEvent> controlEvents;
+    private final Subject<ByteBuf, ByteBuf> controlEvents;
     private volatile Channel channel;
 
     public DcpChannel(InetAddress inetAddress, ClientEnvironment env) {
         this.inetAddress = inetAddress;
         this.env = env;
-        this.controlEvents = PublishSubject.<ControlEvent>create().toSerialized();
+        this.controlEvents = PublishSubject.<ByteBuf>create().toSerialized();
+
+        this.controlEvents.subscribe(new Action1<ByteBuf>() {
+            @Override
+            public void call(ByteBuf buf) {
+                //System.err.println("Got Control Message");
+                //System.out.println(MessageUtil.humanize(buf));
+            }
+        });
     }
 
     public void connect() {
@@ -76,12 +85,15 @@ public class DcpChannel {
     }
 
 
-    public Completable openStream(final short vbid, long vbuuid, long startSeqno, long endSeqno,
-        long snapshotStartSeqno, long snapshotEndSeqno) {
-
+    public Completable openStream(final short vbid, final long vbuuid, final long startSeqno, final long endSeqno,
+                                  final long snapshotStartSeqno, final long snapshotEndSeqno) {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(Completable.CompletableSubscriber subscriber) {
+                LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
+                    "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}",
+                    channel.remoteAddress(), vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
+
                 ByteBuf buffer = Unpooled.buffer();
                 DcpOpenStreamRequest.init(buffer, vbid);
                 channel.writeAndFlush(buffer);
@@ -89,11 +101,6 @@ public class DcpChannel {
               //  controlEvents.
             }
         });
-
-
-
-        // write and listen on control events, "clear" it when this one comes up and compelte the
-        // completable.
     }
 
     public Completable closeStream(short vbid) {

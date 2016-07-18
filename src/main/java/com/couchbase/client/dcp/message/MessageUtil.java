@@ -35,6 +35,11 @@ public enum MessageUtil {
     public static final byte SASL_STEP_OPCODE = 0x22;
     public static final byte DCP_CONTROL_OPCODE = 0x5e;
     public static final byte DCP_STREAM_REQUEST_OPCODE = 0x53;
+    public static final byte DCP_STREAM_END_OPCODE = 0x55;
+    public static final byte DCP_SNAPSHOT_MARKER_OPCODE = 0x56;
+    public static final byte DCP_MUTATION_OPCODE = 0x57;
+    public static final byte DCP_DELETION_OPCODE = 0x58;
+    public static final byte DCP_EXPIRATION_OPCODE = 0x58;
 
     /**
      * Returns true if message can be processed and false if more data is needed.

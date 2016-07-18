@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.dcp.message.internal;
+package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
-import static com.couchbase.client.dcp.message.MessageUtil.SASL_AUTH_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.SASL_STEP_OPCODE;
 
 public enum SaslStepRequest {

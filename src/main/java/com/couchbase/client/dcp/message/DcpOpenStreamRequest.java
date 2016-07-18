@@ -1,6 +1,5 @@
-package com.couchbase.client.dcp.message.internal;
+package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 
@@ -31,7 +30,7 @@ public enum DcpOpenStreamRequest {
             .writeInt(0) // flags
             .writeInt(0) // reserved
             .writeLong(0) // start sequence number
-            .writeLong(0) // end sequence number
+            .writeLong(0xffffffff) // end sequence number
             .writeLong(0) // vbucket uuid
             .writeLong(0) // snapshot start sequence number
             .writeLong(0), // snapshot end sequence number

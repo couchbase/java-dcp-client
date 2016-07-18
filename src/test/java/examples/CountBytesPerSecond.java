@@ -17,31 +17,60 @@ package examples;
 
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class CountBytesPerSecond {
 
     public static void main(String... args) throws Exception {
+
+        final AtomicInteger numMutations = new AtomicInteger(0);
+        final AtomicLong numBytes = new AtomicLong(0);
         Client client = Client
             .configure()
            // .clusterAt(Arrays.asList("10.142.150.101"))
-            .bucket("travel-sample")
+            .bucket("default")
             .dataEventHandler(new DataEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
-                    System.err.println(event);
+                   // System.err.println(event);
+                    if (DcpMutationMessage.is(event)) {
+                        numMutations.incrementAndGet();
+                        numBytes.addAndGet(event.readableBytes());
+                    }
+                    event.release();
                 }
             })
             .build();
 
         client.connect().await();
 
-        Thread.sleep(1000); // TODO: fixme startup without delay
+        Thread.sleep(3000); // TODO: fixme startup without delay
 
-        client.startFromBeginning().await();
+        client.startFromBeginning().subscribe();
 
-        Thread.sleep(100000);
+        long start = 0;
+        while(true) {
+            if (numMutations.get() == 0) {
+                continue;
+            }
+
+            if (numMutations.get() == 789600) {
+                break;
+            }
+
+            if (start == 0) {
+                start = System.nanoTime();
+            }
+        }
+        long end = System.nanoTime();
+
+        System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
+        System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
     }
 }

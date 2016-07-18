@@ -16,9 +16,11 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.config.ClientEnvironment;
-import com.couchbase.client.dcp.message.control.ControlEvent;
+import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelInitializer;
+import com.couchbase.client.deps.io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import rx.subjects.Subject;
@@ -26,9 +28,9 @@ import rx.subjects.Subject;
 public class DcpPipeline extends ChannelInitializer<Channel> {
 
     private final ClientEnvironment environment;
-    private final Subject<ControlEvent, ControlEvent> controlEvents;
+    private final Subject<ByteBuf, ByteBuf> controlEvents;
 
-    public DcpPipeline(ClientEnvironment environment, Subject<ControlEvent, ControlEvent> controlEvents) {
+    public DcpPipeline(ClientEnvironment environment, Subject<ByteBuf, ByteBuf> controlEvents) {
         this.environment = environment;
         this.controlEvents = controlEvents;
     }
@@ -36,6 +38,9 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     @Override
     protected void initChannel(Channel ch) throws Exception {
         ch.pipeline()
+            .addLast(new LengthFieldBasedFrameDecoder(
+                Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false
+            ))
             .addLast(new LoggingHandler(LogLevel.TRACE))
             .addLast(new AuthHandler(environment.bucket(), environment.password()))
             .addLast(new DcpConnectHandler(environment.connectionNameGenerator()))
