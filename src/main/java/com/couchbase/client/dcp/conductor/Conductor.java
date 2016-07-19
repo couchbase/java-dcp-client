@@ -21,9 +21,13 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
-import rx.Completable;
+import rx.*;
+import rx.Observable;
 import rx.functions.Action1;
+import rx.subjects.PublishSubject;
+import rx.subjects.Subject;
 
 import java.net.InetAddress;
 import java.util.*;
@@ -38,7 +42,6 @@ public class Conductor {
     private volatile long configRev = -1;
     private final ClientEnvironment env;
     private final AtomicReference<CouchbaseBucketConfig> currentConfig;
-
 
     public Conductor(final ClientEnvironment env, ConfigProvider cp) {
         this.env = env;

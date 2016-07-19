@@ -15,17 +15,24 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.core.logging.CouchbaseLogger;
+import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelInitializer;
+import com.couchbase.client.deps.io.netty.channel.ChannelPipeline;
 import com.couchbase.client.deps.io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import rx.subjects.Subject;
 
 public class DcpPipeline extends ChannelInitializer<Channel> {
+
+    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpPipeline.class);
+
 
     private final ClientEnvironment environment;
     private final Subject<ByteBuf, ByteBuf> controlEvents;
@@ -37,12 +44,17 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
 
     @Override
     protected void initChannel(Channel ch) throws Exception {
-        ch.pipeline()
-            .addLast(new LengthFieldBasedFrameDecoder(
-                Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false
-            ))
-            .addLast(new LoggingHandler(LogLevel.TRACE))
-            .addLast(new AuthHandler(environment.bucket(), environment.password()))
+        ChannelPipeline pipeline = ch.pipeline();
+
+        pipeline.addLast(new LengthFieldBasedFrameDecoder(
+            Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false
+        ));
+
+        if (LOGGER.isTraceEnabled()) {
+            pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
+        }
+
+        pipeline.addLast(new AuthHandler(environment.bucket(), environment.password()))
             .addLast(new DcpConnectHandler(environment.connectionNameGenerator()))
             .addLast(new DcpControlHandler(environment.dcpControl()))
             .addLast(new DcpMessageHandler(environment.dataEventHandler(), controlEvents));

@@ -16,9 +16,12 @@
 package examples;
 
 import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import rx.functions.Action1;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +37,7 @@ public class CountBytesPerSecond {
         Client client = Client
             .configure()
            // .clusterAt(Arrays.asList("10.142.150.101"))
-            .bucket("default")
+            .bucket("beer-sample")
             .dataEventHandler(new DataEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
@@ -46,26 +49,25 @@ public class CountBytesPerSecond {
                     event.release();
                 }
             })
+            .controlEventHandler(new ControlEventHandler() {
+                @Override
+                public void onEvent(ByteBuf event) {
+                    System.err.println("--> Control: " + String.format("0x%02x", event.getByte(1)));
+                    event.release();
+                }
+            })
             .build();
 
         client.connect().await();
 
         Thread.sleep(3000); // TODO: fixme startup without delay
 
-        client.startFromBeginning().subscribe();
+        client.startFromBeginning().await();
 
-        long start = 0;
+        long start = System.nanoTime();
         while(true) {
-            if (numMutations.get() == 0) {
-                continue;
-            }
-
-            if (numMutations.get() == 789600) {
+            if (numMutations.get() == 7303) {
                 break;
-            }
-
-            if (start == 0) {
-                start = System.nanoTime();
             }
         }
         long end = System.nanoTime();

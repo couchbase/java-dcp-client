@@ -13,18 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.dcp.message;
+package com.couchbase.client.dcp;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
-import static com.couchbase.client.dcp.message.MessageUtil.DCP_DELETION_OPCODE;
-import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
+public interface ControlEventHandler {
 
-public enum DcpDeletionMessage {
-    ;
-
-    public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_DELETION_OPCODE;
-    }
+    void onEvent(ByteBuf event);
 
 }

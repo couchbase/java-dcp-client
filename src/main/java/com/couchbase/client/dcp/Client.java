@@ -15,13 +15,17 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.core.logging.CouchbaseLogger;
+import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
+import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
+import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.epoll.EpollEventLoopGroup;
@@ -35,6 +39,8 @@ import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
 import rx.Observable;
 import rx.Single;
+import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.functions.Func1;
 
 import java.util.Arrays;
@@ -48,12 +54,17 @@ import java.util.List;
  */
 public class Client {
 
+    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Client.class);
+
     private final Conductor conductor;
     private final ClientEnvironment env;
 
     private Client(Builder builder) {
         if (builder.dataEventHandler == null) {
             throw new IllegalArgumentException("A DataEventHandler needs to be provided!");
+        }
+        if (builder.controlEventHandler == null) {
+            throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
         }
 
         EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
@@ -66,6 +77,7 @@ public class Client {
             .setDcpControl(builder.dcpControl)
             .setEventLoopGroup(eventLoopGroup)
             .setDataEventHandler(builder.dataEventHandler)
+            .setControlEventHandler(builder.controlEventHandler)
             .build();
 
         conductor = new Conductor(env, builder.configProvider);
@@ -93,6 +105,7 @@ public class Client {
      * Start all partition streams from beginning, so all data in the bucket will be streamed.
      */
     public Completable startFromBeginning() {
+        LOGGER.info("Starting to stream from Beginning without an End");
         return Observable
             .range(0, conductor.numberOfPartitions())
             .flatMap(new Func1<Integer, Observable<?>>() {
@@ -101,12 +114,19 @@ public class Client {
                     return conductor.startStreamForPartition(p.shortValue()).toObservable();
                 }
             })
-            .toCompletable();
+            .toCompletable()
+            .doOnCompleted(new Action0() {
+                @Override
+                public void call() {
+                    LOGGER.info("Streaming started.");
+                }
+            });
     }
 
     public static class Builder {
         private List<String> clusterAt = Arrays.asList("127.0.0.1");
         private DataEventHandler dataEventHandler;
+        private ControlEventHandler controlEventHandler;
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
         private String password = "";
@@ -126,6 +146,11 @@ public class Client {
 
         public Builder dataEventHandler(final DataEventHandler dataEventHandler) {
             this.dataEventHandler = dataEventHandler;
+            return this;
+        }
+
+        public Builder controlEventHandler(final ControlEventHandler controlEventHandler) {
+            this.controlEventHandler = controlEventHandler;
             return this;
         }
 

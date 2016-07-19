@@ -28,6 +28,7 @@ public enum MessageUtil {
     public static final short EXTRAS_LENGTH_OFFSET = 4;
     public static final short VBUCKET_OFFSET = 6;
     public static final short BODY_LENGTH_OFFSET = 8;
+    public static final short OPAQUE_OFFSET = 12;
 
     public static final byte OPEN_CONNECTION_OPCODE = 0x50;
     public static final byte SASL_LIST_MECHS_OPCODE = 0x20;
@@ -75,7 +76,7 @@ public enum MessageUtil {
         sb.append(String.format("Data Type\t\t(5)\t\t\t0x%02x\n", buffer.getByte(5)));
         sb.append(String.format("VBucket\t\t\t(6,7)\t\t0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
         sb.append(String.format("Total Body\t\t(8-11)\t\t0x%08x\n", bodyLength));
-        sb.append(String.format("Opaque\t\t\t(12-15)\t\t0x%08x\n", buffer.getInt(12)));
+        sb.append(String.format("Opaque\t\t\t(12-15)\t\t0x%08x\n", buffer.getInt(OPAQUE_OFFSET)));
         sb.append(String.format("CAS\t\t\t\t(16-23)\t\t0x%016x\n", buffer.getLong(16)));
 
         if (extrasLength > 0) {
@@ -168,6 +169,14 @@ public enum MessageUtil {
 
     public static short getStatus(ByteBuf buffer) {
         return buffer.getShort(VBUCKET_OFFSET);
+    }
+
+    public static void setOpaque(int opaque, ByteBuf buffer) {
+        buffer.setInt(OPAQUE_OFFSET, opaque);
+    }
+
+    public static int getOpaque(ByteBuf buffer) {
+        return buffer.getInt(OPAQUE_OFFSET);
     }
 
 
