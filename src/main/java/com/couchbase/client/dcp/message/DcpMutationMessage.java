@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
 
@@ -26,4 +27,51 @@ public enum DcpMutationMessage {
         return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_MUTATION_OPCODE;
     }
 
+    public static ByteBuf key(final ByteBuf buffer) {
+        return MessageUtil.getKey(buffer);
+    }
+
+    public static ByteBuf content(final ByteBuf buffer) {
+        return MessageUtil.getContent(buffer);
+    }
+
+    public static long cas(final ByteBuf buffer) {
+        return MessageUtil.getCas(buffer);
+    }
+
+    public static short partition(final ByteBuf buffer) {
+        return MessageUtil.getVbucket(buffer);
+    }
+
+    public static long bySeqno(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getLong(0);
+    }
+
+    public static long revisionSeqno(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getLong(8);
+    }
+
+    public static int flags(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getInt(16);
+    }
+
+    public static int expiry(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getInt(20);
+    }
+
+    public static int lockTime(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getInt(24);
+    }
+
+    public static String toString(final ByteBuf buffer) {
+        return "MutationMessage [key: \"" + key(buffer).toString(CharsetUtil.UTF_8)
+            + "\", vbid: " + partition(buffer)
+            + ", cas: " + cas(buffer)
+            + ", bySeqno: " + bySeqno(buffer)
+            + ", revSeqno: " + revisionSeqno(buffer)
+            + ", flags: " + flags(buffer)
+            + ", expiry: " + expiry(buffer)
+            + ", lockTime: " + lockTime(buffer)
+            + ", clength: " + content(buffer).readableBytes() + "]";
+    }
 }

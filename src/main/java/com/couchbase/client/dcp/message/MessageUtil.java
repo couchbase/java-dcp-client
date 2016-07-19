@@ -29,6 +29,7 @@ public enum MessageUtil {
     public static final short VBUCKET_OFFSET = 6;
     public static final short BODY_LENGTH_OFFSET = 8;
     public static final short OPAQUE_OFFSET = 12;
+    public static final short CAS_OFFSET = 16;
 
     public static final byte OPEN_CONNECTION_OPCODE = 0x50;
     public static final byte SASL_LIST_MECHS_OPCODE = 0x20;
@@ -77,7 +78,7 @@ public enum MessageUtil {
         sb.append(String.format("VBucket\t\t\t(6,7)\t\t0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
         sb.append(String.format("Total Body\t\t(8-11)\t\t0x%08x\n", bodyLength));
         sb.append(String.format("Opaque\t\t\t(12-15)\t\t0x%08x\n", buffer.getInt(OPAQUE_OFFSET)));
-        sb.append(String.format("CAS\t\t\t\t(16-23)\t\t0x%016x\n", buffer.getLong(16)));
+        sb.append(String.format("CAS\t\t\t\t(16-23)\t\t0x%016x\n", buffer.getLong(CAS_OFFSET)));
 
         if (extrasLength > 0) {
             sb.append("+ Extras with " + extrasLength + " bytes\n");
@@ -125,6 +126,10 @@ public enum MessageUtil {
         buffer.setShort(VBUCKET_OFFSET, vbucket);
     }
 
+    public static short getVbucket(ByteBuf buffer) {
+       return buffer.getShort(VBUCKET_OFFSET);
+    }
+
     /**
      * Helper method to set the key, update the key length and the content length.
      */
@@ -143,6 +148,12 @@ public enum MessageUtil {
 
         // todo: make sure stuff is still in order if content is there and its sliced in
         // todo: what if old key with different size is there
+    }
+
+    public static ByteBuf getKey(ByteBuf buffer) {
+        byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
+        short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+        return buffer.slice(HEADER_SIZE + extrasLength, keyLength);
     }
 
     /**
@@ -179,5 +190,13 @@ public enum MessageUtil {
         return buffer.getInt(OPAQUE_OFFSET);
     }
 
+
+    public static void setCas(long cas, ByteBuf buffer) {
+        buffer.setLong(CAS_OFFSET, cas);
+    }
+
+    public static long getCas(ByteBuf buffer) {
+        return buffer.getLong(CAS_OFFSET);
+    }
 
 }
