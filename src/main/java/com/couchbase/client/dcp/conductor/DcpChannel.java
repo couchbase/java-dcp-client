@@ -18,9 +18,7 @@ package com.couchbase.client.dcp.conductor;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.ClientEnvironment;
-import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
-import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
-import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
@@ -40,7 +38,6 @@ import java.net.InetAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Logical representation of a DCP cluster connection.
@@ -57,12 +54,14 @@ public class DcpChannel {
     private final InetAddress inetAddress;
     private final Subject<ByteBuf, ByteBuf> controlSubject;
     private final Map<Integer, ChannelPromise> outstandingResponses;
+    private final Map<Integer, Short> outstandingVbucketInfos;
     private volatile Channel channel;
 
     public DcpChannel(InetAddress inetAddress, final ClientEnvironment env) {
         this.inetAddress = inetAddress;
         this.env = env;
         this.outstandingResponses = new ConcurrentHashMap<Integer, ChannelPromise>();
+        this.outstandingVbucketInfos = new ConcurrentHashMap<Integer, Short>();
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
 
         this.controlSubject
@@ -70,13 +69,35 @@ public class DcpChannel {
                 @Override
                 public Boolean call(ByteBuf buf) {
                     if (DcpOpenStreamResponse.is(buf)) {
-                        ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
-                        // TODO: what happens if not successful? set failure with an exception or so...
-                        promise.setSuccess();
-                        buf.release();
-                        return false;
+                        try {
+                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+                            short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
+                            short status = MessageUtil.getStatus(buf);
+                            switch (status) {
+                                case 0x00:
+                                    promise.setSuccess();
+                                    // create a failover log message and emit
+                                    ByteBuf flog = Unpooled.buffer();
+                                    DcpFailoverLogResponse.init(flog);
+                                    DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
+                                    MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
+                                    env.controlEventHandler().onEvent(flog);
+                                    break;
+                                case 0x23:
+                                    promise.setSuccess();
+                                    // create a rollback message and emit
+                                    ByteBuf rb = Unpooled.buffer();
+                                    RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
+                                    env.controlEventHandler().onEvent(rb);
+                                    break;
+                                default:
+                                    promise.setFailure(new IllegalStateException("Unhandled Status: " + status));
+                            }
+                            return false;
+                        } finally {
+                            buf.release();
+                        }
                     }
-
                     return true;
                 }
             })
@@ -110,6 +131,7 @@ public class DcpChannel {
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
                     channel = future.channel();
+                    LOGGER.info("Connected to Node {}", channel.remoteAddress());
                 } else {
                     LOGGER.warn("IMPLEMENT ME!!! (retry on failure until removed)");
                 }
@@ -150,8 +172,14 @@ public class DcpChannel {
                 ByteBuf buffer = Unpooled.buffer();
                 DcpOpenStreamRequest.init(buffer, vbid);
                 DcpOpenStreamRequest.opaque(buffer, opaque);
+                DcpOpenStreamRequest.vbuuid(buffer, vbuuid);
+                DcpOpenStreamRequest.startSeqno(buffer, startSeqno);
+                DcpOpenStreamRequest.endSeqno(buffer, endSeqno);
+                DcpOpenStreamRequest.snapshotStartSeqno(buffer, snapshotStartSeqno);
+                DcpOpenStreamRequest.snapshotEndSeqno(buffer, snapshotEndSeqno);
 
                 outstandingResponses.put(opaque, promise);
+                outstandingVbucketInfos.put(opaque, vbid);
                 channel.writeAndFlush(buffer);
 
                 promise.addListener(new GenericFutureListener<ChannelFuture>() {

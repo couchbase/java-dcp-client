@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_DELETION_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
@@ -25,6 +26,34 @@ public enum DcpDeletionMessage {
 
     public static boolean is(final ByteBuf buffer) {
         return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_DELETION_OPCODE;
+    }
+
+    public static ByteBuf key(final ByteBuf buffer) {
+        return MessageUtil.getKey(buffer);
+    }
+
+    public static long cas(final ByteBuf buffer) {
+        return MessageUtil.getCas(buffer);
+    }
+
+    public static short partition(final ByteBuf buffer) {
+        return MessageUtil.getVbucket(buffer);
+    }
+
+    public static long bySeqno(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getLong(0);
+    }
+
+    public static long revisionSeqno(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getLong(8);
+    }
+
+    public static String toString(final ByteBuf buffer) {
+        return "DeletionMessage [key: \"" + key(buffer).toString(CharsetUtil.UTF_8)
+            + "\", vbid: " + partition(buffer)
+            + ", cas: " + cas(buffer)
+            + ", bySeqno: " + bySeqno(buffer)
+            + ", revSeqno: " + revisionSeqno(buffer) + "]";
     }
 
 }

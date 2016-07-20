@@ -21,6 +21,8 @@ public enum MessageUtil {
     ;
 
     public static final int HEADER_SIZE = 24;
+
+    public static final byte MAGIC_INT = (byte) 0x79;
     public static final byte MAGIC_REQ = (byte) 0x80;
     public static final byte MAGIC_RES = (byte) 0x81;
 
@@ -37,11 +39,14 @@ public enum MessageUtil {
     public static final byte SASL_STEP_OPCODE = 0x22;
     public static final byte DCP_CONTROL_OPCODE = 0x5e;
     public static final byte DCP_STREAM_REQUEST_OPCODE = 0x53;
+    public static final byte DCP_FAILOVER_LOG_OPCODE = 0x54;
     public static final byte DCP_STREAM_END_OPCODE = 0x55;
     public static final byte DCP_SNAPSHOT_MARKER_OPCODE = 0x56;
     public static final byte DCP_MUTATION_OPCODE = 0x57;
     public static final byte DCP_DELETION_OPCODE = 0x58;
     public static final byte DCP_EXPIRATION_OPCODE = 0x58;
+
+    public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
 
     /**
      * Returns true if message can be processed and false if more data is needed.
@@ -101,6 +106,15 @@ public enum MessageUtil {
      */
     public static void initRequest(byte opcode, ByteBuf buffer) {
         buffer.writeByte(MessageUtil.MAGIC_REQ);
+        buffer.writeByte(opcode);
+        buffer.writeZero(HEADER_SIZE - 2);
+    }
+
+    /**
+     * Helper method to initialize a response with an opcode.
+     */
+    public static void initResponse(byte opcode, ByteBuf buffer) {
+        buffer.writeByte(MessageUtil.MAGIC_RES);
         buffer.writeByte(opcode);
         buffer.writeZero(HEADER_SIZE - 2);
     }
@@ -188,11 +202,6 @@ public enum MessageUtil {
 
     public static int getOpaque(ByteBuf buffer) {
         return buffer.getInt(OPAQUE_OFFSET);
-    }
-
-
-    public static void setCas(long cas, ByteBuf buffer) {
-        buffer.setLong(CAS_OFFSET, cas);
     }
 
     public static long getCas(ByteBuf buffer) {

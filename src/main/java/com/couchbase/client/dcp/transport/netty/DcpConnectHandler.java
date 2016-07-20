@@ -19,7 +19,7 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.message.OpenConnectionRequest;
+import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -55,8 +55,8 @@ public class DcpConnectHandler
         connectionName = connectionNameGenerator.name();
 
         ByteBuf request = ctx.alloc().buffer();
-        OpenConnectionRequest.init(request);
-        OpenConnectionRequest.connectionName(
+        DcpOpenConnectionRequest.init(request);
+        DcpOpenConnectionRequest.connectionName(
             request,
             Unpooled.copiedBuffer(connectionName, CharsetUtil.UTF_8)
         );

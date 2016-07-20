@@ -45,12 +45,34 @@ public enum DcpOpenStreamRequest {
             .writeInt(0) // flags
             .writeInt(0) // reserved
             .writeLong(0) // start sequence number
-            .writeLong(0xffffffff) // end sequence number
+            .writeLong(0) // end sequence number
             .writeLong(0) // vbucket uuid
             .writeLong(0) // snapshot start sequence number
             .writeLong(0), // snapshot end sequence number
             buffer
         );
+    }
+
+    public static void startSeqno(final ByteBuf buffer, long seqnoStart) {
+        MessageUtil.getExtras(buffer).setLong(8, seqnoStart);
+    }
+
+    public static void endSeqno(final ByteBuf buffer, long seqnoEnd) {
+        MessageUtil.getExtras(buffer).setLong(16, seqnoEnd);
+    }
+
+    public static void vbuuid(final ByteBuf buffer, long uuid) {
+        MessageUtil.getExtras(buffer).setLong(24, uuid);
+    }
+
+    public static void snapshotStartSeqno(final ByteBuf buffer, long snapshotSeqnoStart) {
+        MessageUtil.getExtras(buffer).setLong(32, snapshotSeqnoStart);
+
+    }
+
+    public static void snapshotEndSeqno(final ByteBuf buffer, long snapshotSeqnoEnd) {
+        MessageUtil.getExtras(buffer).setLong(40, snapshotSeqnoEnd);
+
     }
 
     public static void opaque(final ByteBuf buffer, int opaque) {

@@ -16,18 +16,24 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 
-import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_REQUEST_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.DCP_FAILOVER_LOG_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
 
-public enum DcpOpenStreamResponse {
+public enum DcpFailoverLogRequest {
     ;
 
     public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_STREAM_REQUEST_OPCODE;
+        return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_FAILOVER_LOG_OPCODE;
     }
 
-    public static short vbucket(ByteBuf buffer) {
-        return MessageUtil.getVbucket(buffer);
+    public static void init(final ByteBuf buffer) {
+        MessageUtil.initRequest(DCP_FAILOVER_LOG_OPCODE, buffer);
+    }
+
+    public static void vbucket(final ByteBuf buffer, final short vbid) {
+        MessageUtil.setVbucket(vbid, buffer);
     }
 
 }

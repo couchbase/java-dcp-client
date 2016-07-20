@@ -82,9 +82,10 @@ public class Conductor {
     }
 
 
-    public Completable startStreamForPartition(short partition) {
+    public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno, final long endSeqno,
+        final long snapshotStartSeqno, final long snapshotEndSeqno) {
         DcpChannel channel = masterChannelByPartition(partition);
-        return channel.openStream(partition, 0, 0, 0xffffffff, 0, 0);
+        return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
     }
 
     /**

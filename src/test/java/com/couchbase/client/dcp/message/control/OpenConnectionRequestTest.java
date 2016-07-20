@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.message.control;
 
-import com.couchbase.client.dcp.message.OpenConnectionRequest;
+import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
@@ -30,23 +30,23 @@ public class OpenConnectionRequestTest {
     @Test
     public void testInit() {
         ByteBuf buffer = Unpooled.buffer();
-        assertFalse(OpenConnectionRequest.is(buffer));
+        assertFalse(DcpOpenConnectionRequest.is(buffer));
 
-        OpenConnectionRequest.init(buffer);
+        DcpOpenConnectionRequest.init(buffer);
 
         assertEquals(24, buffer.writerIndex());
-        assertTrue(OpenConnectionRequest.is(buffer));
+        assertTrue(DcpOpenConnectionRequest.is(buffer));
     }
 
     @Test
     public void testSetConnectionName() {
         ByteBuf buffer = Unpooled.buffer();
-        OpenConnectionRequest.init(buffer);
+        DcpOpenConnectionRequest.init(buffer);
 
         ByteBuf name = Unpooled.copiedBuffer("name", CharsetUtil.UTF_8);
-        OpenConnectionRequest.connectionName(buffer, name);
+        DcpOpenConnectionRequest.connectionName(buffer, name);
 
-        assertEquals("name", OpenConnectionRequest.connectionName(buffer).toString(CharsetUtil.UTF_8));
+        assertEquals("name", DcpOpenConnectionRequest.connectionName(buffer).toString(CharsetUtil.UTF_8));
     }
 
 }

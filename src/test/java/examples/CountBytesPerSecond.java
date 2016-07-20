@@ -15,16 +15,17 @@
  */
 package examples;
 
+import com.couchbase.client.core.message.dcp.SnapshotMarkerMessage;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
-import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
-import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import rx.functions.Action1;
 
 import java.util.Arrays;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,14 +38,14 @@ public class CountBytesPerSecond {
         final AtomicLong numBytes = new AtomicLong(0);
         Client client = Client
             .configure()
-            .clusterAt(Arrays.asList("10.142.150.101"))
+            //.clusterAt(Arrays.asList("10.142.150.101"))
             .bucket("beer-sample")
             .dataEventHandler(new DataEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
-                   // System.err.println(event);
+                    // System.err.println(event);
                     if (DcpMutationMessage.is(event)) {
-                    //    System.err.println(DcpMutationMessage.toString(event));
+                        //   System.err.println(DcpMutationMessage.toString(event));
                         numMutations.incrementAndGet();
                         numBytes.addAndGet(event.readableBytes());
                     }
@@ -54,9 +55,16 @@ public class CountBytesPerSecond {
             .controlEventHandler(new ControlEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
-                   // System.err.println("--> Control: " + String.format("0x%02x", event.getByte(1)));
-                    //System.err.println(MessageUtil.humanize(event));
-                    System.err.println(DcpSnapshotMarkerMessage.toString(event));
+                    if (DcpSnapshotMarkerMessage.is(event)) {
+                        System.err.println(DcpSnapshotMarkerMessage.toString(event));
+                    } else if (DcpFailoverLogResponse.is(event)) {
+                        System.err.println(DcpFailoverLogResponse.toString(event));
+                    } else if (RollbackMessage.is(event)) {
+                        System.err.println(RollbackMessage.toString(event));
+                    } else {
+                        System.err.println(MessageUtil.humanize(event));
+
+                    }
                     event.release();
                 }
             })
@@ -64,9 +72,9 @@ public class CountBytesPerSecond {
 
         client.connect().await();
 
-        Thread.sleep(3000); // TODO: fixme startup without delay
+        Thread.sleep(2000); // TODO: fixme startup without delay
 
-        client.startFromBeginning().await();
+        client.startFromBeginningWithNoEnd(1, 2, 3, 4).await();
 
         long start = System.nanoTime();
         while(true) {

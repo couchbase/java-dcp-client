@@ -20,11 +20,11 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 
 import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
 
-public enum OpenConnectionRequest {
+public enum DcpOpenConnectionRequest {
     ;
 
     /**
-     * If the given buffer is a {@link OpenConnectionRequest} message.
+     * If the given buffer is a {@link DcpOpenConnectionRequest} message.
      */
     public static boolean is(final ByteBuf buffer) {
         return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == OPEN_CONNECTION_OPCODE;

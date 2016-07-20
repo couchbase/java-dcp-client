@@ -43,7 +43,9 @@ import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func1;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -103,22 +105,37 @@ public class Client {
 
     /**
      * Start all partition streams from beginning, so all data in the bucket will be streamed.
+     *
+     * For simplicity you can provide a list of vbucket IDS, but if none are provided all are used
+     * automatically.
      */
-    public Completable startFromBeginning() {
-        LOGGER.info("Starting to stream from Beginning without an End");
+    public Completable startFromBeginningWithNoEnd(Integer... vbids) {
+        List<Integer> partitions = new ArrayList<Integer>();
+        if (vbids.length > 0) {
+            partitions = Arrays.asList(vbids);
+            LOGGER.info("Starting Stream against partitions {} with no end.", partitions);
+        } else {
+            int numPartitions = conductor.numberOfPartitions();
+            LOGGER.info("Starting Stream against all {} partitions with no end.", numPartitions);
+            for (int i = 0; i < numPartitions; i++) {
+                partitions.add(i);
+            }
+        }
+        Collections.sort(partitions);
+
         return Observable
-            .range(0, conductor.numberOfPartitions())
+            .from(partitions)
             .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
                 public Observable<?> call(Integer p) {
-                    return conductor.startStreamForPartition(p.shortValue()).toObservable();
+                    return conductor.startStreamForPartition(p.shortValue(), 0, 1000, 0xffffffff, 0, 1000).toObservable();
                 }
             })
             .toCompletable()
             .doOnCompleted(new Action0() {
                 @Override
                 public void call() {
-                    LOGGER.info("Streaming started.");
+                    LOGGER.info("Requested streams initialized, starting to stream.");
                 }
             });
     }
