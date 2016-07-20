@@ -49,11 +49,16 @@ public class DcpMessageHandler extends ChannelDuplexHandler {
     }
 
     private static boolean isControlMessage(ByteBuf msg) {
-        return DcpOpenStreamResponse.is(msg) || DcpStreamEndMessage.is(msg) || DcpSnapshotMarkerMessage.is(msg);
+        return DcpOpenStreamResponse.is(msg)
+            || DcpStreamEndMessage.is(msg)
+            || DcpSnapshotMarkerMessage.is(msg)
+            || DcpFailoverLogResponse.is(msg);
     }
 
     private static boolean isDataMessage(ByteBuf msg) {
-        return DcpMutationMessage.is(msg) || DcpDeletionMessage.is(msg) || DcpExpirationMessage.is(msg);
+        return DcpMutationMessage.is(msg)
+            || DcpDeletionMessage.is(msg)
+            || DcpExpirationMessage.is(msg);
     }
 
 }

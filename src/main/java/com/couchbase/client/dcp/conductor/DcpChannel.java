@@ -27,8 +27,11 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
+import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
+import rx.Single;
+import rx.SingleSubscriber;
 import rx.Subscriber;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
@@ -93,6 +96,21 @@ public class DcpChannel {
                                 default:
                                     promise.setFailure(new IllegalStateException("Unhandled Status: " + status));
                             }
+                            return false;
+                        } finally {
+                            buf.release();
+                        }
+                    } else if (DcpFailoverLogResponse.is(buf)) {
+                        try {
+                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+                            short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
+                            promise.setSuccess();
+
+                            ByteBuf flog = Unpooled.buffer();
+                            DcpFailoverLogResponse.init(flog);
+                            DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
+                            MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
+                            env.controlEventHandler().onEvent(flog);
                             return false;
                         } finally {
                             buf.release();
@@ -190,6 +208,38 @@ public class DcpChannel {
                             subscriber.onCompleted();
                         } else {
                             LOGGER.debug("Failed open Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+                            subscriber.onError(future.cause());
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    public Completable getFailoverLog(final short vbid) {
+        return Completable.create(new Completable.CompletableOnSubscribe() {
+            @Override
+            public void call(final Completable.CompletableSubscriber subscriber) {
+                int opaque = OPAQUE.incrementAndGet();
+                ChannelPromise promise = channel.newPromise();
+
+                ByteBuf buffer = Unpooled.buffer();
+                DcpFailoverLogRequest.init(buffer);
+                DcpFailoverLogRequest.opaque(buffer, opaque);
+                DcpFailoverLogRequest.vbucket(buffer, vbid);
+
+                outstandingResponses.put(opaque, promise);
+                outstandingVbucketInfos.put(opaque, vbid);
+                channel.writeAndFlush(buffer);
+
+                promise.addListener(new GenericFutureListener<ChannelFuture>() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if (future.isSuccess()) {
+                            LOGGER.debug("Asked for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);
+                            subscriber.onCompleted();
+                        } else {
+                            LOGGER.debug("Failed to ask for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);
                             subscriber.onError(future.cause());
                         }
                     }

@@ -58,6 +58,7 @@ public class CountBytesPerSecond {
                     if (DcpSnapshotMarkerMessage.is(event)) {
                         System.err.println(DcpSnapshotMarkerMessage.toString(event));
                     } else if (DcpFailoverLogResponse.is(event)) {
+                        //System.err.println(MessageUtil.humanize(event));
                         System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {
                         System.err.println(RollbackMessage.toString(event));
@@ -74,7 +75,7 @@ public class CountBytesPerSecond {
 
         Thread.sleep(2000); // TODO: fixme startup without delay
 
-        client.startFromBeginningWithNoEnd(1, 2, 3, 4).await();
+        client.startFromBeginningWithNoEnd().await();
 
         long start = System.nanoTime();
         while(true) {
@@ -86,5 +87,11 @@ public class CountBytesPerSecond {
 
         System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
         System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
+
+        Thread.sleep(1000);
+
+        client.getFailoverLogs(1, 2).subscribe();
+
+        Thread.sleep(1000000);
     }
 }

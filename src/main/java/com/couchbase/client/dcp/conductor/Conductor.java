@@ -88,6 +88,11 @@ public class Conductor {
         return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
     }
 
+    public Completable getFailoverLog(final short partition) {
+        DcpChannel channel = masterChannelByPartition(partition);
+        return channel.getFailoverLog(partition);
+    }
+
     /**
      * Returns the dcp channel responsible for a given vbucket id according to the current
      * configuration.

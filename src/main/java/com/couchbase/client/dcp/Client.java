@@ -128,7 +128,7 @@ public class Client {
             .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
                 public Observable<?> call(Integer p) {
-                    return conductor.startStreamForPartition(p.shortValue(), 0, 1000, 0xffffffff, 0, 1000).toObservable();
+                    return conductor.startStreamForPartition(p.shortValue(), 0, 0, 0xffffffff, 0, 0).toObservable();
                 }
             })
             .toCompletable()
@@ -138,6 +138,30 @@ public class Client {
                     LOGGER.info("Requested streams initialized, starting to stream.");
                 }
             });
+    }
+
+    public Completable getFailoverLogs(Integer... vbids) {
+        List<Integer> partitions = new ArrayList<Integer>();
+        if (vbids.length > 0) {
+            partitions = Arrays.asList(vbids);
+        } else {
+            int numPartitions = conductor.numberOfPartitions();
+            for (int i = 0; i < numPartitions; i++) {
+                partitions.add(i);
+            }
+        }
+        Collections.sort(partitions);
+
+
+        return Observable
+            .from(partitions)
+            .flatMap(new Func1<Integer, Observable<?>>() {
+                @Override
+                public Observable<?> call(Integer p) {
+                    return conductor.getFailoverLog(p.shortValue()).toObservable();
+                }
+            })
+            .toCompletable();
     }
 
     public static class Builder {

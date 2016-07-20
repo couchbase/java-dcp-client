@@ -36,4 +36,9 @@ public enum DcpFailoverLogRequest {
         MessageUtil.setVbucket(vbid, buffer);
     }
 
+    public static void opaque(final ByteBuf buffer, int opaque) {
+        MessageUtil.setOpaque(opaque, buffer);
+    }
+
+
 }
