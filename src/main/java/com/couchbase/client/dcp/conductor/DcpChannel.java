@@ -27,11 +27,8 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
-import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
-import rx.Single;
-import rx.SingleSubscriber;
 import rx.Subscriber;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
@@ -41,6 +38,7 @@ import java.net.InetAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 /**
  * Logical representation of a DCP cluster connection.
@@ -59,6 +57,7 @@ public class DcpChannel {
     private final Map<Integer, ChannelPromise> outstandingResponses;
     private final Map<Integer, Short> outstandingVbucketInfos;
     private volatile Channel channel;
+    private final AtomicIntegerArray openStreams;
 
     public DcpChannel(InetAddress inetAddress, final ClientEnvironment env) {
         this.inetAddress = inetAddress;
@@ -66,6 +65,7 @@ public class DcpChannel {
         this.outstandingResponses = new ConcurrentHashMap<Integer, ChannelPromise>();
         this.outstandingVbucketInfos = new ConcurrentHashMap<Integer, Short>();
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
+        this.openStreams = new AtomicIntegerArray(1024);
 
         this.controlSubject
             .filter(new Func1<ByteBuf, Boolean>() {
@@ -111,6 +111,16 @@ public class DcpChannel {
                             DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
                             MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
                             env.controlEventHandler().onEvent(flog);
+                            return false;
+                        } finally {
+                            buf.release();
+                        }
+                    } else if (DcpStreamEndMessage.is(buf)) {
+                        try {
+                            int flag = MessageUtil.getExtras(buf).readInt();
+                            short vbid = DcpStreamEndMessage.vbucket(buf);
+                            LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
+                            openStreams.set(vbid, 0);
                             return false;
                         } finally {
                             buf.release();
@@ -205,9 +215,11 @@ public class DcpChannel {
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             LOGGER.debug("Opened Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+                            openStreams.set(vbid, 1);
                             subscriber.onCompleted();
                         } else {
                             LOGGER.debug("Failed open Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+                            openStreams.set(vbid, 0);
                             subscriber.onError(future.cause());
                         }
                     }
@@ -249,7 +261,15 @@ public class DcpChannel {
     }
 
     public Completable closeStream(short vbid) {
+
+        // close stream
+        // and set openStreams.set(vbid, 0);
+
         return null;
+    }
+
+    public boolean streamIsOpen(short vbid) {
+        return openStreams.get(vbid) == 1;
     }
 
     @Override

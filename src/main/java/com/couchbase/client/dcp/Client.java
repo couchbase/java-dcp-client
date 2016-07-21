@@ -128,7 +128,7 @@ public class Client {
             .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
                 public Observable<?> call(Integer p) {
-                    return conductor.startStreamForPartition(p.shortValue(), 0, 0, 0xffffffff, 0, 0).toObservable();
+                    return conductor.startStreamForPartition(p.shortValue(), 0, 0, /*0xffffffff*/ 0, 0, 0).toObservable();
                 }
             })
             .toCompletable()
@@ -162,6 +162,14 @@ public class Client {
                 }
             })
             .toCompletable();
+    }
+
+    public int numPartitions() {
+        return conductor.numberOfPartitions();
+    }
+
+    public boolean streamIsOpen(int vbid) {
+        return conductor.streamIsOpen((short) vbid);
     }
 
     public static class Builder {
