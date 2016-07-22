@@ -87,5 +87,10 @@ public class CountBytesPerSecond {
         System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
         System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
 
+        client.stopStreams(1).await();
+        client.stopStreams(0, 2, 3).await();
+
+        Thread.sleep(1000000);
+
     }
 }

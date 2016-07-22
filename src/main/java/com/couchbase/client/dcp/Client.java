@@ -128,7 +128,7 @@ public class Client {
             .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
                 public Observable<?> call(Integer p) {
-                    return conductor.startStreamForPartition(p.shortValue(), 0, 0, /*0xffffffff*/ 0, 0, 0).toObservable();
+                    return conductor.startStreamForPartition(p.shortValue(), 0, 0, 0xffffffff, 0, 0).toObservable();
                 }
             })
             .toCompletable()
@@ -140,19 +140,21 @@ public class Client {
             });
     }
 
+    public Completable stopStreams(Integer... vbids) {
+        List<Integer> partitions = partitionsForVbids(conductor.numberOfPartitions(), vbids);
+        return Observable
+            .from(partitions)
+            .flatMap(new Func1<Integer, Observable<?>>() {
+                @Override
+                public Observable<?> call(Integer p) {
+                    return conductor.stopStreamForPartition(p.shortValue()).toObservable();
+                }
+            })
+            .toCompletable();
+    }
+
     public Completable getFailoverLogs(Integer... vbids) {
-        List<Integer> partitions = new ArrayList<Integer>();
-        if (vbids.length > 0) {
-            partitions = Arrays.asList(vbids);
-        } else {
-            int numPartitions = conductor.numberOfPartitions();
-            for (int i = 0; i < numPartitions; i++) {
-                partitions.add(i);
-            }
-        }
-        Collections.sort(partitions);
-
-
+        List<Integer> partitions = partitionsForVbids(conductor.numberOfPartitions(), vbids);
         return Observable
             .from(partitions)
             .flatMap(new Func1<Integer, Observable<?>>() {
@@ -162,6 +164,19 @@ public class Client {
                 }
             })
             .toCompletable();
+    }
+
+    private static final List<Integer> partitionsForVbids(int numPartitions, Integer... vbids) {
+        List<Integer> partitions = new ArrayList<Integer>();
+        if (vbids.length > 0) {
+            partitions = Arrays.asList(vbids);
+        } else {
+            for (int i = 0; i < numPartitions; i++) {
+                partitions.add(i);
+            }
+        }
+        Collections.sort(partitions);
+        return partitions;
     }
 
     public int numPartitions() {

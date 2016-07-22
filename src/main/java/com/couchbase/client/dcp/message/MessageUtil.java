@@ -38,6 +38,7 @@ public enum MessageUtil {
     public static final byte SASL_AUTH_OPCODE = 0x21;
     public static final byte SASL_STEP_OPCODE = 0x22;
     public static final byte DCP_CONTROL_OPCODE = 0x5e;
+    public static final byte DCP_STREAM_CLOSE_OPCODE = 0x52;
     public static final byte DCP_STREAM_REQUEST_OPCODE = 0x53;
     public static final byte DCP_FAILOVER_LOG_OPCODE = 0x54;
     public static final byte DCP_STREAM_END_OPCODE = 0x55;

@@ -27,6 +27,7 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
+import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
 import rx.Subscriber;
@@ -121,6 +122,14 @@ public class DcpChannel {
                             short vbid = DcpStreamEndMessage.vbucket(buf);
                             LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
                             openStreams.set(vbid, 0);
+                            return false;
+                        } finally {
+                            buf.release();
+                        }
+                    } else if (DcpCloseStreamResponse.is(buf)) {
+                        try {
+                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+                            promise.setSuccess();
                             return false;
                         } finally {
                             buf.release();
@@ -228,6 +237,40 @@ public class DcpChannel {
         });
     }
 
+    public Completable closeStream(final short vbid) {
+        return Completable.create(new Completable.CompletableOnSubscribe() {
+            @Override
+            public void call(final Completable.CompletableSubscriber subscriber) {
+                LOGGER.debug("Closing Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+
+                int opaque = OPAQUE.incrementAndGet();
+                ChannelPromise promise = channel.newPromise();
+
+                ByteBuf buffer = Unpooled.buffer();
+                DcpCloseStreamRequest.init(buffer);
+                DcpCloseStreamRequest.vbucket(buffer, vbid);
+                DcpCloseStreamRequest.opaque(buffer, opaque);
+
+                outstandingResponses.put(opaque, promise);
+                channel.writeAndFlush(buffer);
+
+                promise.addListener(new GenericFutureListener<ChannelFuture>() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        openStreams.set(vbid, 0);
+                        if (future.isSuccess()) {
+                            LOGGER.debug("Closed Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+                            subscriber.onCompleted();
+                        } else {
+                            LOGGER.debug("Failed close Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+                            subscriber.onError(future.cause());
+                        }
+                    }
+                });
+            }
+        });
+    }
+
     public Completable getFailoverLog(final short vbid) {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
@@ -258,14 +301,6 @@ public class DcpChannel {
                 });
             }
         });
-    }
-
-    public Completable closeStream(short vbid) {
-
-        // close stream
-        // and set openStreams.set(vbid, 0);
-
-        return null;
     }
 
     public boolean streamIsOpen(short vbid) {
