@@ -72,8 +72,6 @@ public class CountBytesPerSecond {
 
         client.connect().await();
 
-        Thread.sleep(1000);
-
         client.startFromBeginningWithNoEnd().await();
 
         long start = System.nanoTime();

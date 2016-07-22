@@ -17,6 +17,9 @@ package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.state.AbstractStateMachine;
+import com.couchbase.client.core.state.LifecycleState;
+import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
@@ -30,6 +33,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
+import rx.Observable;
 import rx.Subscriber;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
@@ -46,7 +50,7 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
  *
  * The equals and hashcode are based on the {@link InetAddress}.
  */
-public class DcpChannel {
+public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     private static final AtomicInteger OPAQUE = new AtomicInteger(0);
 
@@ -61,6 +65,7 @@ public class DcpChannel {
     private final AtomicIntegerArray openStreams;
 
     public DcpChannel(InetAddress inetAddress, final ClientEnvironment env) {
+        super(LifecycleState.DISCONNECTED);
         this.inetAddress = inetAddress;
         this.env = env;
         this.outstandingResponses = new ConcurrentHashMap<Integer, ChannelPromise>();
@@ -156,37 +161,64 @@ public class DcpChannel {
             });
     }
 
-    public void connect() {
-        final Bootstrap bootstrap = new Bootstrap()
-            .remoteAddress(inetAddress, 11210)
-            .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-            .handler(new DcpPipeline(env, controlSubject))
-            .group(env.eventLoopGroup());
-
-        bootstrap.connect().addListener(new GenericFutureListener<ChannelFuture>() {
+    public Completable connect() {
+        return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
-            public void operationComplete(ChannelFuture future) throws Exception {
-                if (future.isSuccess()) {
-                    channel = future.channel();
-                    LOGGER.info("Connected to Node {}", channel.remoteAddress());
-                } else {
-                    LOGGER.warn("IMPLEMENT ME!!! (retry on failure until removed)");
+            public void call(final Completable.CompletableSubscriber subscriber) {
+                if (state() != LifecycleState.DISCONNECTED) {
+                    subscriber.onCompleted();
+                    return;
                 }
+                final Bootstrap bootstrap = new Bootstrap()
+                    .remoteAddress(inetAddress, 11210)
+                    .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
+                    .handler(new DcpPipeline(env, controlSubject))
+                    .group(env.eventLoopGroup());
+
+                transitionState(LifecycleState.CONNECTING);
+                bootstrap.connect().addListener(new GenericFutureListener<ChannelFuture>() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if (future.isSuccess()) {
+                            channel = future.channel();
+                            transitionState(LifecycleState.CONNECTED);
+                            LOGGER.info("Connected to Node {}", channel.remoteAddress());
+                            subscriber.onCompleted();
+                        } else {
+                            transitionState(LifecycleState.DISCONNECTED);
+                            LOGGER.warn("IMPLEMENT ME!!! (retry on failure until removed)");
+                            subscriber.onError(future.cause());
+                        }
+                    }
+                });
             }
         });
     }
 
-    public void disconnect() {
-        if (channel != null) {
-            channel.close().addListener(new GenericFutureListener<ChannelFuture>() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if (!future.isSuccess()) {
-                        LOGGER.debug("Error during channel close.", future.cause());
-                    }
+    public Completable disconnect() {
+        return Completable.create(new Completable.CompletableOnSubscribe() {
+            @Override
+            public void call(final Completable.CompletableSubscriber subscriber) {
+                if (channel != null) {
+                    transitionState(LifecycleState.DISCONNECTING);
+                    channel.close().addListener(new GenericFutureListener<ChannelFuture>() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            transitionState(LifecycleState.DISCONNECTED);
+                            if (future.isSuccess()) {
+                                subscriber.onCompleted();
+                            } else {
+                                LOGGER.debug("Error during channel close.", future.cause());
+                                subscriber.onError(future.cause());
+                            }
+                        }
+                    });
+                } else {
+                    subscriber.onCompleted();
                 }
-            });
-        }
+            }
+        });
+
     }
 
     public InetAddress hostname() {
@@ -199,6 +231,11 @@ public class DcpChannel {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
+                if (state() != LifecycleState.CONNECTED) {
+                    subscriber.onError(new NotConnectedException());
+                    return;
+                }
+
                 LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
                     "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}",
                     channel.remoteAddress(), vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
@@ -241,6 +278,11 @@ public class DcpChannel {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
+                if (state() != LifecycleState.CONNECTED) {
+                    subscriber.onError(new NotConnectedException());
+                    return;
+                }
+
                 LOGGER.debug("Closing Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
 
                 int opaque = OPAQUE.incrementAndGet();
@@ -275,6 +317,11 @@ public class DcpChannel {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
+                if (state() != LifecycleState.CONNECTED) {
+                    subscriber.onError(new NotConnectedException());
+                    return;
+                }
+
                 int opaque = OPAQUE.incrementAndGet();
                 ChannelPromise promise = channel.newPromise();
 

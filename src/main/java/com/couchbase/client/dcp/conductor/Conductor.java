@@ -19,18 +19,23 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.message.observe.Observe;
 import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.state.AbstractStateMachine;
+import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
 import rx.*;
 import rx.Observable;
 import rx.functions.Action1;
+import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
 import java.net.InetAddress;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Conductor {
@@ -82,9 +87,21 @@ public class Conductor {
     }
 
 
-    public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno, final long endSeqno,
-        final long snapshotStartSeqno, final long snapshotEndSeqno) {
+    public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno,
+        final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
         DcpChannel channel = masterChannelByPartition(partition);
+        if (channel.state() != LifecycleState.CONNECTED) {
+            LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition);
+            return Observable
+                .timer(100, TimeUnit.MILLISECONDS)
+                .flatMap(new Func1<Long, Observable<?>>() {
+                    @Override
+                    public Observable<?> call(Long aLong) {
+                        return startStreamForPartition(partition, vbuuid, startSeqno, endSeqno,
+                            snapshotStartSeqno, snapshotEndSeqno).toObservable();
+                    }
+                }).toCompletable();
+        }
         return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
     }
 
@@ -169,12 +186,12 @@ public class Conductor {
 
         DcpChannel channel = new DcpChannel(node, env);
         channels.add(channel);
-        channel.connect();
+        channel.connect().subscribe();
     }
 
     private void remove(DcpChannel node) {
        if(channels.remove(node)) {
-           node.disconnect();
+           node.disconnect().subscribe();
        }
     }
 }
