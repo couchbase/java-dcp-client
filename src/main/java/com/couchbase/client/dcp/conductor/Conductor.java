@@ -28,6 +28,7 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
 import rx.*;
 import rx.Observable;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
@@ -47,12 +48,15 @@ public class Conductor {
     private volatile long configRev = -1;
     private final ClientEnvironment env;
     private final AtomicReference<CouchbaseBucketConfig> currentConfig;
+    private final boolean ownsConfigProvider;
 
     public Conductor(final ClientEnvironment env, ConfigProvider cp) {
         this.env = env;
         this.currentConfig = new AtomicReference<CouchbaseBucketConfig>();
 
         configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
+        ownsConfigProvider = cp == null;
+
         configProvider.configs().forEach(new Action1<CouchbaseBucketConfig>() {
             @Override
             public void call(CouchbaseBucketConfig config) {
@@ -75,7 +79,33 @@ public class Conductor {
     }
 
     public Completable stop() {
-        return configProvider.stop();
+        LOGGER.debug("Instructed to shutdown.");
+
+       return Observable
+            .from(channels)
+            .flatMap(new Func1<DcpChannel, Observable<?>>() {
+                @Override
+                public Observable<?> call(DcpChannel dcpChannel) {
+                    return dcpChannel.disconnect().toObservable();
+                }
+            })
+            .flatMap(new Func1<Object, Observable<?>>() {
+                @Override
+                public Observable<?> call(Object o) {
+                    if (ownsConfigProvider) {
+                        return configProvider.stop().toObservable();
+                    } else {
+                        return Observable.just(1);
+                    }
+                }
+            })
+           .doOnCompleted(new Action0() {
+               @Override
+               public void call() {
+                   LOGGER.info("Shutdown complete.");
+               }
+           })
+            .toCompletable();
     }
 
     /**

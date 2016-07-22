@@ -88,7 +88,7 @@ public class CountBytesPerSecond {
         client.stopStreams(1).await();
         client.stopStreams(0, 2, 3).await();
 
-        Thread.sleep(1000000);
+        client.disconnect().await();
 
     }
 }
