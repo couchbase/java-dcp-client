@@ -40,6 +40,8 @@ public class CountBytesPerSecond {
             .configure()
             //.clusterAt(Arrays.asList("10.142.150.101"))
             .bucket("beer-sample")
+            .controlParam(DcpControl.Names.ENABLE_NOOP, "true")
+            .controlParam(DcpControl.Names.SET_NOOP_INTERVAL, "10")
             .dataEventHandler(new DataEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
@@ -85,10 +87,12 @@ public class CountBytesPerSecond {
         System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
         System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
 
-        client.stopStreams(1).await();
-        client.stopStreams(0, 2, 3).await();
 
-        client.disconnect().await();
+
+
+        Thread.sleep(1000000);
+
+        //client.disconnect().await();
 
     }
 }

@@ -43,6 +43,11 @@ public class DcpMessageHandler extends ChannelDuplexHandler {
             dataEventHandler.onEvent(message);
         } else if (isControlMessage(message)) {
             controlEvents.onNext(message);
+        } else if (DcpNoopRequest.is(message)) {
+            ByteBuf buffer = ctx.alloc().buffer();
+            DcpNoopResponse.init(buffer);
+            MessageUtil.setOpaque(MessageUtil.getOpaque(message), buffer);
+            ctx.writeAndFlush(buffer);
         } else {
             LOGGER.warn("Unknown DCP Message, ignoring. \n{}", MessageUtil.humanize(message));
         }

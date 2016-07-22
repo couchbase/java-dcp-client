@@ -46,6 +46,7 @@ public enum MessageUtil {
     public static final byte DCP_MUTATION_OPCODE = 0x57;
     public static final byte DCP_DELETION_OPCODE = 0x58;
     public static final byte DCP_EXPIRATION_OPCODE = 0x58;
+    public static final byte DCP_NOOP_OPCODE = 0x5C;
 
     public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
 
