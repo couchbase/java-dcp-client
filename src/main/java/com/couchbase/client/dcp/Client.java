@@ -62,13 +62,6 @@ public class Client {
     private final ClientEnvironment env;
 
     private Client(Builder builder) {
-        if (builder.dataEventHandler == null) {
-            throw new IllegalArgumentException("A DataEventHandler needs to be provided!");
-        }
-        if (builder.controlEventHandler == null) {
-            throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
-        }
-
         EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
             ? new NioEventLoopGroup() : builder.eventLoopGroup;
         env = ClientEnvironment.builder()
@@ -78,11 +71,17 @@ public class Client {
             .setPassword(builder.password)
             .setDcpControl(builder.dcpControl)
             .setEventLoopGroup(eventLoopGroup)
-            .setDataEventHandler(builder.dataEventHandler)
-            .setControlEventHandler(builder.controlEventHandler)
             .build();
 
         conductor = new Conductor(env, builder.configProvider);
+    }
+
+    public void controlEventHandler(ControlEventHandler controlEventHandler) {
+        env.setControlEventHandler(controlEventHandler);
+    }
+
+    public void dataEventHandler(DataEventHandler dataEventHandler) {
+        env.setDataEventHandler(dataEventHandler);
     }
 
     public static Builder configure() {
@@ -93,6 +92,13 @@ public class Client {
      * Connect the client and initialize everything as configured.
      */
     public Completable connect() {
+        if (env.dataEventHandler() == null) {
+            throw new IllegalArgumentException("A DataEventHandler needs to be provided!");
+        }
+        if (env.controlEventHandler() == null) {
+            throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
+        }
+
         return conductor.connect();
     }
 
@@ -187,10 +193,22 @@ public class Client {
         return conductor.streamIsOpen((short) vbid);
     }
 
+    /**
+     * Acknowledge bytes read if the DcpControl.Names.CONNECTION_BUFFER_SIZE is set on bootstrap.
+     *
+     * The Producer will not specifically request Buffer Acknowledgement messages for any mutations or at any
+     * intervals of time. Decisions about when to send Buffer Acknowledgement messages is up to the Consumer. It is
+     * recommend however that Consumers send an acknowledgement after 50KB or 20% of the buffer has been processed.
+     *
+     * @param vbid the partition id.
+     * @param numBytes the number of bytes to acknowledge.
+     */
+    public Completable acknowledgeBytes(int vbid, int numBytes) {
+        return conductor.acknowledgeBytes((short) vbid, numBytes);
+    }
+
     public static class Builder {
         private List<String> clusterAt = Arrays.asList("127.0.0.1");
-        private DataEventHandler dataEventHandler;
-        private ControlEventHandler controlEventHandler;
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
         private String password = "";
@@ -198,23 +216,17 @@ public class Client {
         private DcpControl dcpControl = new DcpControl();
         private ConfigProvider configProvider = null;
 
-        public Builder clusterAt(final List<String> clusterAt) {
-            this.clusterAt = clusterAt;
+        public Builder hostnames(final List<String> hostnames) {
+            this.clusterAt = hostnames;
             return this;
+        }
+
+        public Builder hostnames(String... hostnames) {
+            return hostnames(Arrays.asList(hostnames));
         }
 
         public Builder eventLoopGroup(final EventLoopGroup eventLoopGroup) {
             this.eventLoopGroup = eventLoopGroup;
-            return this;
-        }
-
-        public Builder dataEventHandler(final DataEventHandler dataEventHandler) {
-            this.dataEventHandler = dataEventHandler;
-            return this;
-        }
-
-        public Builder controlEventHandler(final ControlEventHandler controlEventHandler) {
-            this.controlEventHandler = controlEventHandler;
             return this;
         }
 
@@ -233,8 +245,8 @@ public class Client {
             return this;
         }
 
-        public Builder controlParam(final DcpControl.Names name, String value) {
-            this.dcpControl.put(name, value);
+        public Builder controlParam(final DcpControl.Names name, Object value) {
+            this.dcpControl.put(name, value.toString());
             return this;
         }
 

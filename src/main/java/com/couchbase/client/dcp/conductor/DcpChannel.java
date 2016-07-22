@@ -139,6 +139,14 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         } finally {
                             buf.release();
                         }
+                    } else if (DcpBufferAckResponse.is(buf)) {
+                        try {
+                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+                            promise.setSuccess();
+                            return false;
+                        } finally {
+                            buf.release();
+                        }
                     }
                     return true;
                 }
@@ -225,6 +233,43 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         return inetAddress;
     }
 
+
+    public Completable acknowledgeBytes(final short vbid, final int numBytes) {
+        return Completable.create(new Completable.CompletableOnSubscribe() {
+            @Override
+            public void call(final Completable.CompletableSubscriber subscriber) {
+                if (state() != LifecycleState.CONNECTED) {
+                    subscriber.onError(new NotConnectedException());
+                    return;
+                }
+
+                LOGGER.trace("Acknowledging {} bytes against connection {}, vbid {}.", numBytes,
+                    channel.remoteAddress(), vbid);
+
+                int opaque = OPAQUE.incrementAndGet();
+                ChannelPromise promise = channel.newPromise();
+
+                ByteBuf buffer = Unpooled.buffer();
+                DcpBufferAckRequest.init(buffer);
+                DcpBufferAckRequest.opaque(buffer, opaque);
+                DcpBufferAckRequest.ackBytes(buffer, numBytes);
+
+                outstandingResponses.put(opaque, promise);
+                channel.writeAndFlush(buffer);
+
+                promise.addListener(new GenericFutureListener<ChannelFuture>() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if(future.isSuccess()) {
+                            subscriber.onCompleted();
+                        } else {
+                            subscriber.onError(future.cause());
+                        }
+                    }
+                });
+            }
+        });
+    }
 
     public Completable openStream(final short vbid, final long vbuuid, final long startSeqno, final long endSeqno,
                                   final long snapshotStartSeqno, final long snapshotEndSeqno) {

@@ -28,18 +28,16 @@ import java.util.List;
 public class ClientEnvironment {
 
     private final List<String> clusterAt;
-    private final DataEventHandler dataEventHandler;
-    private final ControlEventHandler controlEventHandler;
     private final ConnectionNameGenerator connectionNameGenerator;
     private final String bucket;
     private final String password;
     private final DcpControl dcpControl;
     private final EventLoopGroup eventLoopGroup;
+    private volatile DataEventHandler dataEventHandler;
+    private volatile ControlEventHandler controlEventHandler;
 
     private ClientEnvironment(Builder builder) {
         clusterAt = builder.clusterAt;
-        dataEventHandler = builder.dataEventHandler;
-        controlEventHandler = builder.controlEventHandler;
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
         password = builder.password;
@@ -83,10 +81,16 @@ public class ClientEnvironment {
         return eventLoopGroup;
     }
 
+    public void setDataEventHandler(DataEventHandler dataEventHandler) {
+        this.dataEventHandler = dataEventHandler;
+    }
+
+    public void setControlEventHandler(ControlEventHandler controlEventHandler) {
+        this.controlEventHandler = controlEventHandler;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
-        private DataEventHandler dataEventHandler;
-        private ControlEventHandler controlEventHandler;
         private ConnectionNameGenerator connectionNameGenerator;
         private String bucket;
         private String password;
@@ -95,16 +99,6 @@ public class ClientEnvironment {
 
         public Builder setClusterAt(List<String> clusterAt) {
             this.clusterAt = clusterAt;
-            return this;
-        }
-
-        public Builder setDataEventHandler(DataEventHandler dataEventHandler) {
-            this.dataEventHandler = dataEventHandler;
-            return this;
-        }
-
-        public Builder setControlEventHandler(ControlEventHandler controlEventHandler) {
-            this.controlEventHandler = controlEventHandler;
             return this;
         }
 

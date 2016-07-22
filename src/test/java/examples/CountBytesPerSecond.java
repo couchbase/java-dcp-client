@@ -22,7 +22,9 @@ import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import rx.Scheduler;
 import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadFactory;
@@ -36,25 +38,29 @@ public class CountBytesPerSecond {
 
         final AtomicInteger numMutations = new AtomicInteger(0);
         final AtomicLong numBytes = new AtomicLong(0);
-        Client client = Client
+        final Client client = Client
             .configure()
-            //.clusterAt(Arrays.asList("10.142.150.101"))
+            //.hostnames("10.142.150.101")
             .bucket("beer-sample")
-            .controlParam(DcpControl.Names.ENABLE_NOOP, "true")
-            .controlParam(DcpControl.Names.SET_NOOP_INTERVAL, "10")
-            .dataEventHandler(new DataEventHandler() {
-                @Override
-                public void onEvent(ByteBuf event) {
-                    // System.err.println(event);
-                    if (DcpMutationMessage.is(event)) {
-                        //   System.err.println(DcpMutationMessage.toString(event));
-                        numMutations.incrementAndGet();
-                        numBytes.addAndGet(event.readableBytes());
-                    }
-                    event.release();
+            //.controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
+            .build();
+
+
+        client.dataEventHandler(new DataEventHandler() {
+            @Override
+            public void onEvent(ByteBuf event) {
+                // System.err.println(event);
+                if (DcpMutationMessage.is(event)) {
+                    //   System.err.println(DcpMutationMessage.toString(event));
+                    numMutations.incrementAndGet();
+                    numBytes.addAndGet(event.readableBytes());
+                  // client.acknowledgeBytes(DcpMutationMessage.partition(event), DcpMutationMessage.content(event).readableBytes()).observeOn(Schedulers.computation()).subscribe();
                 }
-            })
-            .controlEventHandler(new ControlEventHandler() {
+                event.release();
+            }
+        });
+
+        client.controlEventHandler(new ControlEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
                     if (DcpSnapshotMarkerMessage.is(event)) {
@@ -69,8 +75,7 @@ public class CountBytesPerSecond {
                     }
                     event.release();
                 }
-            })
-            .build();
+            });
 
         client.connect().await();
 
@@ -92,7 +97,7 @@ public class CountBytesPerSecond {
 
         Thread.sleep(1000000);
 
-        //client.disconnect().await();
+        client.disconnect().await();
 
     }
 }

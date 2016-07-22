@@ -150,6 +150,11 @@ public class Conductor {
         return channel.getFailoverLog(partition);
     }
 
+    public Completable acknowledgeBytes(final short partition, int numBytes) {
+        DcpChannel channel = masterChannelByPartition(partition);
+        return channel.acknowledgeBytes(partition, numBytes);
+    }
+
     /**
      * Returns the dcp channel responsible for a given vbucket id according to the current
      * configuration.
