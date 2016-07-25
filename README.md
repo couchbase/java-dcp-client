@@ -160,7 +160,7 @@ acknowledge message should be performed.
 A simple way to do this is the following:
 
 ```java
-client.acknowledgeBytes(event).subscribe();
+client.acknowledgeBytes(event);
 ```
 
 This method extracts the vbucket ID and gets the number of readable bytes
@@ -169,6 +169,6 @@ of the buffer is not the number of bytes orginally, you can fall back to
 the lower level API:
 
 ```java
-client.acknowledgeBytes(vbid, numBytes).subscribe();
+client.acknowledgeBytes(vbid, numBytes);
 ```
 
