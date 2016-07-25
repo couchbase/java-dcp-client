@@ -42,7 +42,7 @@ public class CountBytesPerSecond {
             .configure()
             //.hostnames("10.142.150.101")
             .bucket("beer-sample")
-            //.controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
+            .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
             .build();
 
 
@@ -54,8 +54,8 @@ public class CountBytesPerSecond {
                     //   System.err.println(DcpMutationMessage.toString(event));
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
-                  // client.acknowledgeBytes(DcpMutationMessage.partition(event), DcpMutationMessage.content(event).readableBytes()).observeOn(Schedulers.computation()).subscribe();
                 }
+                client.acknowledgeBytes(DcpMutationMessage.partition(event), event.readableBytes()).subscribe();
                 event.release();
             }
         });
@@ -65,6 +65,7 @@ public class CountBytesPerSecond {
                 public void onEvent(ByteBuf event) {
                     if (DcpSnapshotMarkerMessage.is(event)) {
                         System.err.println(DcpSnapshotMarkerMessage.toString(event));
+                        client.acknowledgeBytes(DcpMutationMessage.partition(event), event.readableBytes()).subscribe();
                     } else if (DcpFailoverLogResponse.is(event)) {
                         System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {
@@ -73,6 +74,7 @@ public class CountBytesPerSecond {
                         System.err.println(MessageUtil.humanize(event));
 
                     }
+
                     event.release();
                 }
             });

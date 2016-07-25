@@ -21,7 +21,7 @@ public enum DcpBufferAckRequest {
     }
 
     public static void ackBytes(final ByteBuf buffer, int bytes) {
-        MessageUtil.setContent(Unpooled.buffer().writeInt(bytes), buffer);
+        MessageUtil.setExtras(Unpooled.buffer(4).writeInt(bytes), buffer);
     }
 
 }

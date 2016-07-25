@@ -251,7 +251,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
                 ByteBuf buffer = Unpooled.buffer();
                 DcpBufferAckRequest.init(buffer);
-                DcpBufferAckRequest.opaque(buffer, opaque);
+                //DcpBufferAckRequest.opaque(buffer, opaque);
                 DcpBufferAckRequest.ackBytes(buffer, numBytes);
 
                 outstandingResponses.put(opaque, promise);

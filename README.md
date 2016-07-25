@@ -11,7 +11,9 @@ It supports:
  - [x] Stream specific vbuckets
  - [x] Manual Start/Stop of streams
  - [x] Noop Acknowledgements
- - [ ] Flow Control
+ - [x] Flow Control
+ - [ ] Simple Session Loading/Persistence
+
  - [ ] Full Rebalance
 
 # Installation
