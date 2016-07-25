@@ -133,6 +133,13 @@ To activate flow control, the `DcpControl.Names.CONNECTION_BUFFER_SIZE`
 control param needs to be set to a value greater than zero. A reasonable
 start value to test would be "10240" (10K).
 
+Next, you also need to set the `bufferAckWatermark` to a value which is
+equal or smaller than the connection buffer size. Every time a message
+is acknowledged the client accumulates up to the watermark and only if
+the watermark is exceeded the acknowledgement is sent. This helps with
+cutting down on network traffic and to reduce the workload on the server
+side for accounting.
+
 ### Acknowledging Messages
 If you do not acknowledge the bytes read for specific messages, the server
 will stop streaming new messages when the `CONNECTION_BUFFER_SIZE` is
@@ -153,8 +160,15 @@ acknowledge message should be performed.
 A simple way to do this is the following:
 
 ```java
-client.acknowledgeBytes(MessageUtil.getVbucket(event), event.readableBytes()).subscribe();
+client.acknowledgeBytes(event).subscribe();
 ```
 
-Do not forget to `subscribe()`, otherwise the asynchronous flow is not 
-started.
+This method extracts the vbucket ID and gets the number of readable bytes
+out of it. When you already did consume the bytes and the reader index
+of the buffer is not the number of bytes orginally, you can fall back to
+the lower level API:
+
+```java
+client.acknowledgeBytes(vbid, numBytes).subscribe();
+```
+

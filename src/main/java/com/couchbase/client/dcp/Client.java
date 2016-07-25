@@ -22,6 +22,7 @@ import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
@@ -72,9 +73,20 @@ public class Client {
             .setPassword(builder.password)
             .setDcpControl(builder.dcpControl)
             .setEventLoopGroup(eventLoopGroup)
+            .setBufferAckWatermark(builder.bufferAckWatermark)
             .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
+        if (bufferAckEnabled) {
+            if (env.bufferAckWatermark() == 0) {
+                throw new IllegalArgumentException("BufferAckWatermark needs to be set if bufferAck is enabled.");
+            }
+            if (env.bufferAckWatermark()
+                > Integer.parseInt(env.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE))) {
+                throw  new IllegalArgumentException("BufferAckWatermark needs to be smaller or equal the " +
+                    "CONNECTION_BUFFER_SIZE");
+            }
+        }
         conductor = new Conductor(env, builder.configProvider);
     }
 
@@ -205,12 +217,17 @@ public class Client {
      * @param vbid the partition id.
      * @param numBytes the number of bytes to acknowledge.
      */
-    public Completable acknowledgeBytes(int vbid, int numBytes) {
+    public void acknowledgeBytes(int vbid, int numBytes) {
         if (!bufferAckEnabled) {
-            return Completable.complete();
+            return;
         }
-        return conductor.acknowledgeBytes((short) vbid, numBytes);
+        conductor.acknowledgeBytes((short) vbid, numBytes);
     }
+
+    public void acknowledgeBytes(ByteBuf buffer) {
+        acknowledgeBytes(MessageUtil.getVbucket(buffer), buffer.readableBytes());
+    }
+
 
     public static class Builder {
         private List<String> clusterAt = Arrays.asList("127.0.0.1");
@@ -220,6 +237,12 @@ public class Client {
         private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
         private DcpControl dcpControl = new DcpControl();
         private ConfigProvider configProvider = null;
+        private int bufferAckWatermark;
+
+        public Builder bufferAckWatermark(int watermark) {
+            this.bufferAckWatermark = watermark;
+            return this;
+        }
 
         public Builder hostnames(final List<String> hostnames) {
             this.clusterAt = hostnames;

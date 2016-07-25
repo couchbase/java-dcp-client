@@ -33,6 +33,8 @@ public class ClientEnvironment {
     private final String password;
     private final DcpControl dcpControl;
     private final EventLoopGroup eventLoopGroup;
+    private final int bufferAckWatermark;
+
     private volatile DataEventHandler dataEventHandler;
     private volatile ControlEventHandler controlEventHandler;
 
@@ -43,6 +45,7 @@ public class ClientEnvironment {
         password = builder.password;
         dcpControl = builder.dcpControl;
         eventLoopGroup = builder.eventLoopGroup;
+        bufferAckWatermark = builder.bufferAckWatermark;
     }
 
     public static Builder builder() {
@@ -77,6 +80,10 @@ public class ClientEnvironment {
         return dcpControl;
     }
 
+    public int bufferAckWatermark() {
+        return bufferAckWatermark;
+    }
+
     public EventLoopGroup eventLoopGroup() {
         return eventLoopGroup;
     }
@@ -96,9 +103,15 @@ public class ClientEnvironment {
         private String password;
         private DcpControl dcpControl;
         private EventLoopGroup eventLoopGroup;
+        private int bufferAckWatermark;
 
         public Builder setClusterAt(List<String> clusterAt) {
             this.clusterAt = clusterAt;
+            return this;
+        }
+
+        public Builder setBufferAckWatermark(int watermark) {
+            this.bufferAckWatermark = watermark;
             return this;
         }
 

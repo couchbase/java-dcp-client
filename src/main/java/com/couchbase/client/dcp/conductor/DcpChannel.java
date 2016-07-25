@@ -66,6 +66,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private volatile Channel channel;
     private final AtomicIntegerArray openStreams;
     private final boolean needsBufferAck;
+    private final int bufferAckWatermark;
+    private volatile int bufferAckCounter;
 
     public DcpChannel(InetAddress inetAddress, final ClientEnvironment env) {
         super(LifecycleState.DISCONNECTED);
@@ -76,6 +78,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
         this.openStreams = new AtomicIntegerArray(1024);
         this.needsBufferAck = env.dcpControl().bufferAckEnabled();
+        this.bufferAckWatermark = env.bufferAckWatermark();
+        this.bufferAckCounter = 0;
+
         this.controlSubject
             .filter(new Func1<ByteBuf, Boolean>() {
                 @Override
@@ -218,6 +223,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             public void call(final Completable.CompletableSubscriber subscriber) {
                 if (channel != null) {
                     transitionState(LifecycleState.DISCONNECTING);
+                    bufferAckCounter = 0;
                     channel.close().addListener(new GenericFutureListener<ChannelFuture>() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
@@ -243,39 +249,25 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
 
-    public Completable acknowledgeBytes(final int numBytes) {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
-            @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
-                if (state() != LifecycleState.CONNECTED) {
-                    subscriber.onError(new NotConnectedException());
-                    return;
-                }
+    public void acknowledgeBytes(final int numBytes) {
+        if (state() != LifecycleState.CONNECTED) {
+            throw new NotConnectedException(new NotConnectedException());
+        }
 
-                LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
-                int opaque = OPAQUE.incrementAndGet();
-                ChannelPromise promise = channel.newPromise();
+        LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
 
-                ByteBuf buffer = Unpooled.buffer();
-                DcpBufferAckRequest.init(buffer);
-                //DcpBufferAckRequest.opaque(buffer, opaque);
-                DcpBufferAckRequest.ackBytes(buffer, numBytes);
+        bufferAckCounter += numBytes;
 
-                outstandingResponses.put(opaque, promise);
-                channel.writeAndFlush(buffer);
+        LOGGER.trace("BufferAckCounter is now {}", bufferAckCounter);
 
-                promise.addListener(new GenericFutureListener<ChannelFuture>() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) throws Exception {
-                        if(future.isSuccess()) {
-                            subscriber.onCompleted();
-                        } else {
-                            subscriber.onError(future.cause());
-                        }
-                    }
-                });
-            }
-        });
+        if (bufferAckCounter >= bufferAckWatermark) {
+            LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.", channel.remoteAddress());
+            ByteBuf buffer = Unpooled.buffer();
+            DcpBufferAckRequest.init(buffer);
+            DcpBufferAckRequest.ackBytes(buffer, bufferAckCounter);
+            channel.writeAndFlush(buffer);
+            bufferAckCounter = 0;
+        }
     }
 
     public Completable openStream(final short vbid, final long vbuuid, final long startSeqno, final long endSeqno,

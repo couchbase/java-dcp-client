@@ -40,7 +40,7 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
     }
 
     public boolean bufferAckEnabled() {
-        String bufSize = values.get(DcpControl.Names.CONNECTION_BUFFER_SIZE);
+        String bufSize = values.get(Names.CONNECTION_BUFFER_SIZE.value());
         return bufSize != null && Integer.parseInt(bufSize) > 0;
     }
 

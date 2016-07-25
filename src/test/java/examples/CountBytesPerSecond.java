@@ -43,6 +43,7 @@ public class CountBytesPerSecond {
             //.hostnames("10.142.150.101")
             .bucket("beer-sample")
             .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
+            .bufferAckWatermark(512)
             .build();
 
 
@@ -55,7 +56,7 @@ public class CountBytesPerSecond {
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
                 }
-                client.acknowledgeBytes(MessageUtil.getVbucket(event), event.readableBytes()).subscribe();
+                client.acknowledgeBytes(event);
                 event.release();
             }
         });
@@ -65,7 +66,7 @@ public class CountBytesPerSecond {
                 public void onEvent(ByteBuf event) {
                     if (DcpSnapshotMarkerMessage.is(event)) {
                         System.err.println(DcpSnapshotMarkerMessage.toString(event));
-                        client.acknowledgeBytes(MessageUtil.getVbucket(event), event.readableBytes()).subscribe();
+                        client.acknowledgeBytes(event);
                     } else if (DcpFailoverLogResponse.is(event)) {
                         System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {
