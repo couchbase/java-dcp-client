@@ -21,6 +21,7 @@ import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -32,6 +33,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import com.couchbase.client.deps.io.netty.util.internal.IntegerHolder;
 import rx.Completable;
 import rx.Observable;
 import rx.Subscriber;
@@ -63,6 +65,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private final Map<Integer, Short> outstandingVbucketInfos;
     private volatile Channel channel;
     private final AtomicIntegerArray openStreams;
+    private final boolean needsBufferAck;
 
     public DcpChannel(InetAddress inetAddress, final ClientEnvironment env) {
         super(LifecycleState.DISCONNECTED);
@@ -72,7 +75,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         this.outstandingVbucketInfos = new ConcurrentHashMap<Integer, Short>();
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
         this.openStreams = new AtomicIntegerArray(1024);
-
+        this.needsBufferAck = env.dcpControl().bufferAckEnabled();
         this.controlSubject
             .filter(new Func1<ByteBuf, Boolean>() {
                 @Override
@@ -127,6 +130,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             short vbid = DcpStreamEndMessage.vbucket(buf);
                             LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
                             openStreams.set(vbid, 0);
+                            if (needsBufferAck) {
+                                acknowledgeBytes(buf.readableBytes());
+                            }
                             return false;
                         } finally {
                             buf.release();
@@ -135,6 +141,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         try {
                             ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
                             promise.setSuccess();
+                            if (needsBufferAck) {
+                                acknowledgeBytes(buf.readableBytes());
+                            }
                             return false;
                         } finally {
                             buf.release();
@@ -234,7 +243,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
 
-    public Completable acknowledgeBytes(final short vbid, final int numBytes) {
+    public Completable acknowledgeBytes(final int numBytes) {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
@@ -243,9 +252,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     return;
                 }
 
-                LOGGER.trace("Acknowledging {} bytes against connection {}, vbid {}.", numBytes,
-                    channel.remoteAddress(), vbid);
-
+                LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
                 int opaque = OPAQUE.incrementAndGet();
                 ChannelPromise promise = channel.newPromise();
 

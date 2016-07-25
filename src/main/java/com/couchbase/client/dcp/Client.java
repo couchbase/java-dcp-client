@@ -60,6 +60,7 @@ public class Client {
 
     private final Conductor conductor;
     private final ClientEnvironment env;
+    private final boolean bufferAckEnabled;
 
     private Client(Builder builder) {
         EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
@@ -73,6 +74,7 @@ public class Client {
             .setEventLoopGroup(eventLoopGroup)
             .build();
 
+        bufferAckEnabled = env.dcpControl().bufferAckEnabled();
         conductor = new Conductor(env, builder.configProvider);
     }
 
@@ -204,6 +206,9 @@ public class Client {
      * @param numBytes the number of bytes to acknowledge.
      */
     public Completable acknowledgeBytes(int vbid, int numBytes) {
+        if (!bufferAckEnabled) {
+            return Completable.complete();
+        }
         return conductor.acknowledgeBytes((short) vbid, numBytes);
     }
 

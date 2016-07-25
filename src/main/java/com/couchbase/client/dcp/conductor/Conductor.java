@@ -152,7 +152,7 @@ public class Conductor {
 
     public Completable acknowledgeBytes(final short partition, int numBytes) {
         DcpChannel channel = masterChannelByPartition(partition);
-        return channel.acknowledgeBytes(partition, numBytes);
+        return channel.acknowledgeBytes(numBytes);
     }
 
     /**

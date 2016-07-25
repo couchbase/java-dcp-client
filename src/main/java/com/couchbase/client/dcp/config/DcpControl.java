@@ -35,6 +35,15 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
         return this;
     }
 
+    public String get(Names name) {
+        return values.get(name.value());
+    }
+
+    public boolean bufferAckEnabled() {
+        String bufSize = values.get(DcpControl.Names.CONNECTION_BUFFER_SIZE);
+        return bufSize != null && Integer.parseInt(bufSize) > 0;
+    }
+
     @Override
     public Iterator<Map.Entry<String, String>> iterator() {
         return values.entrySet().iterator();

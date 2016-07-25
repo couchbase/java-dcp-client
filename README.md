@@ -117,3 +117,44 @@ if (DcpMutationMessage.is(event)) {
 
 
 # Advanced Usage
+
+## Flow Control
+To handle slow clients better and to make it possible that the client signals
+backpressure to the server (that it should stop sending new data when the
+client is busy processing the previous ones) flow control tuneables are
+available.
+
+Handling flow control consist of two stages: first, you need to enable
+it during bootstrap and then acknowledge specific message types as soon
+as you are done processing them.
+
+### Configuring Flow Control
+To activate flow control, the `DcpControl.Names.CONNECTION_BUFFER_SIZE`
+control param needs to be set to a value greater than zero. A reasonable
+start value to test would be "10240" (10K).
+
+### Acknowledging Messages
+If you do not acknowledge the bytes read for specific messages, the server
+will stop streaming new messages when the `CONNECTION_BUFFER_SIZE` is
+reached.
+
+The following messages need to be acknowledged by the user:
+
+ - DcpSnapshotMarkerMessage (on the ControlEventHandler)
+ - DcpMutationMessage (on the DataEventHandler)
+ - DcpDeletionMEssage (on the DataEventHandler)
+ - DcpExpirationMessage (on the DataEventHandler)
+ 
+Acknowledging works by passing the number of bytes from the event to the
+`Client#acknowledgeBytes` method. Note that the vbucket id also needs to
+be passed since the client needs to know against which connection the
+acknowledge message should be performed.
+
+A simple way to do this is the following:
+
+```java
+client.acknowledgeBytes(MessageUtil.getVbucket(event), event.readableBytes()).subscribe();
+```
+
+Do not forget to `subscribe()`, otherwise the asynchronous flow is not 
+started.
