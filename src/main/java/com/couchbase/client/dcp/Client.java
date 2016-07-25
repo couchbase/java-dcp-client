@@ -81,11 +81,6 @@ public class Client {
             if (env.bufferAckWatermark() == 0) {
                 throw new IllegalArgumentException("BufferAckWatermark needs to be set if bufferAck is enabled.");
             }
-            if (env.bufferAckWatermark()
-                > Integer.parseInt(env.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE))) {
-                throw  new IllegalArgumentException("BufferAckWatermark needs to be smaller or equal the " +
-                    "CONNECTION_BUFFER_SIZE");
-            }
         }
         conductor = new Conductor(env, builder.configProvider);
     }
@@ -239,7 +234,16 @@ public class Client {
         private ConfigProvider configProvider = null;
         private int bufferAckWatermark;
 
+        /**
+         * The buffer acknowledge watermark in percent.
+         *
+         * @param watermark between 0 and 100, needs to be > 0 if flow control is enabled.
+         */
         public Builder bufferAckWatermark(int watermark) {
+            if (watermark > 100 || watermark < 0) {
+                throw new IllegalArgumentException("The bufferAckWatermark is percents, so it needs to be between" +
+                    " 0 and 100");
+            }
             this.bufferAckWatermark = watermark;
             return this;
         }

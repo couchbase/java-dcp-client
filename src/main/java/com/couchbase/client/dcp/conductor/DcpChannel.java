@@ -78,8 +78,16 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
         this.openStreams = new AtomicIntegerArray(1024);
         this.needsBufferAck = env.dcpControl().bufferAckEnabled();
-        this.bufferAckWatermark = env.bufferAckWatermark();
+
         this.bufferAckCounter = 0;
+        if (needsBufferAck) {
+            int bufferAckPercent = env.bufferAckWatermark();
+            int bufferSize = Integer.parseInt(env.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE));
+            this.bufferAckWatermark = (int) Math.round(bufferSize / 100.0 * bufferAckPercent);
+            LOGGER.debug("BufferAckWatermark absolute is {}", bufferAckWatermark);
+        } else {
+            this.bufferAckWatermark = 0;
+        }
 
         this.controlSubject
             .filter(new Func1<ByteBuf, Boolean>() {

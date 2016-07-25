@@ -43,7 +43,7 @@ public class CountBytesPerSecond {
             //.hostnames("10.142.150.101")
             .bucket("beer-sample")
             .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
-            .bufferAckWatermark(512)
+            .bufferAckWatermark(100)
             .build();
 
 
