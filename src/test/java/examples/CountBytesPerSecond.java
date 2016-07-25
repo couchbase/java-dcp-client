@@ -55,7 +55,7 @@ public class CountBytesPerSecond {
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
                 }
-                client.acknowledgeBytes(DcpMutationMessage.partition(event), event.readableBytes()).subscribe();
+                client.acknowledgeBytes(MessageUtil.getVbucket(event), event.readableBytes()).subscribe();
                 event.release();
             }
         });
@@ -65,16 +65,14 @@ public class CountBytesPerSecond {
                 public void onEvent(ByteBuf event) {
                     if (DcpSnapshotMarkerMessage.is(event)) {
                         System.err.println(DcpSnapshotMarkerMessage.toString(event));
-                        client.acknowledgeBytes(DcpMutationMessage.partition(event), event.readableBytes()).subscribe();
+                        client.acknowledgeBytes(MessageUtil.getVbucket(event), event.readableBytes()).subscribe();
                     } else if (DcpFailoverLogResponse.is(event)) {
                         System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {
                         System.err.println(RollbackMessage.toString(event));
                     } else {
                         System.err.println(MessageUtil.humanize(event));
-
                     }
-
                     event.release();
                 }
             });
@@ -93,9 +91,6 @@ public class CountBytesPerSecond {
 
         System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
         System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
-
-
-
 
         Thread.sleep(1000000);
 
