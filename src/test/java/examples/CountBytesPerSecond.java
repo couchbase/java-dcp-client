@@ -56,7 +56,7 @@ public class CountBytesPerSecond {
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
                 }
-                client.acknowledgeBytes(event);
+                client.acknowledgeBuffer(event);
                 event.release();
             }
         });
@@ -66,7 +66,7 @@ public class CountBytesPerSecond {
                 public void onEvent(ByteBuf event) {
                     if (DcpSnapshotMarkerMessage.is(event)) {
                         System.err.println(DcpSnapshotMarkerMessage.toString(event));
-                        client.acknowledgeBytes(event);
+                        client.acknowledgeBuffer(event);
                     } else if (DcpFailoverLogResponse.is(event)) {
                         System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {

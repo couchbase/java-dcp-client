@@ -144,7 +144,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
                             openStreams.set(vbid, 0);
                             if (needsBufferAck) {
-                                acknowledgeBytes(buf.readableBytes());
+                                acknowledgeBuffer(buf.readableBytes());
                             }
                             return false;
                         } finally {
@@ -155,7 +155,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
                             promise.setSuccess();
                             if (needsBufferAck) {
-                                acknowledgeBytes(buf.readableBytes());
+                                acknowledgeBuffer(buf.readableBytes());
                             }
                             return false;
                         } finally {
@@ -257,7 +257,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
 
-    public void acknowledgeBytes(final int numBytes) {
+    public void acknowledgeBuffer(final int numBytes) {
         if (state() != LifecycleState.CONNECTED) {
             throw new NotConnectedException(new NotConnectedException());
         }

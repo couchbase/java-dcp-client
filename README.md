@@ -147,10 +147,10 @@ reached.
 
 The following messages need to be acknowledged by the user:
 
- - DcpSnapshotMarkerMessage (on the ControlEventHandler)
- - DcpMutationMessage (on the DataEventHandler)
- - DcpDeletionMEssage (on the DataEventHandler)
- - DcpExpirationMessage (on the DataEventHandler)
+ - `DcpSnapshotMarkerMessage` (on the `ControlEventHandler`)
+ - `DcpMutationMessage` (on the `DataEventHandler`)
+ - `DcpDeletionMessage` (on the `DataEventHandler`)
+ - `DcpExpirationMessage` (on the `DataEventHandler`)
  
 Acknowledging works by passing the number of bytes from the event to the
 `Client#acknowledgeBytes` method. Note that the vbucket id also needs to
@@ -160,7 +160,7 @@ acknowledge message should be performed.
 A simple way to do this is the following:
 
 ```java
-client.acknowledgeBytes(event);
+client.acknowledgeBuffer(event);
 ```
 
 This method extracts the vbucket ID and gets the number of readable bytes
@@ -169,6 +169,6 @@ of the buffer is not the number of bytes orginally, you can fall back to
 the lower level API:
 
 ```java
-client.acknowledgeBytes(vbid, numBytes);
+client.acknowledgeBuffer(vbid, numBytes);
 ```
 

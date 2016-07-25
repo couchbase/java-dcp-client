@@ -212,15 +212,15 @@ public class Client {
      * @param vbid the partition id.
      * @param numBytes the number of bytes to acknowledge.
      */
-    public void acknowledgeBytes(int vbid, int numBytes) {
+    public void acknowledgeBuffer(int vbid, int numBytes) {
         if (!bufferAckEnabled) {
             return;
         }
-        conductor.acknowledgeBytes((short) vbid, numBytes);
+        conductor.acknowledgeBuffer((short) vbid, numBytes);
     }
 
-    public void acknowledgeBytes(ByteBuf buffer) {
-        acknowledgeBytes(MessageUtil.getVbucket(buffer), buffer.readableBytes());
+    public void acknowledgeBuffer(ByteBuf buffer) {
+        acknowledgeBuffer(MessageUtil.getVbucket(buffer), buffer.readableBytes());
     }
 
 

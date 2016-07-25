@@ -150,9 +150,9 @@ public class Conductor {
         return channel.getFailoverLog(partition);
     }
 
-    public void acknowledgeBytes(final short partition, int numBytes) {
+    public void acknowledgeBuffer(final short partition, int numBytes) {
         DcpChannel channel = masterChannelByPartition(partition);
-        channel.acknowledgeBytes(numBytes);
+        channel.acknowledgeBuffer(numBytes);
     }
 
     /**
