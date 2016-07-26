@@ -27,4 +27,14 @@ public enum DcpExpirationMessage {
         return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_EXPIRATION_OPCODE;
     }
 
+    public static short partition(final ByteBuf buffer) {
+        return MessageUtil.getVbucket(buffer);
+    }
+
+
+    public static long revisionSeqno(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getLong(8);
+    }
+
+
 }

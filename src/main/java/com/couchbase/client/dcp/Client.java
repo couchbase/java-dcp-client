@@ -22,7 +22,9 @@ import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.*;
+import com.couchbase.client.dcp.state.PartitionState;
+import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
@@ -62,6 +64,7 @@ public class Client {
     private final Conductor conductor;
     private final ClientEnvironment env;
     private final boolean bufferAckEnabled;
+    private final SessionState sessionState;
 
     private Client(Builder builder) {
         EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
@@ -75,6 +78,7 @@ public class Client {
             .setEventLoopGroup(eventLoopGroup)
             .setBufferAckWatermark(builder.bufferAckWatermark)
             .build();
+        sessionState = new SessionState();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
         if (bufferAckEnabled) {
@@ -85,12 +89,53 @@ public class Client {
         conductor = new Conductor(env, builder.configProvider);
     }
 
-    public void controlEventHandler(ControlEventHandler controlEventHandler) {
-        env.setControlEventHandler(controlEventHandler);
+    public void controlEventHandler(final ControlEventHandler controlEventHandler) {
+        env.setControlEventHandler(new ControlEventHandler() {
+            @Override
+            public void onEvent(ByteBuf event) {
+                if (DcpSnapshotMarkerMessage.is(event)) {
+                    short partition = DcpSnapshotMarkerMessage.partition(event);
+                    PartitionState ps = sessionState.get(partition);
+                    ps.setSnapshotStartSeqno(DcpSnapshotMarkerMessage.startSeqno(event));
+                    ps.setSnapshotEndSeqno(DcpSnapshotMarkerMessage.endSeqno(event));
+                    sessionState.set(partition, ps);
+                }
+
+                // Forward event to user.
+                controlEventHandler.onEvent(event);
+            }
+        });
     }
 
-    public void dataEventHandler(DataEventHandler dataEventHandler) {
-        env.setDataEventHandler(dataEventHandler);
+    public SessionState sessionState() {
+        return sessionState;
+    }
+
+    public void dataEventHandler(final DataEventHandler dataEventHandler) {
+        env.setDataEventHandler(new DataEventHandler() {
+            @Override
+            public void onEvent(ByteBuf event) {
+                if (DcpMutationMessage.is(event)) {
+                    short partition = DcpMutationMessage.partition(event);
+                    PartitionState ps = sessionState.get(partition);
+                    ps.setStartSeqno(DcpMutationMessage.revisionSeqno(event));
+                    sessionState.set(partition, ps);
+                } else if (DcpDeletionMessage.is(event)) {
+                    short partition = DcpDeletionMessage.partition(event);
+                    PartitionState ps = sessionState.get(partition);
+                    ps.setStartSeqno(DcpDeletionMessage.revisionSeqno(event));
+                    sessionState.set(partition, ps);
+                } else if (DcpExpirationMessage.is(event)) {
+                    short partition = DcpExpirationMessage.partition(event);
+                    PartitionState ps = sessionState.get(partition);
+                    ps.setStartSeqno(DcpExpirationMessage.revisionSeqno(event));
+                    sessionState.set(partition, ps);
+                }
+
+                // Forward event to user.
+                dataEventHandler.onEvent(event);
+            }
+        });
     }
 
     public static Builder configure() {
@@ -107,7 +152,6 @@ public class Client {
         if (env.controlEventHandler() == null) {
             throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
         }
-
         return conductor.connect();
     }
 
@@ -125,6 +169,8 @@ public class Client {
      * automatically.
      */
     public Completable startFromBeginningWithNoEnd(Integer... vbids) {
+        sessionState.intializeToBeginningWithNoEnd();
+
         List<Integer> partitions = new ArrayList<Integer>();
         if (vbids.length > 0) {
             partitions = Arrays.asList(vbids);
@@ -143,7 +189,16 @@ public class Client {
             .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
                 public Observable<?> call(Integer p) {
-                    return conductor.startStreamForPartition(p.shortValue(), 0, 0, 0xffffffff, 0, 0).toObservable();
+                    PartitionState partitionState = sessionState.get(p);
+
+                    return conductor.startStreamForPartition(
+                        p.shortValue(),
+                        partitionState.getUuid(),
+                        partitionState.getStartSeqno(),
+                        partitionState.getEndSeqno(),
+                        partitionState.getSnapshotStartSeqno(),
+                        partitionState.getSnapshotEndSeqno()
+                    ).toObservable();
                 }
             })
             .toCompletable()
