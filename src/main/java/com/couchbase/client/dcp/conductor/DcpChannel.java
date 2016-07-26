@@ -236,6 +236,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
                             transitionState(LifecycleState.DISCONNECTED);
+                            LOGGER.info("Disconnected from Node " + hostname());
                             if (future.isSuccess()) {
                                 subscriber.onCompleted();
                             } else {
@@ -414,5 +415,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     @Override
     public int hashCode() {
         return inetAddress.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "DcpChannel{inetAddress=" + inetAddress + '}';
     }
 }

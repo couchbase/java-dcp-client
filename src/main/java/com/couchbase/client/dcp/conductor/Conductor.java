@@ -62,11 +62,11 @@ public class Conductor {
             public void call(CouchbaseBucketConfig config) {
                 if (config.rev() > configRev) {
                     configRev = config.rev();
-                    LOGGER.debug("Applying new configuration, rev is now {}.", configRev);
+                    LOGGER.trace("Applying new configuration, rev is now {}.", configRev);
                     currentConfig.set(config);
                     reconfigure(config);
                 } else {
-                 LOGGER.debug("Ignoring config, since rev has not changed.");
+                 LOGGER.trace("Ignoring config, since rev has not changed.");
                 }
             }
         });
@@ -184,7 +184,15 @@ public class Conductor {
                 || node.sslServices().containsKey(ServiceType.BINARY))) {
                 continue; // we only care about kv nodes
             }
-            if (!channels.contains(hostname)) {
+
+            boolean in = false;
+            for (DcpChannel chan : channels) {
+                if (chan.hostname().equals(hostname)) {
+                    in = true;
+                    break;
+                }
+            }
+            if (!in) {
                 toAdd.add(hostname);
                 LOGGER.debug("Planning to add {}", hostname);
             }
@@ -194,7 +202,7 @@ public class Conductor {
             boolean found = false;
             for (NodeInfo node : config.nodes()) {
                 InetAddress hostname = node.hostname();
-                if (hostname.equals(chan)) {
+                if (hostname.equals(chan.hostname())) {
                     found = true;
                     break;
                 }
@@ -219,14 +227,16 @@ public class Conductor {
             return;
         }
 
+        LOGGER.debug("Adding DCP Channel against {}", node);
         DcpChannel channel = new DcpChannel(node, env);
         channels.add(channel);
         channel.connect().subscribe();
     }
 
     private void remove(DcpChannel node) {
-       if(channels.remove(node)) {
-           node.disconnect().subscribe();
+        if(channels.remove(node)) {
+            LOGGER.debug("Removing DCP Channel against {}", node);
+            node.disconnect().subscribe();
        }
     }
 }

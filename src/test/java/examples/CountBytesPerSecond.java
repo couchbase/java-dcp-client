@@ -15,19 +15,13 @@
  */
 package examples;
 
-import com.couchbase.client.core.message.dcp.SnapshotMarkerMessage;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import rx.Scheduler;
-import rx.functions.Action1;
-import rx.schedulers.Schedulers;
 
-import java.util.Arrays;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -40,10 +34,8 @@ public class CountBytesPerSecond {
         final AtomicLong numBytes = new AtomicLong(0);
         final Client client = Client
             .configure()
-            //.hostnames("10.142.150.101")
-            .bucket("beer-sample")
-            .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
-            .bufferAckWatermark(100)
+            .hostnames("10.142.150.101")
+            .bucket("default")
             .build();
 
 
@@ -82,7 +74,9 @@ public class CountBytesPerSecond {
 
         client.startFromBeginningWithNoEnd().await();
 
-        long start = System.nanoTime();
+       // client.stopStreams().await();
+
+       /* long start = System.nanoTime();
         while(true) {
             if (numMutations.get() == 7303) {
                 break;
@@ -91,9 +85,9 @@ public class CountBytesPerSecond {
         long end = System.nanoTime();
 
         System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
-        System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
+        System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);*/
 
-        Thread.sleep(1000000);
+        Thread.sleep(10000000);
 
         client.disconnect().await();
 
