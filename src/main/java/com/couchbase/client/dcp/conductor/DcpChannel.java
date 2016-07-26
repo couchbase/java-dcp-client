@@ -94,101 +94,105 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 @Override
                 public Boolean call(ByteBuf buf) {
                     if (DcpOpenStreamResponse.is(buf)) {
-                        try {
-                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
-                            short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
-                            short status = MessageUtil.getStatus(buf);
-                            switch (status) {
-                                case 0x00:
-                                    promise.setSuccess();
-                                    // create a failover log message and emit
-                                    ByteBuf flog = Unpooled.buffer();
-                                    DcpFailoverLogResponse.init(flog);
-                                    DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
-                                    MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
-                                    env.controlEventHandler().onEvent(flog);
-                                    break;
-                                case 0x23:
-                                    promise.setSuccess();
-                                    // create a rollback message and emit
-                                    ByteBuf rb = Unpooled.buffer();
-                                    RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
-                                    env.controlEventHandler().onEvent(rb);
-                                    break;
-                                default:
-                                    promise.setFailure(new IllegalStateException("Unhandled Status: " + status));
-                            }
-                            return false;
-                        } finally {
-                            buf.release();
-                        }
+                        return filterOpenStreamResponse(buf);
                     } else if (DcpFailoverLogResponse.is(buf)) {
-                        try {
-                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
-                            short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
-                            promise.setSuccess();
-
-                            ByteBuf flog = Unpooled.buffer();
-                            DcpFailoverLogResponse.init(flog);
-                            DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
-                            MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
-                            env.controlEventHandler().onEvent(flog);
-                            return false;
-                        } finally {
-                            buf.release();
-                        }
+                        return filterFailoverLogResponse(buf);
                     } else if (DcpStreamEndMessage.is(buf)) {
-                        try {
-                            int flag = MessageUtil.getExtras(buf).readInt();
-                            short vbid = DcpStreamEndMessage.vbucket(buf);
-                            LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
-                            openStreams.set(vbid, 0);
-                            if (needsBufferAck) {
-                                acknowledgeBuffer(buf.readableBytes());
-                            }
-                            return false;
-                        } finally {
-                            buf.release();
-                        }
+                        return filterDcpStreamEndMessage(buf);
                     } else if (DcpCloseStreamResponse.is(buf)) {
-                        try {
-                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
-                            promise.setSuccess();
-                            if (needsBufferAck) {
-                                acknowledgeBuffer(buf.readableBytes());
-                            }
-                            return false;
-                        } finally {
-                            buf.release();
-                        }
-                    } else if (DcpBufferAckResponse.is(buf)) {
-                        try {
-                            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
-                            promise.setSuccess();
-                            return false;
-                        } finally {
-                            buf.release();
-                        }
+                        return filterDcpCloseStreamResponse(buf);
                     }
                     return true;
                 }
             })
             .subscribe(new Subscriber<ByteBuf>() {
                 @Override
-                public void onCompleted() {
-                    // Ignoring on purpose.
-                }
+                public void onCompleted() { /* Ignoring on purpose. */}
 
                 @Override
-                public void onError(Throwable e) {
-                    // Ignoring on purpose.
-                }
+                public void onError(Throwable e) { /* Ignoring on purpose. */ }
 
                 @Override
                 public void onNext(ByteBuf buf) {
                     env.controlEventHandler().onEvent(buf);
                 }
             });
+    }
+
+    private boolean filterOpenStreamResponse(ByteBuf buf) {
+        try {
+            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+            short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
+            short status = MessageUtil.getStatus(buf);
+            switch (status) {
+                case 0x00:
+                    promise.setSuccess();
+                    // create a failover log message and emit
+                    ByteBuf flog = Unpooled.buffer();
+                    DcpFailoverLogResponse.init(flog);
+                    DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
+                    MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
+                    env.controlEventHandler().onEvent(flog);
+                    break;
+                case 0x23:
+                    promise.setSuccess();
+                    // create a rollback message and emit
+                    ByteBuf rb = Unpooled.buffer();
+                    RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
+                    env.controlEventHandler().onEvent(rb);
+                    break;
+                default:
+                    promise.setFailure(new IllegalStateException("Unhandled Status: " + status));
+            }
+            return false;
+        } finally {
+            buf.release();
+        }
+    }
+
+    private boolean filterFailoverLogResponse(ByteBuf buf) {
+        try {
+            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+            short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
+            promise.setSuccess();
+
+            ByteBuf flog = Unpooled.buffer();
+            DcpFailoverLogResponse.init(flog);
+            DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
+            MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
+            env.controlEventHandler().onEvent(flog);
+            return false;
+        } finally {
+            buf.release();
+        }
+    }
+
+    private boolean filterDcpStreamEndMessage(ByteBuf buf) {
+        try {
+            int flag = MessageUtil.getExtras(buf).readInt();
+            short vbid = DcpStreamEndMessage.vbucket(buf);
+            LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
+            openStreams.set(vbid, 0);
+            if (needsBufferAck) {
+                acknowledgeBuffer(buf.readableBytes());
+            }
+            return false;
+        } finally {
+            buf.release();
+        }
+    }
+
+    private boolean filterDcpCloseStreamResponse(ByteBuf buf) {
+        try {
+            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+            promise.setSuccess();
+            if (needsBufferAck) {
+                acknowledgeBuffer(buf.readableBytes());
+            }
+            return false;
+        } finally {
+            buf.release();
+        }
     }
 
     public Completable connect() {
