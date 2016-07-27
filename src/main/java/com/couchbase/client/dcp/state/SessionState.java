@@ -27,6 +27,7 @@ public class SessionState {
         for (int i = 0; i < NUM_PARTITIONS; i++) {
             PartitionState partitionState = partitionStates.get(i);
             partitionState.setEndSeqno(NO_END_SEQNO);
+            partitionState.setSnapshotEndSeqno(NO_END_SEQNO);
             partitionStates.set(i, partitionState);
         }
     }

@@ -31,12 +31,11 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
+import com.couchbase.client.deps.io.netty.util.concurrent.DefaultPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-import com.couchbase.client.deps.io.netty.util.internal.IntegerHolder;
-import rx.Completable;
-import rx.Observable;
-import rx.Subscriber;
+import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
+import rx.*;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
@@ -61,7 +60,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private final ClientEnvironment env;
     private final InetAddress inetAddress;
     private final Subject<ByteBuf, ByteBuf> controlSubject;
-    private final Map<Integer, ChannelPromise> outstandingResponses;
+    private final Map<Integer, Promise<?>> outstandingPromises;
     private final Map<Integer, Short> outstandingVbucketInfos;
     private volatile Channel channel;
     private final AtomicIntegerArray openStreams;
@@ -73,7 +72,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         super(LifecycleState.DISCONNECTED);
         this.inetAddress = inetAddress;
         this.env = env;
-        this.outstandingResponses = new ConcurrentHashMap<Integer, ChannelPromise>();
+        this.outstandingPromises = new ConcurrentHashMap<Integer, Promise<?>>();
         this.outstandingVbucketInfos = new ConcurrentHashMap<Integer, Short>();
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
         this.openStreams = new AtomicIntegerArray(1024);
@@ -101,6 +100,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         return filterDcpStreamEndMessage(buf);
                     } else if (DcpCloseStreamResponse.is(buf)) {
                         return filterDcpCloseStreamResponse(buf);
+                    } else if (DcpGetPartitionSeqnosResponse.is(buf)) {
+                        return filterDcpGetPartitionSeqnosResponse(buf);
                     }
                     return true;
                 }
@@ -121,12 +122,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     private boolean filterOpenStreamResponse(ByteBuf buf) {
         try {
-            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+            Promise promise = outstandingPromises.remove(MessageUtil.getOpaque(buf));
             short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
             short status = MessageUtil.getStatus(buf);
             switch (status) {
                 case 0x00:
-                    promise.setSuccess();
+                    promise.setSuccess(null);
                     // create a failover log message and emit
                     ByteBuf flog = Unpooled.buffer();
                     DcpFailoverLogResponse.init(flog);
@@ -135,7 +136,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     env.controlEventHandler().onEvent(flog);
                     break;
                 case 0x23:
-                    promise.setSuccess();
+                    promise.setSuccess(null);
                     // create a rollback message and emit
                     ByteBuf rb = Unpooled.buffer();
                     RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
@@ -150,17 +151,26 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         }
     }
 
+    private boolean filterDcpGetPartitionSeqnosResponse(ByteBuf buf) {
+        try {
+            Promise<ByteBuf> promise = (Promise<ByteBuf>) outstandingPromises.remove(MessageUtil.getOpaque(buf));
+            promise.setSuccess(MessageUtil.getContent(buf).copy());
+            return false;
+        } finally {
+            buf.release();
+        }
+    }
+
     private boolean filterFailoverLogResponse(ByteBuf buf) {
         try {
-            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
+            Promise<ByteBuf> promise = (Promise<ByteBuf>) outstandingPromises.remove(MessageUtil.getOpaque(buf));
             short vbid = outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
-            promise.setSuccess();
 
             ByteBuf flog = Unpooled.buffer();
             DcpFailoverLogResponse.init(flog);
-            DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
+            DcpFailoverLogResponse.vbucket(flog, DcpFailoverLogResponse.vbucket(buf));
             MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
-            env.controlEventHandler().onEvent(flog);
+            promise.setSuccess(flog);
             return false;
         } finally {
             buf.release();
@@ -184,8 +194,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     private boolean filterDcpCloseStreamResponse(ByteBuf buf) {
         try {
-            ChannelPromise promise = outstandingResponses.remove(MessageUtil.getOpaque(buf));
-            promise.setSuccess();
+            Promise<?> promise = outstandingPromises.remove(MessageUtil.getOpaque(buf));
+            promise.setSuccess(null);
             if (needsBufferAck) {
                 acknowledgeBuffer(buf.readableBytes());
             }
@@ -309,7 +319,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 DcpOpenStreamRequest.snapshotStartSeqno(buffer, snapshotStartSeqno);
                 DcpOpenStreamRequest.snapshotEndSeqno(buffer, snapshotEndSeqno);
 
-                outstandingResponses.put(opaque, promise);
+                outstandingPromises.put(opaque, promise);
                 outstandingVbucketInfos.put(opaque, vbid);
                 channel.writeAndFlush(buffer);
 
@@ -350,7 +360,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 DcpCloseStreamRequest.vbucket(buffer, vbid);
                 DcpCloseStreamRequest.opaque(buffer, opaque);
 
-                outstandingResponses.put(opaque, promise);
+                outstandingPromises.put(opaque, promise);
                 channel.writeAndFlush(buffer);
 
                 promise.addListener(new GenericFutureListener<ChannelFuture>() {
@@ -370,33 +380,70 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         });
     }
 
-    public Completable getFailoverLog(final short vbid) {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+    /**
+     * Returns all seqnos for all vbuckets on that channel.
+     */
+    public Single<ByteBuf> getSeqnos() {
+        return Single.create(new Single.OnSubscribe<ByteBuf>() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final SingleSubscriber<? super ByteBuf> subscriber) {
                 if (state() != LifecycleState.CONNECTED) {
                     subscriber.onError(new NotConnectedException());
                     return;
                 }
 
                 int opaque = OPAQUE.incrementAndGet();
-                ChannelPromise promise = channel.newPromise();
+                Promise<ByteBuf> promise = new DefaultPromise<ByteBuf>(channel.eventLoop());
+
+                ByteBuf buffer = Unpooled.buffer();
+                DcpGetPartitionSeqnosRequest.init(buffer);
+                DcpGetPartitionSeqnosRequest.opaque(buffer, opaque);
+
+                outstandingPromises.put(opaque, promise);
+                channel.writeAndFlush(buffer);
+
+                promise.addListener(new GenericFutureListener<Future<ByteBuf>>() {
+                    @Override
+                    public void operationComplete(Future<ByteBuf> future) throws Exception {
+                        if (future.isSuccess()) {
+                            subscriber.onSuccess(future.getNow());
+                        } else {
+                            subscriber.onError(future.cause());
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    public Single<ByteBuf> getFailoverLog(final short vbid) {
+        return Single.create(new Single.OnSubscribe<ByteBuf>() {
+            @Override
+            public void call(final SingleSubscriber<? super ByteBuf> subscriber) {
+                if (state() != LifecycleState.CONNECTED) {
+                    subscriber.onError(new NotConnectedException());
+                    return;
+                }
+
+                int opaque = OPAQUE.incrementAndGet();
+                Promise<ByteBuf> promise = new DefaultPromise<ByteBuf>(channel.eventLoop());
 
                 ByteBuf buffer = Unpooled.buffer();
                 DcpFailoverLogRequest.init(buffer);
                 DcpFailoverLogRequest.opaque(buffer, opaque);
                 DcpFailoverLogRequest.vbucket(buffer, vbid);
 
-                outstandingResponses.put(opaque, promise);
+                outstandingPromises.put(opaque, promise);
                 outstandingVbucketInfos.put(opaque, vbid);
                 channel.writeAndFlush(buffer);
 
-                promise.addListener(new GenericFutureListener<ChannelFuture>() {
+
+                promise.addListener(new GenericFutureListener<Future<ByteBuf>>() {
                     @Override
-                    public void operationComplete(ChannelFuture future) throws Exception {
+                    public void operationComplete(Future<ByteBuf> future) throws Exception {
                         if (future.isSuccess()) {
                             LOGGER.debug("Asked for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);
-                            subscriber.onCompleted();
+                            subscriber.onSuccess(future.getNow());
                         } else {
                             LOGGER.debug("Failed to ask for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);
                             subscriber.onError(future.cause());

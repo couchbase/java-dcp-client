@@ -22,7 +22,10 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import rx.functions.Action1;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,7 +48,7 @@ public class CountBytesPerSecond {
             public void onEvent(ByteBuf event) {
                 // System.err.println(event);
                 if (DcpMutationMessage.is(event)) {
-                    //   System.err.println(DcpMutationMessage.toString(event));
+                     System.err.println(DcpMutationMessage.toString(event));
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
                 }
@@ -61,7 +64,7 @@ public class CountBytesPerSecond {
 //                        System.err.println(DcpSnapshotMarkerMessage.toString(event));
                         client.acknowledgeBuffer(event);
                     } else if (DcpFailoverLogResponse.is(event)) {
-//                        System.err.println(DcpFailoverLogResponse.toString(event));
+  //                      System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {
 //                        System.err.println(RollbackMessage.toString(event));
                     } else {
@@ -73,8 +76,9 @@ public class CountBytesPerSecond {
 
         client.connect().await();
 
-        client.startFromBeginningWithNoEnd().await();
 
+        client.startFromNowWithNoEnd().await();
+/*
        // client.stopStreams().await();
 
        long start = System.nanoTime();
@@ -93,7 +97,8 @@ public class CountBytesPerSecond {
             System.out.println(ps);
         }
 
-        client.disconnect().await();
+        client.disconnect().await();*/
 
+        Thread.sleep(100000000);
     }
 }

@@ -17,6 +17,7 @@ package com.couchbase.client.dcp;
 
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.message.observe.Observe;
 import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.conductor.DcpChannel;
@@ -45,6 +46,7 @@ import rx.Single;
 import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func1;
+import rx.functions.Func2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -87,6 +89,20 @@ public class Client {
             }
         }
         conductor = new Conductor(env, builder.configProvider);
+    }
+
+    public Observable<long[]> getSeqnos() {
+        return conductor.getSeqnos().flatMap(new Func1<ByteBuf, Observable<long[]>>() {
+            @Override
+            public Observable<long[]> call(ByteBuf buf) {
+                int numPairs = buf.readableBytes() / 10;
+                List<long[]> pairs = new ArrayList<long[]>(numPairs);
+                for (int i=0; i<numPairs; i++) {
+                    pairs.add(new long[] { buf.getShort(10*i), buf.getLong(10*i+2) });
+                }
+                return Observable.from(pairs);
+            }
+        });
     }
 
     public void controlEventHandler(final ControlEventHandler controlEventHandler) {
@@ -169,6 +185,82 @@ public class Client {
         return conductor.stop();
     }
 
+
+    public Completable startFromNowWithNoEnd(Integer... vbids) {
+        final List<Integer> partitions = new ArrayList<Integer>();
+        if (vbids.length > 0) {
+            LOGGER.info("Starting Stream against partitions {} with no end.", partitions);
+            partitions.addAll(Arrays.asList(vbids));
+        } else {
+            int numPartitions = conductor.numberOfPartitions();
+            LOGGER.info("Starting Stream against all {} partitions with no end.", numPartitions);
+            for (int i = 0; i < numPartitions; i++) {
+                partitions.add(i);
+            }
+        }
+        Collections.sort(partitions);
+
+        sessionState.intializeToBeginningWithNoEnd();
+        return getSeqnos()
+            .filter(new Func1<long[], Boolean>() {
+                @Override
+                public Boolean call(long[] longs) {
+                    return partitions.contains((int) longs[0]);
+                }
+            })
+            .doOnNext(new Action1<long[]>() {
+                @Override
+                public void call(long[] longs) {
+                    short partition = (short) longs[0];
+                    long seqno = longs[1];
+                    PartitionState partitionState = sessionState.get(partition);
+                    partitionState.setStartSeqno(seqno);
+                    partitionState.setSnapshotStartSeqno(seqno);
+                    sessionState.set(partition, partitionState);
+                }
+            })
+            .reduce(new ArrayList<Integer>(), new Func2<ArrayList<Integer>, long[], ArrayList<Integer>>() {
+                @Override
+                public ArrayList<Integer> call(ArrayList<Integer> integers, long[] longs) {
+                    integers.add((int) longs[0]);
+                    return integers;
+                }
+            })
+            .flatMap(new Func1<ArrayList<Integer>, Observable<ByteBuf>>() {
+                @Override
+                public Observable<ByteBuf> call(ArrayList<Integer> integers) {
+                    return getFailoverLogs(integers.toArray(new Integer[] {}));
+                }
+            })
+            .map(new Func1<ByteBuf, Integer>() {
+                @Override
+                public Integer call(ByteBuf buf) {
+                    short partition = DcpFailoverLogResponse.vbucket(buf);
+                    int numEntries = DcpFailoverLogResponse.numLogEntries(buf);
+                    long lastUUid = DcpFailoverLogResponse.vbuuidEntry(buf, numEntries-1);
+                    PartitionState ps = sessionState.get(partition);
+                    ps.setUuid(lastUUid);
+                    sessionState.set(partition, ps);
+                    return (int) partition;
+                }
+            })
+            .flatMap(new Func1<Integer, Observable<?>>() {
+                @Override
+                public Observable<?> call(Integer partition) {
+                    PartitionState partitionState = sessionState.get(partition);
+                    return conductor.startStreamForPartition(
+                        partition.shortValue(),
+                        partitionState.getUuid(),
+                        partitionState.getStartSeqno(),
+                        partitionState.getEndSeqno(),
+                        partitionState.getSnapshotStartSeqno(),
+                        partitionState.getSnapshotEndSeqno()
+                    ).toObservable();
+                }
+            })
+            .toCompletable();
+    }
+
     /**
      * Start all partition streams from beginning, so all data in the bucket will be streamed.
      *
@@ -230,17 +322,16 @@ public class Client {
             .toCompletable();
     }
 
-    public Completable getFailoverLogs(Integer... vbids) {
+    public Observable<ByteBuf> getFailoverLogs(Integer... vbids) {
         List<Integer> partitions = partitionsForVbids(conductor.numberOfPartitions(), vbids);
         return Observable
             .from(partitions)
-            .flatMap(new Func1<Integer, Observable<?>>() {
+            .flatMap(new Func1<Integer, Observable<ByteBuf>>() {
                 @Override
-                public Observable<?> call(Integer p) {
+                public Observable<ByteBuf> call(Integer p) {
                     return conductor.getFailoverLog(p.shortValue()).toObservable();
                 }
-            })
-            .toCompletable();
+            });
     }
 
     private static final List<Integer> partitionsForVbids(int numPartitions, Integer... vbids) {

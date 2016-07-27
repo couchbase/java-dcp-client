@@ -33,6 +33,7 @@ public enum MessageUtil {
     public static final short OPAQUE_OFFSET = 12;
     public static final short CAS_OFFSET = 16;
 
+    public static final byte GET_SEQNOS_OPCODE = 0x48;
     public static final byte OPEN_CONNECTION_OPCODE = 0x50;
     public static final byte SASL_LIST_MECHS_OPCODE = 0x20;
     public static final byte SASL_AUTH_OPCODE = 0x21;

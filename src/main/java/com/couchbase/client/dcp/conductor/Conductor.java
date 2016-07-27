@@ -116,6 +116,45 @@ public class Conductor {
         return config.numberOfPartitions();
     }
 
+    public Observable<ByteBuf> getSeqnos() {
+        return Observable
+            .from(channels)
+            .flatMap(new Func1<DcpChannel, Observable<ByteBuf>>() {
+                @Override
+                public Observable<ByteBuf> call(DcpChannel channel) {
+                    return getSeqnosForChannel(channel);
+                }
+            });
+    }
+
+    private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
+        if (channel.state() != LifecycleState.CONNECTED) {
+            LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel);
+            return Observable
+                .timer(100, TimeUnit.MILLISECONDS)
+                .flatMap(new Func1<Long, Observable<ByteBuf>>() {
+                    @Override
+                    public Observable<ByteBuf> call(Long aLong) {
+                        return getSeqnosForChannel(channel);
+                    }
+                });
+        }
+        return channel.getSeqnos().toObservable();
+    }
+
+    public Single<ByteBuf> getFailoverLog(final short partition) {
+        final DcpChannel channel = masterChannelByPartition(partition);
+        if (channel.state() != LifecycleState.CONNECTED) {
+            return Observable.timer(100, TimeUnit.MILLISECONDS)
+                .flatMap(new Func1<Long, Observable<ByteBuf>>() {
+                    @Override
+                    public Observable<ByteBuf> call(Long aLong) {
+                        return getFailoverLog(partition).toObservable();
+                    }
+                }).first().toSingle();
+        }
+        return channel.getFailoverLog(partition);
+    }
 
     public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno,
         final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
@@ -143,11 +182,6 @@ public class Conductor {
     public boolean streamIsOpen(final short partition) {
         DcpChannel channel = masterChannelByPartition(partition);
         return channel.streamIsOpen(partition);
-    }
-
-    public Completable getFailoverLog(final short partition) {
-        DcpChannel channel = masterChannelByPartition(partition);
-        return channel.getFailoverLog(partition);
     }
 
     public void acknowledgeBuffer(final short partition, int numBytes) {
