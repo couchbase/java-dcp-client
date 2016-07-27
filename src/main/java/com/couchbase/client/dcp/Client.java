@@ -99,6 +99,13 @@ public class Client {
                     ps.setSnapshotStartSeqno(DcpSnapshotMarkerMessage.startSeqno(event));
                     ps.setSnapshotEndSeqno(DcpSnapshotMarkerMessage.endSeqno(event));
                     sessionState.set(partition, ps);
+                } else if (DcpFailoverLogResponse.is(event)) {
+                    short partition = DcpFailoverLogResponse.vbucket(event);
+                    int numEntries = DcpFailoverLogResponse.numLogEntries(event);
+                    long lastUUid = DcpFailoverLogResponse.vbuuidEntry(event, numEntries-1);
+                    PartitionState ps = sessionState.get(partition);
+                    ps.setUuid(lastUUid);
+                    sessionState.set(partition, ps);
                 }
 
                 // Forward event to user.
