@@ -185,8 +185,7 @@ public class Client {
         return conductor.stop();
     }
 
-
-    public Completable startFromNowWithNoEnd(Integer... vbids) {
+    public Completable startStreams(Integer... vbids) {
         final List<Integer> partitions = new ArrayList<Integer>();
         if (vbids.length > 0) {
             LOGGER.info("Starting Stream against partitions {} with no end.", partitions);
@@ -200,14 +199,39 @@ public class Client {
         }
         Collections.sort(partitions);
 
-        sessionState.intializeToBeginningWithNoEnd();
-        return getSeqnos()
-            .filter(new Func1<long[], Boolean>() {
+        return Observable
+            .from(partitions)
+            .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
-                public Boolean call(long[] longs) {
-                    return partitions.contains((int) longs[0]);
+                public Observable<?> call(Integer partition) {
+                    PartitionState partitionState = sessionState.get(partition);
+                    return conductor.startStreamForPartition(
+                        partition.shortValue(),
+                        partitionState.getUuid(),
+                        partitionState.getStartSeqno(),
+                        partitionState.getEndSeqno(),
+                        partitionState.getSnapshotStartSeqno(),
+                        partitionState.getSnapshotEndSeqno()
+                    ).toObservable();
                 }
             })
+            .toCompletable();
+    }
+
+    /**
+     * Start all partition streams from beginning, so all data in the bucket will be streamed.
+     *
+     * For simplicity you can provide a list of vbucket IDS, but if none are provided all are used
+     * automatically.
+     */
+    public Completable initializeFromBeginningToNoEnd() {
+        sessionState.intializeToBeginningWithNoEnd();
+        return Completable.complete();
+    }
+
+    public Completable initializeFromNowToNoEnd() {
+        sessionState.intializeToBeginningWithNoEnd();
+        return getSeqnos()
             .doOnNext(new Action1<long[]>() {
                 @Override
                 public void call(long[] longs) {
@@ -243,70 +267,7 @@ public class Client {
                     sessionState.set(partition, ps);
                     return (int) partition;
                 }
-            })
-            .flatMap(new Func1<Integer, Observable<?>>() {
-                @Override
-                public Observable<?> call(Integer partition) {
-                    PartitionState partitionState = sessionState.get(partition);
-                    return conductor.startStreamForPartition(
-                        partition.shortValue(),
-                        partitionState.getUuid(),
-                        partitionState.getStartSeqno(),
-                        partitionState.getEndSeqno(),
-                        partitionState.getSnapshotStartSeqno(),
-                        partitionState.getSnapshotEndSeqno()
-                    ).toObservable();
-                }
-            })
-            .toCompletable();
-    }
-
-    /**
-     * Start all partition streams from beginning, so all data in the bucket will be streamed.
-     *
-     * For simplicity you can provide a list of vbucket IDS, but if none are provided all are used
-     * automatically.
-     */
-    public Completable startFromBeginningWithNoEnd(Integer... vbids) {
-        sessionState.intializeToBeginningWithNoEnd();
-
-        List<Integer> partitions = new ArrayList<Integer>();
-        if (vbids.length > 0) {
-            partitions = Arrays.asList(vbids);
-            LOGGER.info("Starting Stream against partitions {} with no end.", partitions);
-        } else {
-            int numPartitions = conductor.numberOfPartitions();
-            LOGGER.info("Starting Stream against all {} partitions with no end.", numPartitions);
-            for (int i = 0; i < numPartitions; i++) {
-                partitions.add(i);
-            }
-        }
-        Collections.sort(partitions);
-
-        return Observable
-            .from(partitions)
-            .flatMap(new Func1<Integer, Observable<?>>() {
-                @Override
-                public Observable<?> call(Integer p) {
-                    PartitionState partitionState = sessionState.get(p);
-
-                    return conductor.startStreamForPartition(
-                        p.shortValue(),
-                        partitionState.getUuid(),
-                        partitionState.getStartSeqno(),
-                        partitionState.getEndSeqno(),
-                        partitionState.getSnapshotStartSeqno(),
-                        partitionState.getSnapshotEndSeqno()
-                    ).toObservable();
-                }
-            })
-            .toCompletable()
-            .doOnCompleted(new Action0() {
-                @Override
-                public void call() {
-                    LOGGER.info("Requested streams initialized, starting to stream.");
-                }
-            });
+            }).last().toCompletable();
     }
 
     public Completable stopStreams(Integer... vbids) {

@@ -46,7 +46,8 @@ public class CountDocs {
         client.connect().await();
 
         // Start streaming of all partitions from beginning with no end
-        client.startFromBeginningWithNoEnd().await();
+        client.initializeFromBeginningToNoEnd().await();
+        client.startStreams().await();
 
         while(true) {
             Thread.sleep(1000);

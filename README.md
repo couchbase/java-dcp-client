@@ -81,9 +81,15 @@ public class CountDocs {
 
         // Connect to the cluster
         client.connect().await();
+        
+        // Initialize the session state to stream from 0 to infinity
+        client.initializeFromBeginningToNoEnd().await();
+        
+        // Use this if you want to start now and no backfill:
+        // client.initializeFromNowToNoEnd().await();
 
-        // Start streaming of all partitions from beginning with no end
-        client.startFromBeginningWithNoEnd().await();
+        // Start streaming on all partitions
+        client.startStreams().await();
 
         while(true) {
             Thread.sleep(1000);
