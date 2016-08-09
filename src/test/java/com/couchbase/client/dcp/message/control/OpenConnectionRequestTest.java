@@ -34,7 +34,7 @@ public class OpenConnectionRequestTest {
 
         DcpOpenConnectionRequest.init(buffer);
 
-        assertEquals(24, buffer.writerIndex());
+        assertEquals(32, buffer.writerIndex());
         assertTrue(DcpOpenConnectionRequest.is(buffer));
     }
 
