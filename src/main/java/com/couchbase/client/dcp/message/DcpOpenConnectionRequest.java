@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 
+import static com.couchbase.client.dcp.message.MessageUtil.HEADER_SIZE;
 import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
 
 public enum DcpOpenConnectionRequest {
@@ -52,7 +53,7 @@ public enum DcpOpenConnectionRequest {
      * Returns the connection name (a slice out of the original buffer).
      */
     public static ByteBuf connectionName(final ByteBuf buffer) {
-        return buffer.slice(24, buffer.getShort(2));
+        return MessageUtil.getKey(buffer);
     }
 
 }
