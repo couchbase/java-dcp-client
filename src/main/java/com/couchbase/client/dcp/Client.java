@@ -100,6 +100,7 @@ public class Client {
                 for (int i=0; i<numPairs; i++) {
                     pairs.add(new long[] { buf.getShort(10*i), buf.getLong(10*i+2) });
                 }
+                buf.release();
                 return Observable.from(pairs);
             }
         });
@@ -265,6 +266,7 @@ public class Client {
                     PartitionState ps = sessionState.get(partition);
                     ps.setUuid(lastUUid);
                     sessionState.set(partition, ps);
+                    buf.release();
                     return (int) partition;
                 }
             }).last().toCompletable();

@@ -27,9 +27,11 @@ import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.buffer.PooledByteBufAllocator;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
+import com.couchbase.client.deps.io.netty.channel.ChannelOption;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.DefaultPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
@@ -132,7 +134,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     ByteBuf flog = Unpooled.buffer();
                     DcpFailoverLogResponse.init(flog);
                     DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
-                    MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
+                    ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
+                    MessageUtil.setContent(content, flog);
+                    content.release();
                     env.controlEventHandler().onEvent(flog);
                     break;
                 case 0x23:
@@ -214,6 +218,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     return;
                 }
                 final Bootstrap bootstrap = new Bootstrap()
+                    //.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                     .remoteAddress(inetAddress, 11210)
                     .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
                     .handler(new DcpPipeline(env, controlSubject))

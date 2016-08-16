@@ -18,14 +18,9 @@ package examples;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
-import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
-import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-import rx.functions.Action1;
 
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,16 +34,14 @@ public class CountBytesPerSecond {
         final Client client = Client
             .configure()
             .hostnames("127.0.0.1")
-            .bucket("beer-sample")
+            .bucket("default")
             .build();
 
 
         client.dataEventHandler(new DataEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
-                // System.err.println(event);
                 if (DcpMutationMessage.is(event)) {
-                     System.err.println(DcpMutationMessage.toString(event));
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
                 }
@@ -61,14 +54,10 @@ public class CountBytesPerSecond {
                 @Override
                 public void onEvent(ByteBuf event) {
                     if (DcpSnapshotMarkerMessage.is(event)) {
-//                        System.err.println(DcpSnapshotMarkerMessage.toString(event));
                         client.acknowledgeBuffer(event);
                     } else if (DcpFailoverLogResponse.is(event)) {
-  //                      System.err.println(DcpFailoverLogResponse.toString(event));
                     } else if (RollbackMessage.is(event)) {
-//                        System.err.println(RollbackMessage.toString(event));
                     } else {
-//                        System.err.println(MessageUtil.humanize(event));
                     }
                     event.release();
                 }
@@ -78,12 +67,10 @@ public class CountBytesPerSecond {
 
         client.initializeFromBeginningToNoEnd().await();
         client.startStreams().await();
-/*
-       // client.stopStreams().await();
 
        long start = System.nanoTime();
         while(true) {
-            if (numMutations.get() == 7303) {
+            if (numMutations.get() == 800000) {
                 break;
             }
         }
@@ -93,11 +80,11 @@ public class CountBytesPerSecond {
         System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
 
         for (int i = 0; i < 1024; i++) {
-            PartitionState ps = client.sessionState().get(i);
-            System.out.println(ps);
+//            PartitionState ps = client.sessionState().get(i);
+//            System.out.println(ps);
         }
 
-        client.disconnect().await();*/
+        client.disconnect().await();
 
         Thread.sleep(100000000);
     }

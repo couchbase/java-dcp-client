@@ -151,6 +151,7 @@ public class AuthHandler
         SaslAuthRequest.init(request);
         SaslAuthRequest.mechanism(Unpooled.copiedBuffer(selectedMechanism, CharsetUtil.UTF_8), request);
         SaslAuthRequest.challengeResponse(payload, request);
+        payload.release();
 
         ChannelFuture future = ctx.writeAndFlush(request);
         future.addListener(new GenericFutureListener<Future<Void>>() {
