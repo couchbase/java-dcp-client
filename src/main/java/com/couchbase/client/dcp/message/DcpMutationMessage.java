@@ -44,23 +44,23 @@ public enum DcpMutationMessage {
     }
 
     public static long bySeqno(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getLong(0);
+        return buffer.getLong(MessageUtil.HEADER_SIZE);
     }
 
     public static long revisionSeqno(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getLong(8);
+        return buffer.getLong(MessageUtil.HEADER_SIZE + 8);
     }
 
     public static int flags(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getInt(16);
+        return buffer.getInt(MessageUtil.HEADER_SIZE + 16);
     }
 
     public static int expiry(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getInt(20);
+        return buffer.getInt(MessageUtil.HEADER_SIZE + 20);
     }
 
     public static int lockTime(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getInt(24);
+        return buffer.getInt(MessageUtil.HEADER_SIZE + 24);
     }
 
     public static String toString(final ByteBuf buffer) {

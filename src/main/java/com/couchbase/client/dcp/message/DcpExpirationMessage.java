@@ -32,9 +32,12 @@ public enum DcpExpirationMessage {
     }
 
 
-    public static long revisionSeqno(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getLong(8);
+    public static long bySeqno(final ByteBuf buffer) {
+        return buffer.getLong(MessageUtil.HEADER_SIZE);
     }
 
+    public static long revisionSeqno(final ByteBuf buffer) {
+        return buffer.getLong(MessageUtil.HEADER_SIZE + 8);
+    }
 
 }

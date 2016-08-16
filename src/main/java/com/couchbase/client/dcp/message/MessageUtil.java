@@ -137,7 +137,7 @@ public enum MessageUtil {
     }
 
     public static ByteBuf getExtras(ByteBuf buffer) {
-        return buffer.slice(HEADER_SIZE , buffer.getByte(EXTRAS_LENGTH_OFFSET));
+        return buffer.slice(HEADER_SIZE, buffer.getByte(EXTRAS_LENGTH_OFFSET));
     }
 
     public static void setVbucket(short vbucket, ByteBuf buffer) {
