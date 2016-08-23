@@ -18,6 +18,7 @@ package examples;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
@@ -31,12 +32,15 @@ public class CountBytesPerSecond {
 
         final AtomicInteger numMutations = new AtomicInteger(0);
         final AtomicLong numBytes = new AtomicLong(0);
+
+
         final Client client = Client
             .configure()
+            .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 1024)
+            .bufferAckWatermark(50)
             .hostnames("127.0.0.1")
-            .bucket("default")
+            .bucket("travel-sample")
             .build();
-
 
         client.dataEventHandler(new DataEventHandler() {
             @Override
@@ -45,6 +49,7 @@ public class CountBytesPerSecond {
                     numMutations.incrementAndGet();
                     numBytes.addAndGet(event.readableBytes());
                 }
+                // ignore deletions and expirations
                 client.acknowledgeBuffer(event);
                 event.release();
             }
@@ -53,24 +58,22 @@ public class CountBytesPerSecond {
         client.controlEventHandler(new ControlEventHandler() {
                 @Override
                 public void onEvent(ByteBuf event) {
-                    if (DcpSnapshotMarkerMessage.is(event)) {
-                        client.acknowledgeBuffer(event);
-                    } else if (DcpFailoverLogResponse.is(event)) {
-                    } else if (RollbackMessage.is(event)) {
-                    } else {
-                    }
+                    // Ignore RollbackMessage
                     event.release();
                 }
             });
 
+
         client.connect().await();
 
         client.initializeFromBeginningToNoEnd().await();
+
         client.startStreams().await();
+
 
        long start = System.nanoTime();
         while(true) {
-            if (numMutations.get() == 800000) {
+            if (numMutations.get() == 31591) {
                 break;
             }
         }
@@ -79,10 +82,7 @@ public class CountBytesPerSecond {
         System.err.println(TimeUnit.NANOSECONDS.toMillis(end - start));
         System.err.println("Loaded MBytes: " + numBytes.get() / 1024 / 1024);
 
-        for (int i = 0; i < 1024; i++) {
-//            PartitionState ps = client.sessionState().get(i);
-//            System.out.println(ps);
-        }
+
 
         client.disconnect().await();
 

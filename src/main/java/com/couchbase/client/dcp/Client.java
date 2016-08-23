@@ -106,23 +106,54 @@ public class Client {
         });
     }
 
+    public SessionState sessionState() {
+        return sessionState;
+    }
+
+    /**
+     * Stores a {@link ControlEventHandler} to be called when control events happen.
+     *
+     * All events (passed as {@link ByteBuf}s) that the callback receives need to be handled
+     * and at least released (by using {@link ByteBuf#release()}, otherwise they will leak.
+     *
+     * The following messages can happen and should be handled depending on the needs of the
+     * client:
+     *
+     * - {@link RollbackMessage}: If during a connect phase the server responds with rollback
+     *   information, this event is forwarded to the callback. Does not need to be acknowledged.
+     *
+     * Keep in mind that the callback is executed on the IO thread (netty's thread pool for the
+     * event loops) so further synchronization is needed if the data needs to be used on a different
+     * thread in a thread safe manner.
+     *
+     * @param controlEventHandler the event handler to use.
+     */
     public void controlEventHandler(final ControlEventHandler controlEventHandler) {
         env.setControlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
                 if (DcpSnapshotMarkerMessage.is(event)) {
+                    // Do not snapshot marker messages for now since their info is kept
+                    // in the session state transparently
                     short partition = DcpSnapshotMarkerMessage.partition(event);
                     PartitionState ps = sessionState.get(partition);
                     ps.setSnapshotStartSeqno(DcpSnapshotMarkerMessage.startSeqno(event));
                     ps.setSnapshotEndSeqno(DcpSnapshotMarkerMessage.endSeqno(event));
                     sessionState.set(partition, ps);
+                    acknowledgeBuffer(event);
+                    event.release();
+                    return;
                 } else if (DcpFailoverLogResponse.is(event)) {
+                    // Do not forward failover log responses for now since their info is kept
+                    // in the session state transparently
                     short partition = DcpFailoverLogResponse.vbucket(event);
                     int numEntries = DcpFailoverLogResponse.numLogEntries(event);
                     long lastUUid = DcpFailoverLogResponse.vbuuidEntry(event, numEntries-1);
                     PartitionState ps = sessionState.get(partition);
                     ps.setUuid(lastUUid);
                     sessionState.set(partition, ps);
+                    event.release();
+                    return;
                 }
 
                 // Forward event to user.
@@ -131,10 +162,27 @@ public class Client {
         });
     }
 
-    public SessionState sessionState() {
-        return sessionState;
-    }
-
+    /**
+     * Stores a {@link DataEventHandler} to be called when data events happen.
+     *
+     * All events (passed as {@link ByteBuf}s) that the callback receives need to be handled
+     * and at least released (by using {@link ByteBuf#release()}, otherwise they will leak.
+     *
+     * The following messages can happen and should be handled depending on the needs of the
+     * client:
+     *
+     *  - {@link DcpMutationMessage}: A mutation has occurred. Needs to be acknowledged.
+     *  - {@link DcpDeletionMessage}: A deletion has occurred. Needs to be acknowledged.
+     *  - {@link DcpExpirationMessage}: An expiration has occurred. Note that current server versions
+     *    (as of 4.5.0) are not emitting this event, but in any case you should at least release it to
+     *    be forwards compatible. Needs to be acknowledged.
+     *
+     * Keep in mind that the callback is executed on the IO thread (netty's thread pool for the
+     * event loops) so further synchronization is needed if the data needs to be used on a different
+     * thread in a thread safe manner.
+     *
+     * @param dataEventHandler the event handler to use.
+     */
     public void dataEventHandler(final DataEventHandler dataEventHandler) {
         env.setDataEventHandler(new DataEventHandler() {
             @Override
