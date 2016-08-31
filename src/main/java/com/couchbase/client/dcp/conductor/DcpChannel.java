@@ -231,10 +231,11 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         if (future.isSuccess()) {
                             channel = future.channel();
                             transitionState(LifecycleState.CONNECTED);
-                            LOGGER.info("Connected to Node {}", channel.remoteAddress());
+                            LOGGER.info("Connected to Node {}", inetAddress);
                             subscriber.onCompleted();
                         } else {
                             transitionState(LifecycleState.DISCONNECTED);
+                            // todo!
                             LOGGER.warn("IMPLEMENT ME!!! (retry on failure until removed)");
                             subscriber.onError(future.cause());
                         }

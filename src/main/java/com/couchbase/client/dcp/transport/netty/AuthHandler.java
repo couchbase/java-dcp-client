@@ -122,10 +122,10 @@ public class AuthHandler
     private void checkIsAuthed(final short status) {
         switch (status) {
             case 0x00: // auth success
-                originalPromise.setSuccess();
-                ctx.pipeline().remove(this);
-                ctx.fireChannelActive();
                 LOGGER.debug("Authenticated against Node {}", ctx.channel().remoteAddress());
+                ctx.pipeline().remove(this);
+                originalPromise.setSuccess();
+                ctx.fireChannelActive();
                 break;
             case 0x20: // auth failure
                 originalPromise.setFailure(new AuthenticationException("Authentication Failure"));

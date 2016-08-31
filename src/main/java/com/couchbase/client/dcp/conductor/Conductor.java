@@ -226,7 +226,8 @@ public class Conductor {
                     break;
                 }
             }
-            if (!in) {
+
+            if (!in && config.hasPrimaryPartitionsOnNode(hostname)) {
                 toAdd.add(hostname);
                 LOGGER.debug("Planning to add {}", hostname);
             }

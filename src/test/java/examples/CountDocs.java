@@ -15,8 +15,8 @@ public class CountDocs {
     public static void main(String[] args) throws Exception {
         // Configure the client with a custom bucket name against localhost.
         Client client = Client.configure()
-            .hostnames("localhost")
-            .bucket("beer-sample")
+            .hostnames("10.142.150.101")
+            .bucket("travel-sample")
             .build();
 
         // Attach a Listener for the control events which discards them all.
@@ -45,14 +45,18 @@ public class CountDocs {
         // Connect to the cluster
         client.connect().await();
 
-        // Start streaming of all partitions from beginning with no end
-        client.initializeFromBeginningToNoEnd().await();
-        client.startStreams().await();
 
-        while(true) {
-            Thread.sleep(1000);
-            System.out.println("Found " + numDocsFound.get() + " number of docs so far.");
-        }
+
+        Thread.sleep(10000);
+
+        // Start streaming of all partitions from beginning with no end
+//        client.initializeFromBeginningToNoEnd().await();
+//        client.startStreams().await();
+//
+//        while(true) {
+//            Thread.sleep(1000);
+//            System.out.println("Found " + numDocsFound.get() + " number of docs so far.");
+//        }
 
         // Shut down once done.
         // client.disconnect().await();

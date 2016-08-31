@@ -17,7 +17,6 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
-import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -54,7 +53,8 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
             pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
         }
 
-        pipeline.addLast(new AuthHandler(environment.bucket(), environment.password()))
+        pipeline
+            .addLast(new AuthHandler(environment.bucket(), environment.password()))
             .addLast(new DcpConnectHandler(environment.connectionNameGenerator()))
             .addLast(new DcpControlHandler(environment.dcpControl()))
             .addLast(new DcpMessageHandler(environment.dataEventHandler(), controlEvents));
