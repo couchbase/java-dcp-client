@@ -12,9 +12,10 @@ It supports:
  - [x] Manual Start/Stop of streams
  - [x] Noop Acknowledgements
  - [x] Flow Control
- - [ ] Simple Session Loading/Persistence
-
- - [ ] Full Rebalance
+ - [x] Session Loading/Persistence for restartability
+ - [x] Rebalance Support
+ - [ ] (Re)Start from specific session state
+ - [ ] Pausing and Restarts
 
 # Installation
 Currently no artifacts are published to maven central, but you can check

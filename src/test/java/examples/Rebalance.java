@@ -38,7 +38,7 @@ public class Rebalance {
 
         client.initializeFromNowToNoEnd().await();
 
-        client.startStreams(1, 2, 3, 4).await();
+        client.startStreams().await();
 
         Thread.sleep(10000000);
     }
