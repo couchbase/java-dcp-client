@@ -147,6 +147,7 @@ public class Conductor {
                 }
             })
             .retryWhen(anyOf(NotConnectedException.class)
+                .max(Integer.MAX_VALUE)
                 .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
                 .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                     @Override
@@ -175,6 +176,7 @@ public class Conductor {
                 }
             })
             .retryWhen(anyOf(NotConnectedException.class)
+                .max(Integer.MAX_VALUE)
                 .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
                 .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                     @Override
@@ -205,6 +207,7 @@ public class Conductor {
                 }
             })
             .retryWhen(anyOf(NotConnectedException.class)
+                .max(Integer.MAX_VALUE)
                 .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
                 .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                     @Override
@@ -341,6 +344,7 @@ public class Conductor {
                         ps.getSnapshotStartSeqno(),
                         ps.getSnapshotEndSeqno()
                     ).retryWhen(anyOf(NotMyVbucketException.class)
+                        .max(Integer.MAX_VALUE)
                         .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
                         .build()).toObservable();
                 }

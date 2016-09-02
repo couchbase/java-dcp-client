@@ -19,6 +19,7 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
@@ -29,14 +30,19 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
 import rx.Observable;
+import rx.Subscriber;
 import rx.functions.Action1;
+import rx.functions.Action4;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 
 /**
  * The {@link HttpStreamingConfigProvider}s only purpose is to keep new configs coming in all the time in a resilient manner.
@@ -60,13 +66,25 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
         this.remoteHosts = new AtomicReference<List<String>>(env.clusterAt());
         this.configStream = PublishSubject.<CouchbaseBucketConfig>create().toSerialized();
 
-        configStream.doOnNext(new Action1<CouchbaseBucketConfig>() {
+        configStream.subscribe(new Subscriber<CouchbaseBucketConfig>() {
             @Override
-            public void call(CouchbaseBucketConfig config) {
+            public void onCompleted() {
+                LOGGER.debug("Config stream completed.");
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOGGER.warn("Error on config stream!", e);
+            }
+
+            @Override
+            public void onNext(CouchbaseBucketConfig config) {
                 List<String> newNodes = new ArrayList<String>();
                 for (NodeInfo node : config.nodes()) {
                     newNodes.add(node.hostname().getHostAddress());
                 }
+
+                LOGGER.trace("Updated config stream node list to {}.", newNodes);
                 remoteHosts.set(newNodes);
             }
         });
@@ -147,9 +165,7 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
                                 @Override
                                 public void operationComplete(ChannelFuture future) throws Exception {
                                     channel = null;
-                                    if (!stopped) {
-                                        tryConnectHosts().subscribe();
-                                    }
+                                    triggerReconnect();
                                 }
                             });
                             LOGGER.debug("Successfully established config connection to Socket {}", channel.remoteAddress());
@@ -161,6 +177,25 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
                 });
             }
         });
+    }
+
+    private void triggerReconnect() {
+        if (!stopped) {
+            tryConnectHosts()
+                .retryWhen(any()
+                    .delay(Delay.fixed(1, TimeUnit.SECONDS))
+                    .max(Integer.MAX_VALUE)
+                    .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+                        @Override
+                        public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                            LOGGER.info("No host usable to fetch a config from, waiting and retrying (remote hosts: {}).",
+                                remoteHosts.get());
+                        }
+                    })
+                    .build()
+                )
+                .subscribe();
+        }
     }
 
 }
