@@ -5,8 +5,13 @@ import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.util.ResourceLeakDetector;
 
 public class Rebalance {
+
+    static {
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+    }
 
     public static void main(String... args) throws Exception {
 
@@ -31,6 +36,9 @@ public class Rebalance {
 
         client.connect().await();
 
+        client.initializeFromNowToNoEnd().await();
+
+        client.startStreams().await();
 
         Thread.sleep(10000000);
     }

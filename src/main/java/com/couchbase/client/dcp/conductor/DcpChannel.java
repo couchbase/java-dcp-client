@@ -68,12 +68,14 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private final AtomicIntegerArray openStreams;
     private final boolean needsBufferAck;
     private final int bufferAckWatermark;
+    private final Conductor conductor;
     private volatile int bufferAckCounter;
 
-    public DcpChannel(InetAddress inetAddress, final ClientEnvironment env) {
+    public DcpChannel(InetAddress inetAddress, final ClientEnvironment env, final Conductor conductor) {
         super(LifecycleState.DISCONNECTED);
         this.inetAddress = inetAddress;
         this.env = env;
+        this.conductor = conductor;
         this.outstandingPromises = new ConcurrentHashMap<Integer, Promise<?>>();
         this.outstandingVbucketInfos = new ConcurrentHashMap<Integer, Short>();
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
@@ -146,6 +148,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
                     env.controlEventHandler().onEvent(rb);
                     break;
+                case 0x07:
+                    promise.setFailure(new NotMyVbucketException());
+                    break;
                 default:
                     promise.setFailure(new IllegalStateException("Unhandled Status: " + status));
             }
@@ -173,7 +178,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             ByteBuf flog = Unpooled.buffer();
             DcpFailoverLogResponse.init(flog);
             DcpFailoverLogResponse.vbucket(flog, DcpFailoverLogResponse.vbucket(buf));
-            MessageUtil.setContent(MessageUtil.getContent(buf).copy().writeShort(vbid), flog);
+
+            ByteBuf copiedBuf = MessageUtil.getContent(buf).copy().writeShort(vbid);
+            MessageUtil.setContent(copiedBuf, flog);
+            copiedBuf.release();
             promise.setSuccess(flog);
             return false;
         } finally {
@@ -187,6 +195,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             short vbid = DcpStreamEndMessage.vbucket(buf);
             LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
             openStreams.set(vbid, 0);
+            conductor.maybeMovePartition(vbid);
             if (needsBufferAck) {
                 acknowledgeBuffer(buf.readableBytes());
             }

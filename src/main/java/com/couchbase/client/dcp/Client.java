@@ -66,7 +66,6 @@ public class Client {
     private final Conductor conductor;
     private final ClientEnvironment env;
     private final boolean bufferAckEnabled;
-    private final SessionState sessionState;
 
     private Client(Builder builder) {
         EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
@@ -80,7 +79,6 @@ public class Client {
             .setEventLoopGroup(eventLoopGroup)
             .setBufferAckWatermark(builder.bufferAckWatermark)
             .build();
-        sessionState = new SessionState();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
         if (bufferAckEnabled) {
@@ -107,7 +105,7 @@ public class Client {
     }
 
     public SessionState sessionState() {
-        return sessionState;
+        return conductor.sessionState();
     }
 
     /**
@@ -136,10 +134,10 @@ public class Client {
                     // Do not snapshot marker messages for now since their info is kept
                     // in the session state transparently
                     short partition = DcpSnapshotMarkerMessage.partition(event);
-                    PartitionState ps = sessionState.get(partition);
+                    PartitionState ps = sessionState().get(partition);
                     ps.setSnapshotStartSeqno(DcpSnapshotMarkerMessage.startSeqno(event));
                     ps.setSnapshotEndSeqno(DcpSnapshotMarkerMessage.endSeqno(event));
-                    sessionState.set(partition, ps);
+                    sessionState().set(partition, ps);
                     acknowledgeBuffer(event);
                     event.release();
                     return;
@@ -149,9 +147,9 @@ public class Client {
                     short partition = DcpFailoverLogResponse.vbucket(event);
                     int numEntries = DcpFailoverLogResponse.numLogEntries(event);
                     long lastUUid = DcpFailoverLogResponse.vbuuidEntry(event, numEntries-1);
-                    PartitionState ps = sessionState.get(partition);
+                    PartitionState ps = sessionState().get(partition);
                     ps.setUuid(lastUUid);
-                    sessionState.set(partition, ps);
+                    sessionState().set(partition, ps);
                     event.release();
                     return;
                 }
@@ -189,19 +187,19 @@ public class Client {
             public void onEvent(ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
                     short partition = DcpMutationMessage.partition(event);
-                    PartitionState ps = sessionState.get(partition);
+                    PartitionState ps = sessionState().get(partition);
                     ps.setStartSeqno(DcpMutationMessage.revisionSeqno(event));
-                    sessionState.set(partition, ps);
+                    sessionState().set(partition, ps);
                 } else if (DcpDeletionMessage.is(event)) {
                     short partition = DcpDeletionMessage.partition(event);
-                    PartitionState ps = sessionState.get(partition);
+                    PartitionState ps = sessionState().get(partition);
                     ps.setStartSeqno(DcpDeletionMessage.revisionSeqno(event));
-                    sessionState.set(partition, ps);
+                    sessionState().set(partition, ps);
                 } else if (DcpExpirationMessage.is(event)) {
                     short partition = DcpExpirationMessage.partition(event);
-                    PartitionState ps = sessionState.get(partition);
+                    PartitionState ps = sessionState().get(partition);
                     ps.setStartSeqno(DcpExpirationMessage.revisionSeqno(event));
-                    sessionState.set(partition, ps);
+                    sessionState().set(partition, ps);
                 }
 
                 // Forward event to user.
@@ -253,7 +251,7 @@ public class Client {
             .flatMap(new Func1<Integer, Observable<?>>() {
                 @Override
                 public Observable<?> call(Integer partition) {
-                    PartitionState partitionState = sessionState.get(partition);
+                    PartitionState partitionState = sessionState().get(partition);
                     return conductor.startStreamForPartition(
                         partition.shortValue(),
                         partitionState.getUuid(),
@@ -274,22 +272,22 @@ public class Client {
      * automatically.
      */
     public Completable initializeFromBeginningToNoEnd() {
-        sessionState.intializeToBeginningWithNoEnd();
+        sessionState().intializeToBeginningWithNoEnd();
         return Completable.complete();
     }
 
     public Completable initializeFromNowToNoEnd() {
-        sessionState.intializeToBeginningWithNoEnd();
+        sessionState().intializeToBeginningWithNoEnd();
         return getSeqnos()
             .doOnNext(new Action1<long[]>() {
                 @Override
                 public void call(long[] longs) {
                     short partition = (short) longs[0];
                     long seqno = longs[1];
-                    PartitionState partitionState = sessionState.get(partition);
+                    PartitionState partitionState = sessionState().get(partition);
                     partitionState.setStartSeqno(seqno);
                     partitionState.setSnapshotStartSeqno(seqno);
-                    sessionState.set(partition, partitionState);
+                    sessionState().set(partition, partitionState);
                 }
             })
             .reduce(new ArrayList<Integer>(), new Func2<ArrayList<Integer>, long[], ArrayList<Integer>>() {
@@ -311,9 +309,9 @@ public class Client {
                     short partition = DcpFailoverLogResponse.vbucket(buf);
                     int numEntries = DcpFailoverLogResponse.numLogEntries(buf);
                     long lastUUid = DcpFailoverLogResponse.vbuuidEntry(buf, numEntries-1);
-                    PartitionState ps = sessionState.get(partition);
+                    PartitionState ps = sessionState().get(partition);
                     ps.setUuid(lastUUid);
-                    sessionState.set(partition, ps);
+                    sessionState().set(partition, ps);
                     buf.release();
                     return (int) partition;
                 }

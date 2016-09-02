@@ -23,14 +23,16 @@ import com.couchbase.client.core.message.observe.Observe;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
+import com.couchbase.client.core.state.NotConnectedException;
+import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.state.PartitionState;
+import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
 import rx.*;
 import rx.Observable;
-import rx.functions.Action0;
-import rx.functions.Action1;
-import rx.functions.Func1;
+import rx.functions.*;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
@@ -38,6 +40,8 @@ import java.net.InetAddress;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
 
 public class Conductor {
 
@@ -49,10 +53,12 @@ public class Conductor {
     private final ClientEnvironment env;
     private final AtomicReference<CouchbaseBucketConfig> currentConfig;
     private final boolean ownsConfigProvider;
+    private final SessionState sessionState;
 
     public Conductor(final ClientEnvironment env, ConfigProvider cp) {
         this.env = env;
         this.currentConfig = new AtomicReference<CouchbaseBucketConfig>();
+        sessionState = new SessionState();
 
         configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
         ownsConfigProvider = cp == null;
@@ -71,6 +77,10 @@ public class Conductor {
             }
         });
         channels = new ConcurrentSet<DcpChannel>();
+    }
+
+    public SessionState sessionState() {
+        return sessionState;
     }
 
     public Completable connect() {
@@ -128,50 +138,84 @@ public class Conductor {
     }
 
     private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
-        if (channel.state() != LifecycleState.CONNECTED) {
-            LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel);
-            return Observable
-                .timer(100, TimeUnit.MILLISECONDS)
-                .flatMap(new Func1<Long, Observable<ByteBuf>>() {
+        return Observable
+            .just(channel)
+            .flatMap(new Func1<DcpChannel, Observable<ByteBuf>>() {
+                @Override
+                public Observable<ByteBuf> call(DcpChannel channel) {
+                    return channel.getSeqnos().toObservable();
+                }
+            })
+            .retryWhen(anyOf(NotConnectedException.class)
+                .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
+                .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                     @Override
-                    public Observable<ByteBuf> call(Long aLong) {
-                        return getSeqnosForChannel(channel);
+                    public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                        LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel);
+
                     }
-                });
-        }
-        return channel.getSeqnos().toObservable();
+                })
+                .build()
+            );
     }
 
     public Single<ByteBuf> getFailoverLog(final short partition) {
-        final DcpChannel channel = masterChannelByPartition(partition);
-        if (channel.state() != LifecycleState.CONNECTED) {
-            return Observable.timer(100, TimeUnit.MILLISECONDS)
-                .flatMap(new Func1<Long, Observable<ByteBuf>>() {
+        return Observable
+            .just(partition)
+            .map(new Func1<Short, DcpChannel>() {
+                @Override
+                public DcpChannel call(Short aShort) {
+                    return masterChannelByPartition(partition);
+                }
+            })
+            .flatMap(new Func1<DcpChannel, Observable<ByteBuf>>() {
+                @Override
+                public Observable<ByteBuf> call(DcpChannel channel) {
+                    return channel.getFailoverLog(partition).toObservable();
+                }
+            })
+            .retryWhen(anyOf(NotConnectedException.class)
+                .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
+                .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                     @Override
-                    public Observable<ByteBuf> call(Long aLong) {
-                        return getFailoverLog(partition).toObservable();
+                    public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                        LOGGER.debug("Rescheduling Get Failover Log for vbid {}, not connected (yet).", partition);
+
                     }
-                }).first().toSingle();
-        }
-        return channel.getFailoverLog(partition);
+                })
+                .build()
+            ).toSingle();
     }
 
     public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno,
         final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
-        DcpChannel channel = masterChannelByPartition(partition);
-        if (channel.state() != LifecycleState.CONNECTED) {
-            LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition);
-            return Observable
-                .timer(100, TimeUnit.MILLISECONDS)
-                .flatMap(new Func1<Long, Observable<?>>() {
+        return Observable
+            .just(partition)
+            .map(new Func1<Short, DcpChannel>() {
+                @Override
+                public DcpChannel call(Short aShort) {
+                    return masterChannelByPartition(partition);
+                }
+            })
+            .flatMap(new Func1<DcpChannel, Observable<?>>() {
+                @Override
+                public Observable<?> call(DcpChannel channel) {
+                    return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno)
+                        .toObservable();
+                }
+            })
+            .retryWhen(anyOf(NotConnectedException.class)
+                .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
+                .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                     @Override
-                    public Observable<?> call(Long aLong) {
-                        return startStreamForPartition(partition, vbuuid, startSeqno, endSeqno,
-                            snapshotStartSeqno, snapshotEndSeqno).toObservable();
+                    public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                        LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition);
+
                     }
-                }).toCompletable();
-        }
-        return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
+                })
+                .build()
+            )
+            .toCompletable();
     }
 
     public Completable stopStreamForPartition(final short partition) {
@@ -205,6 +249,7 @@ public class Conductor {
                 return ch;
             }
         }
+
         throw new IllegalStateException("No DcpChannel found for partition " + partition);
     }
 
@@ -263,7 +308,7 @@ public class Conductor {
         }
 
         LOGGER.debug("Adding DCP Channel against {}", node);
-        DcpChannel channel = new DcpChannel(node, env);
+        DcpChannel channel = new DcpChannel(node, env, this);
         channels.add(channel);
         channel.connect().subscribe();
     }
@@ -274,4 +319,47 @@ public class Conductor {
             node.disconnect().subscribe();
        }
     }
+
+    /**
+     * Called by the {@link DcpChannel} to signal a stream end done by the server and it
+     * most likely needs to be moved over to a new node during rebalance/failover.
+     *
+     * @param partition the partition to move if needed
+     */
+    void maybeMovePartition(final short partition) {
+        Observable
+            .timer(50, TimeUnit.MILLISECONDS)
+            .flatMap(new Func1<Long, Observable<?>>() {
+                @Override
+                public Observable<?> call(Long aLong) {
+                    PartitionState ps = sessionState.get(partition);
+                    return startStreamForPartition(
+                        partition,
+                        ps.getUuid(),
+                        ps.getStartSeqno(),
+                        ps.getEndSeqno(),
+                        ps.getSnapshotStartSeqno(),
+                        ps.getSnapshotEndSeqno()
+                    ).retryWhen(anyOf(NotMyVbucketException.class)
+                        .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
+                        .build()).toObservable();
+                }
+            }).toCompletable().subscribe(new Completable.CompletableSubscriber() {
+                @Override
+                public void onCompleted() {
+                    LOGGER.trace("Completed Partition Move for partition {}", partition);
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    LOGGER.warn("Error during Partition Move for partition " + partition, e);
+                }
+
+                @Override
+                public void onSubscribe(Subscription d) {
+                    LOGGER.debug("Subscribing for Partition Move for partition {}", partition);
+                }
+            });
+    }
+
 }
