@@ -16,7 +16,8 @@ It supports:
  - [x] Rebalance Support
  - [ ] (Re)Start from specific session state
  - [ ] Pausing and Restarts
-
+ - [ ] Stream up to a specific point in time for a vbucket and then stop
+ 
 # Installation
 Currently no artifacts are published to maven central, but you can check
 out the project from github and build it on your own. It is a maven-based
