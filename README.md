@@ -15,8 +15,9 @@ It supports:
  - [x] Session Loading/Persistence for restartability
  - [x] Rebalance Support
  - [ ] (Re)Start from specific session state
- - [ ] Pausing and Restarts
+ - [x] Pausing and Restarts
  - [ ] Stream up to a specific point in time for a vbucket and then stop
+ - [ ] Proper shutdown/disconnect and cleanup
  
 # Installation
 Currently no artifacts are published to maven central, but you can check
