@@ -235,7 +235,7 @@ public class Client {
     public Completable startStreams(Integer... vbids) {
         final List<Integer> partitions = new ArrayList<Integer>();
         if (vbids.length > 0) {
-            LOGGER.info("Starting Stream against partitions {} with no end.", partitions);
+            LOGGER.info("Starting Stream against partitions {} with no end.", Arrays.toString(vbids));
             partitions.addAll(Arrays.asList(vbids));
         } else {
             int numPartitions = conductor.numberOfPartitions();
