@@ -78,16 +78,16 @@ public enum MessageUtil {
         short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
         int bodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
 
-        sb.append("Field\t\t\t(offset)\t(value)\n-----------------------------------\n");
-        sb.append(String.format("Magic\t\t\t(0)\t\t\t0x%02x\n", buffer.getByte(0)));
-        sb.append(String.format("Opcode\t\t\t(1)\t\t\t0x%02x\n", buffer.getByte(1)));
-        sb.append(String.format("Key Length\t\t(2,3)\t\t0x%04x\n", keyLength));
-        sb.append(String.format("Extras Length\t(4)\t\t\t0x%02x\n", extrasLength));
-        sb.append(String.format("Data Type\t\t(5)\t\t\t0x%02x\n", buffer.getByte(5)));
-        sb.append(String.format("VBucket\t\t\t(6,7)\t\t0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
-        sb.append(String.format("Total Body\t\t(8-11)\t\t0x%08x\n", bodyLength));
-        sb.append(String.format("Opaque\t\t\t(12-15)\t\t0x%08x\n", buffer.getInt(OPAQUE_OFFSET)));
-        sb.append(String.format("CAS\t\t\t\t(16-23)\t\t0x%016x\n", buffer.getLong(CAS_OFFSET)));
+        sb.append(              "Field          (offset) (value)\n-----------------------------------\n");
+        sb.append(String.format("Magic          (0)      0x%02x\n", buffer.getByte(0)));
+        sb.append(String.format("Opcode         (1)      0x%02x\n", buffer.getByte(1)));
+        sb.append(String.format("Key Length     (2,3)    0x%04x\n", keyLength));
+        sb.append(String.format("Extras Length  (4)      0x%02x\n", extrasLength));
+        sb.append(String.format("Data Type      (5)      0x%02x\n", buffer.getByte(5)));
+        sb.append(String.format("VBucket        (6,7)    0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
+        sb.append(String.format("Total Body     (8-11)   0x%08x\n", bodyLength));
+        sb.append(String.format("Opaque         (12-15)  0x%08x\n", buffer.getInt(OPAQUE_OFFSET)));
+        sb.append(String.format("CAS            (16-23)  0x%016x\n", buffer.getLong(CAS_OFFSET)));
 
         if (extrasLength > 0) {
             sb.append("+ Extras with " + extrasLength + " bytes\n");
