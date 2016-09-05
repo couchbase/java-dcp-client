@@ -18,6 +18,8 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
+import java.nio.charset.Charset;
+
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
 
 public enum DcpMutationMessage {
@@ -31,8 +33,22 @@ public enum DcpMutationMessage {
         return MessageUtil.getKey(buffer);
     }
 
+    public static String keyString(final ByteBuf buffer, Charset charset) {
+        return key(buffer).toString(charset);
+    }
+
+    public static String keyString(final ByteBuf buffer) {
+        return keyString(buffer, CharsetUtil.UTF_8);
+    }
+
     public static ByteBuf content(final ByteBuf buffer) {
         return MessageUtil.getContent(buffer);
+    }
+
+    public static byte[] contentBytes(final ByteBuf buffer) {
+        byte[] bytes = new byte[buffer.readableBytes()];
+        content(buffer).getBytes(0, bytes);
+        return bytes;
     }
 
     public static long cas(final ByteBuf buffer) {
@@ -64,7 +80,7 @@ public enum DcpMutationMessage {
     }
 
     public static String toString(final ByteBuf buffer) {
-        return "MutationMessage [key: \"" + key(buffer).toString(CharsetUtil.UTF_8)
+        return "MutationMessage [key: \"" + keyString(buffer)
             + "\", vbid: " + partition(buffer)
             + ", cas: " + cas(buffer)
             + ", bySeqno: " + bySeqno(buffer)

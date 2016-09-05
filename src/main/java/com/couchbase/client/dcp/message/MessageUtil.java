@@ -78,7 +78,7 @@ public enum MessageUtil {
         short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
         int bodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
 
-        sb.append(              "Field          (offset) (value)\n-----------------------------------\n");
+        sb.append("Field          (offset) (value)\n-----------------------------------\n");
         sb.append(String.format("Magic          (0)      0x%02x\n", buffer.getByte(0)));
         sb.append(String.format("Opcode         (1)      0x%02x\n", buffer.getByte(1)));
         sb.append(String.format("Key Length     (2,3)    0x%04x\n", keyLength));
