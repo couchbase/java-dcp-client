@@ -97,10 +97,13 @@ public class CountDocs {
         client.connect().await();
         
         // Initialize the session state to stream from 0 to infinity
-        client.initializeFromBeginningToNoEnd().await();
+        client.initFromBeginningToNoEnd().await();
         
         // Use this if you want to start now and no backfill:
-        // client.initializeFromNowToNoEnd().await();
+        // client.initFromNowToNoEnd().await();
+        
+        // Use this if you want to start from beginning up to now and then stop:
+        // client.initFromBeginningToNow().await();
 
         // Start streaming on all partitions
         client.startStreams().await();

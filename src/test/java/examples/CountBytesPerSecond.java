@@ -66,7 +66,7 @@ public class CountBytesPerSecond {
 
         client.connect().await();
 
-        client.initializeFromBeginningToNoEnd().await();
+        client.initFromBeginningToNoEnd().await();
 
         client.startStreams().await();
 

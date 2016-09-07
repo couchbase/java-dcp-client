@@ -275,12 +275,12 @@ public class Client {
      * For simplicity you can provide a list of vbucket IDS, but if none are provided all are used
      * automatically.
      */
-    public Completable initializeFromBeginningToNoEnd() {
+    public Completable initFromBeginningToNoEnd() {
         sessionState().setToBeginningWithNoEnd(numPartitions());
         return Completable.complete();
     }
 
-    public Completable initializeFromNowToNoEnd() {
+    public Completable initFromNowToNoEnd() {
         sessionState().setToBeginningWithNoEnd(numPartitions());
         return getSeqnos()
             .doOnNext(new Action1<long[]>() {
@@ -327,7 +327,7 @@ public class Client {
     }
 
 
-    public Completable initializeFromBeginningToNow() {
+    public Completable initFromBeginningToNow() {
         sessionState().setToBeginningWithNoEnd(numPartitions());
         return getSeqnos()
             .doOnNext(new Action1<long[]>() {

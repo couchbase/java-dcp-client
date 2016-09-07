@@ -46,7 +46,7 @@ public class CountDocs {
         client.connect().await();
 
 
-        client.initializeFromBeginningToNow().await();
+        client.initFromBeginningToNow().await();
         client.startStreams().await();
 
         while(true) {
