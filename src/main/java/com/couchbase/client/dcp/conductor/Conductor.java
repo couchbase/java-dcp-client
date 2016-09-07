@@ -332,6 +332,18 @@ public class Conductor {
     void maybeMovePartition(final short partition) {
         Observable
             .timer(50, TimeUnit.MILLISECONDS)
+            .filter(new Func1<Long, Boolean>() {
+                @Override
+                public Boolean call(Long aLong) {
+                    PartitionState ps = sessionState.get(partition);
+                    boolean desiredSeqnoReached = ps.isAtEnd();
+                    if (desiredSeqnoReached) {
+                        LOGGER.debug("Reached desired high seqno {} for vbucket {}, not reopening stream.",
+                            ps.getEndSeqno(), partition);
+                    }
+                    return !desiredSeqnoReached;
+                }
+            })
             .flatMap(new Func1<Long, Observable<?>>() {
                 @Override
                 public Observable<?> call(Long aLong) {

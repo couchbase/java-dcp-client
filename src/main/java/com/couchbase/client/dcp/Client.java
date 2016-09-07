@@ -192,17 +192,17 @@ public class Client {
                 if (DcpMutationMessage.is(event)) {
                     short partition = DcpMutationMessage.partition(event);
                     PartitionState ps = sessionState().get(partition);
-                    ps.setStartSeqno(DcpMutationMessage.revisionSeqno(event));
+                    ps.setStartSeqno(DcpMutationMessage.bySeqno(event));
                     sessionState().set(partition, ps);
                 } else if (DcpDeletionMessage.is(event)) {
                     short partition = DcpDeletionMessage.partition(event);
                     PartitionState ps = sessionState().get(partition);
-                    ps.setStartSeqno(DcpDeletionMessage.revisionSeqno(event));
+                    ps.setStartSeqno(DcpDeletionMessage.bySeqno(event));
                     sessionState().set(partition, ps);
                 } else if (DcpExpirationMessage.is(event)) {
                     short partition = DcpExpirationMessage.partition(event);
                     PartitionState ps = sessionState().get(partition);
-                    ps.setStartSeqno(DcpExpirationMessage.revisionSeqno(event));
+                    ps.setStartSeqno(DcpExpirationMessage.bySeqno(event));
                     sessionState().set(partition, ps);
                 }
 
@@ -276,12 +276,12 @@ public class Client {
      * automatically.
      */
     public Completable initializeFromBeginningToNoEnd() {
-        sessionState().intializeToBeginningWithNoEnd();
+        sessionState().setToBeginningWithNoEnd(numPartitions());
         return Completable.complete();
     }
 
     public Completable initializeFromNowToNoEnd() {
-        sessionState().intializeToBeginningWithNoEnd();
+        sessionState().setToBeginningWithNoEnd(numPartitions());
         return getSeqnos()
             .doOnNext(new Action1<long[]>() {
                 @Override
@@ -291,6 +291,53 @@ public class Client {
                     PartitionState partitionState = sessionState().get(partition);
                     partitionState.setStartSeqno(seqno);
                     partitionState.setSnapshotStartSeqno(seqno);
+                    sessionState().set(partition, partitionState);
+                }
+            })
+            .reduce(new ArrayList<Integer>(), new Func2<ArrayList<Integer>, long[], ArrayList<Integer>>() {
+                @Override
+                public ArrayList<Integer> call(ArrayList<Integer> integers, long[] longs) {
+                    integers.add((int) longs[0]);
+                    return integers;
+                }
+            })
+            .flatMap(new Func1<ArrayList<Integer>, Observable<ByteBuf>>() {
+                @Override
+                public Observable<ByteBuf> call(ArrayList<Integer> integers) {
+                    return getFailoverLogs(integers.toArray(new Integer[] {}));
+                }
+            })
+            .map(new Func1<ByteBuf, Integer>() {
+                @Override
+                public Integer call(ByteBuf buf) {
+                    short partition = DcpFailoverLogResponse.vbucket(buf);
+                    int numEntries = DcpFailoverLogResponse.numLogEntries(buf);
+                    PartitionState ps = sessionState().get(partition);
+                    for (int i = 0; i < numEntries; i++) {
+                        ps.addToFailoverLog(
+                            DcpFailoverLogResponse.seqnoEntry(buf, i),
+                            DcpFailoverLogResponse.vbuuidEntry(buf, i)
+                        );
+                    }
+                    sessionState().set(partition, ps);
+                    buf.release();
+                    return (int) partition;
+                }
+            }).last().toCompletable();
+    }
+
+
+    public Completable initializeFromBeginningToNow() {
+        sessionState().setToBeginningWithNoEnd(numPartitions());
+        return getSeqnos()
+            .doOnNext(new Action1<long[]>() {
+                @Override
+                public void call(long[] longs) {
+                    short partition = (short) longs[0];
+                    long seqno = longs[1];
+                    PartitionState partitionState = sessionState().get(partition);
+                    partitionState.setEndSeqno(seqno);
+                    partitionState.setSnapshotEndSeqno(seqno);
                     sessionState().set(partition, partitionState);
                 }
             })

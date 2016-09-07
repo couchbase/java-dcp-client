@@ -15,7 +15,7 @@ public class CountDocs {
     public static void main(String[] args) throws Exception {
         // Configure the client with a custom bucket name against localhost.
         Client client = Client.configure()
-            .hostnames("10.142.150.101")
+            .hostnames("localhost")
             .bucket("travel-sample")
             .build();
 
@@ -33,9 +33,9 @@ public class CountDocs {
             @Override
             public void onEvent(ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
-                    String key = DcpMutationMessage.key(event).toString(CharsetUtil.UTF_8);
-                    String content = DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
-                    System.out.println("Found Key " + key + " with Content " + content);
+//                    String key = DcpMutationMessage.key(event).toString(CharsetUtil.UTF_8);
+//                    String content = DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
+//                    System.out.println("Found Key " + key + " with Content " + content);
                     numDocsFound.incrementAndGet();
                 }
                 event.release();
@@ -46,8 +46,18 @@ public class CountDocs {
         client.connect().await();
 
 
+        client.initializeFromBeginningToNow().await();
+        client.startStreams().await();
 
-        Thread.sleep(10000);
+        while(true) {
+            Thread.sleep(1000);
+            System.out.println("Found " + numDocsFound.get() + " number of docs so far.");
+            if (client.sessionState().isAtEnd()) {
+                break;
+            }
+        }
+
+        System.err.println("DONE");
 
         // Start streaming of all partitions from beginning with no end
 //        client.initializeFromBeginningToNoEnd().await();

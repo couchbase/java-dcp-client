@@ -16,7 +16,7 @@ public class Rebalance {
     public static void main(String... args) throws Exception {
 
         Client client = Client.configure()
-            .hostnames("10.142.150.102")
+            .hostnames("127.0.0.1")
             .bucket("default")
             .build();
 
@@ -36,9 +36,11 @@ public class Rebalance {
 
         client.connect().await();
 
-        client.initializeFromNowToNoEnd().await();
+        System.err.println(client.numPartitions());
 
-        client.startStreams().await();
+//        client.initializeFromNowToNoEnd().await();
+//
+//        client.startStreams().await();
 
         Thread.sleep(10000000);
     }

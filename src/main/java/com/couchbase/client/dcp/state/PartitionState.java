@@ -62,6 +62,10 @@ public class PartitionState {
         this.snapshotEndSeqno = snapshotEndSeqno;
     }
 
+    public boolean isAtEnd() {
+        return startSeqno == endSeqno;
+    }
+
     @Override
     public String toString() {
         return "PartitionState{" +
