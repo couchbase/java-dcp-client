@@ -1,13 +1,23 @@
 package com.couchbase.client.dcp.state;
 
 
+import java.util.List;
+import java.util.SortedMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 public class PartitionState {
+
+    private final SortedMap<Long, Long> failoverLog;
 
     private volatile long startSeqno = 0;
     private volatile long endSeqno = 0;
-    private volatile long uuid = 0;
     private volatile long snapshotStartSeqno = 0;
     private volatile long snapshotEndSeqno = 0;
+
+    public PartitionState() {
+        failoverLog = new ConcurrentSkipListMap<Long, Long>();
+    }
 
     public long getEndSeqno() {
         return endSeqno;
@@ -25,12 +35,15 @@ public class PartitionState {
         this.endSeqno = endSeqno;
     }
 
-    public long getUuid() {
-        return uuid;
+    public long getLastUuid() {
+        return failoverLog.lastKey();
+    }
+    public SortedMap<Long, Long> getFailoverLog() {
+        return failoverLog;
     }
 
-    public void setUuid(long uuid) {
-        this.uuid = uuid;
+    public void addToFailoverLog(long seqno, long vbuuid) {
+        failoverLog.put(seqno, vbuuid);
     }
 
     public long getSnapshotStartSeqno() {
@@ -54,9 +67,9 @@ public class PartitionState {
         return "PartitionState{" +
             "startSeqno=" + startSeqno +
             ", endSeqno=" + endSeqno +
-            ", uuid=" + uuid +
             ", snapshotStartSeqno=" + snapshotStartSeqno +
             ", snapshotEndSeqno=" + snapshotEndSeqno +
+            ", failoverLog=" + failoverLog +
             '}';
     }
 }

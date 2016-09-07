@@ -146,9 +146,13 @@ public class Client {
                     // in the session state transparently
                     short partition = DcpFailoverLogResponse.vbucket(event);
                     int numEntries = DcpFailoverLogResponse.numLogEntries(event);
-                    long lastUUid = DcpFailoverLogResponse.vbuuidEntry(event, numEntries-1);
                     PartitionState ps = sessionState().get(partition);
-                    ps.setUuid(lastUUid);
+                    for (int i = 0; i < numEntries; i++) {
+                        ps.addToFailoverLog(
+                            DcpFailoverLogResponse.seqnoEntry(event, i),
+                            DcpFailoverLogResponse.vbuuidEntry(event, i)
+                        );
+                    }
                     sessionState().set(partition, ps);
                     event.release();
                     return;
@@ -254,7 +258,7 @@ public class Client {
                     PartitionState partitionState = sessionState().get(partition);
                     return conductor.startStreamForPartition(
                         partition.shortValue(),
-                        partitionState.getUuid(),
+                        partitionState.getLastUuid(),
                         partitionState.getStartSeqno(),
                         partitionState.getEndSeqno(),
                         partitionState.getSnapshotStartSeqno(),
@@ -308,9 +312,13 @@ public class Client {
                 public Integer call(ByteBuf buf) {
                     short partition = DcpFailoverLogResponse.vbucket(buf);
                     int numEntries = DcpFailoverLogResponse.numLogEntries(buf);
-                    long lastUUid = DcpFailoverLogResponse.vbuuidEntry(buf, numEntries-1);
                     PartitionState ps = sessionState().get(partition);
-                    ps.setUuid(lastUUid);
+                    for (int i = 0; i < numEntries; i++) {
+                        ps.addToFailoverLog(
+                            DcpFailoverLogResponse.seqnoEntry(buf, i),
+                            DcpFailoverLogResponse.vbuuidEntry(buf, i)
+                        );
+                    }
                     sessionState().set(partition, ps);
                     buf.release();
                     return (int) partition;

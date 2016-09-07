@@ -338,7 +338,7 @@ public class Conductor {
                     PartitionState ps = sessionState.get(partition);
                     return startStreamForPartition(
                         partition,
-                        ps.getUuid(),
+                        ps.getLastUuid(),
                         ps.getStartSeqno(),
                         ps.getEndSeqno(),
                         ps.getSnapshotStartSeqno(),
