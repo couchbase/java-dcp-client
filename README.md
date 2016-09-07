@@ -12,15 +12,26 @@ It supports:
  - [x] Manual Start/Stop of streams
  - [x] Noop Acknowledgements
  - [x] Flow Control
- - [x] Session Loading/Persistence for restartability
+ - [x] Session Management for restartability
  - [x] Rebalance Support
- - [ ] (Re)Start from specific session state
+ - [ ] Export current session state for durability
+ - [ ] (Re)Start from specific session state (import durable state)
  - [x] Pausing and Restarts
- - [ ] Stream up to a specific point in time for a vbucket and then stop
- - [ ] Proper shutdown/disconnect and cleanup
+ - [x] Stream up to a specific point in time for a vbucket and then stop
+ - [x] Proper shutdown/disconnect and cleanup
  
 # Installation
-Currently no artifacts are published to maven central, but you can check
+We publish the releases (including prereleases to maven central):
+
+```xml
+<dependency>
+    <groupId>com.couchbase.client</groupId>
+    <artifactId>dcp-client</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+If you want the bleeding edge, you can check
 out the project from github and build it on your own. It is a maven-based
 project so simply run
 
@@ -31,7 +42,7 @@ $ mvn install
 ```
 
 Right now it will install the `com.couchbase.client:dcp-client` artifact
-with the `0.1.0-SNAPSHOT` version. You can then depend on it in your
+with the `0.2.0-SNAPSHOT` version. You can then depend on it in your
 project.
 
 # Basic Usage
