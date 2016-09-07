@@ -97,27 +97,27 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
 
     @Override
     public Completable stop() {
+        stopped = true;
+
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
-                if (stopped) {
-                    subscriber.onCompleted();
-                    return;
-                }
-
-                stopped = true;
+                LOGGER.debug("Initiating streaming config provider shutdown on channel.");
                 if (channel != null) {
-                    channel.close().addListener(new GenericFutureListener<ChannelFuture>() {
+                    Channel ch = channel;
+                    channel = null;
+                    ch.close().addListener(new GenericFutureListener<ChannelFuture>() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
                             if (future.isSuccess()) {
+                                LOGGER.debug("Streaming config provider channel shutdown completed.");
                                 subscriber.onCompleted();
                             } else {
+                                LOGGER.warn("Error during streaming config provider shutdown!", future.cause());
                                 subscriber.onError(future.cause());
                             }
                         }
                     });
-                    channel.close();
                 } else {
                     subscriber.onCompleted();
                 }
@@ -131,6 +131,11 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
     }
 
     private Completable tryConnectHosts() {
+        if (stopped) {
+            LOGGER.debug("Not trying to connect to hosts, already stopped.");
+            return Completable.complete();
+        }
+
         List<String> hosts = remoteHosts.get();
         Completable chain = tryConnectHost(hosts.get(0));
         for (int i = 1; i < hosts.size(); i++) {

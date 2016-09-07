@@ -91,7 +91,7 @@ public class Conductor {
     public Completable stop() {
         LOGGER.debug("Instructed to shutdown.");
 
-       return Observable
+       Completable channelShutdown = Observable
             .from(channels)
             .flatMap(new Func1<DcpChannel, Observable<?>>() {
                 @Override
@@ -99,23 +99,18 @@ public class Conductor {
                     return dcpChannel.disconnect().toObservable();
                 }
             })
-            .flatMap(new Func1<Object, Observable<?>>() {
-                @Override
-                public Observable<?> call(Object o) {
-                    if (ownsConfigProvider) {
-                        return configProvider.stop().toObservable();
-                    } else {
-                        return Observable.just(1);
-                    }
-                }
-            })
-           .doOnCompleted(new Action0() {
-               @Override
-               public void call() {
-                   LOGGER.info("Shutdown complete.");
-               }
-           })
             .toCompletable();
+
+        if (ownsConfigProvider) {
+            channelShutdown = channelShutdown.andThen(configProvider.stop());
+        }
+
+       return channelShutdown.doOnCompleted(new Action0() {
+           @Override
+           public void call() {
+               LOGGER.info("Shutdown complete.");
+           }
+       });
     }
 
     /**

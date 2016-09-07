@@ -76,7 +76,7 @@ public class Client {
             .setBucket(builder.bucket)
             .setPassword(builder.password)
             .setDcpControl(builder.dcpControl)
-            .setEventLoopGroup(eventLoopGroup)
+            .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
             .setBufferAckWatermark(builder.bufferAckWatermark)
             .build();
 
@@ -233,7 +233,7 @@ public class Client {
      * Shutdown the client and associated resources.
      */
     public Completable disconnect() {
-        return conductor.stop();
+        return conductor.stop().andThen(env.shutdown());
     }
 
     public Completable startStreams(Integer... vbids) {

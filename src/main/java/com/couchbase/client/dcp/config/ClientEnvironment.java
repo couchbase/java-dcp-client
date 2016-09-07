@@ -18,9 +18,14 @@ package com.couchbase.client.dcp.config;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
+import com.couchbase.client.deps.io.netty.util.concurrent.Future;
+import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import rx.Completable;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Stateful environment for internal usage.
@@ -33,6 +38,8 @@ public class ClientEnvironment {
     private final String password;
     private final DcpControl dcpControl;
     private final EventLoopGroup eventLoopGroup;
+    private final boolean eventLoopGroupIsPrivate;
+
     private final int bufferAckWatermark;
 
     private volatile DataEventHandler dataEventHandler;
@@ -45,6 +52,7 @@ public class ClientEnvironment {
         password = builder.password;
         dcpControl = builder.dcpControl;
         eventLoopGroup = builder.eventLoopGroup;
+        eventLoopGroupIsPrivate = builder.eventLoopGroupIsPrivate;
         bufferAckWatermark = builder.bufferAckWatermark;
     }
 
@@ -103,6 +111,8 @@ public class ClientEnvironment {
         private String password;
         private DcpControl dcpControl;
         private EventLoopGroup eventLoopGroup;
+        private boolean eventLoopGroupIsPrivate;
+
         private int bufferAckWatermark;
 
         public Builder setClusterAt(List<String> clusterAt) {
@@ -135,8 +145,9 @@ public class ClientEnvironment {
             return this;
         }
 
-        public Builder setEventLoopGroup(EventLoopGroup eventLoopGroup) {
+        public Builder setEventLoopGroup(EventLoopGroup eventLoopGroup, boolean priv) {
             this.eventLoopGroup = eventLoopGroup;
+            this.eventLoopGroupIsPrivate = priv;
             return this;
         }
 
@@ -144,6 +155,28 @@ public class ClientEnvironment {
             return new ClientEnvironment(this);
         }
 
+    }
+
+    public Completable shutdown() {
+        if (!eventLoopGroupIsPrivate) {
+            return Completable.complete();
+        }
+
+        return Completable.create(new Completable.CompletableOnSubscribe() {
+            @Override
+            public void call(final Completable.CompletableSubscriber subscriber) {
+                eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS).addListener(new GenericFutureListener() {
+                    @Override
+                    public void operationComplete(Future future) throws Exception {
+                        if (future.isSuccess()) {
+                            subscriber.onCompleted();
+                        } else {
+                            subscriber.onError(future.cause());
+                        }
+                    }
+                });
+            }
+        });
     }
 
 }

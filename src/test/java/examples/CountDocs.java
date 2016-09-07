@@ -59,6 +59,8 @@ public class CountDocs {
 
         System.err.println("DONE");
 
+        client.disconnect().await();
+
         // Start streaming of all partitions from beginning with no end
 //        client.initializeFromBeginningToNoEnd().await();
 //        client.startStreams().await();
