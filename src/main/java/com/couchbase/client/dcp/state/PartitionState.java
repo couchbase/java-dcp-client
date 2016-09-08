@@ -1,18 +1,27 @@
 package com.couchbase.client.dcp.state;
 
+import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonIgnore;
+import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class PartitionState {
 
+    @JsonProperty("flog")
     private final SortedMap<Long, Long> failoverLog;
 
+    @JsonProperty("ss")
     private volatile long startSeqno = 0;
+
+    @JsonProperty("es")
     private volatile long endSeqno = 0;
+
+    @JsonProperty("sss")
     private volatile long snapshotStartSeqno = 0;
+
+    @JsonProperty("ses")
     private volatile long snapshotEndSeqno = 0;
 
     public PartitionState() {
@@ -35,9 +44,6 @@ public class PartitionState {
         this.endSeqno = endSeqno;
     }
 
-    public long getLastUuid() {
-        return failoverLog.lastKey();
-    }
     public SortedMap<Long, Long> getFailoverLog() {
         return failoverLog;
     }
@@ -62,8 +68,14 @@ public class PartitionState {
         this.snapshotEndSeqno = snapshotEndSeqno;
     }
 
+    @JsonIgnore
     public boolean isAtEnd() {
         return startSeqno == endSeqno;
+    }
+
+    @JsonIgnore
+    public long getLastUuid() {
+        return failoverLog.isEmpty() ? 0 : failoverLog.lastKey();
     }
 
     @Override
