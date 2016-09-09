@@ -14,14 +14,14 @@ It supports:
  - [x] Flow Control
  - [x] Session Management for restartability
  - [x] Rebalance Support
- - [ ] Export current session state for durability
- - [ ] (Re)Start from specific session state (import durable state)
+ - [x] Export current session state for durability (ships with JSON)
+ - [x] (Re)Start from specific session state (import durable state)
  - [x] Pausing and Restarts
  - [x] Stream up to a specific point in time for a vbucket and then stop
  - [x] Proper shutdown/disconnect and cleanup
  
 # Installation
-We publish the releases (including prereleases to maven central):
+We publish the releases (including pre-releases to maven central):
 
 ```xml
 <dependency>

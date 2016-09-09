@@ -173,7 +173,7 @@ public class Client {
      * The following messages can happen and should be handled depending on the needs of the
      * client:
      *
-     *  - {@link DcpMutationMessage}: A mutation has occurred. Needs to be acknowledged.
+     *  - {@link DcpMutationMessage}: A mtation has occurred. Needs to be acknowledged.
      *  - {@link DcpDeletionMessage}: A deletion has occurred. Needs to be acknowledged.
      *  - {@link DcpExpirationMessage}: An expiration has occurred. Note that current server versions
      *    (as of 4.5.0) are not emitting this event, but in any case you should at least release it to
@@ -371,6 +371,11 @@ public class Client {
                     return (int) partition;
                 }
             }).last().toCompletable();
+    }
+
+    public Completable initFromJson(byte[] persisted) {
+        sessionState().setFromJson(persisted);
+        return Completable.complete();
     }
 
     public Completable stopStreams(Integer... vbids) {
