@@ -473,10 +473,12 @@ public class Client {
      */
     public Completable initializeState(final StreamFrom from, final StreamTo to) {
         if (from == StreamFrom.BEGINNING && to == StreamTo.INFINITY) {
+            buzzMe();
             return initFromBeginningToInfinity();
         } else if (from == StreamFrom.BEGINNING && to == StreamTo.NOW) {
             return initFromBeginningToNow();
         } else if (from == StreamFrom.NOW && to == StreamTo.INFINITY) {
+            buzzMe();
             return initFromNowToInfinity();
         } else {
             throw new IllegalStateException("Unsupported FROM/TO combination: " + from + " -> " + to);
@@ -774,6 +776,43 @@ public class Client {
         public Client build() {
             return new Client(this);
         }
+    }
+
+    /**
+     *            _._                           _._
+     *           ||||                           ||||
+     *           ||||_           ___           _||||
+     *           |  ||        .-'___`-.        ||  |
+     *           \   /      .' .'_ _'. '.      \   /
+     *           /~~|       | (| b d |) |       |~~\
+     *          /'  |       |  |  '  |  |       |  `\
+     *,        /__.-:      ,|  | `-' |  |,      :-.__\       ,
+     *|'-------(    \-''""/.|  /\___/\  |.\""''-/    )------'|
+     *|         \_.-'\   /   '-._____.-'   \   /'-._/        |
+     *|.---------\   /'._| _    .---. ===  |_.'\   /--------.|
+     *'           \ /  | |\_\ _ \=v=/  _   | |  \ /          '
+     *             `.  | | \_\_\ ~~~  (_)  | |  .'
+     *               `'"'|`'--.__.^.__.--'`|'"'`
+     *                   \                 /
+     *                    `,..---'"'---..,'
+     *                      :--..___..--:    TO INFINITY...
+     *                       \         /
+     *                       |`.     .'|       AND BEYOND!
+     *                       |  :___:  |
+     *                       |   | |   |
+     *                       |   | |   |
+     *                       |.-.| |.-.|
+     *                       |`-'| |`-'|
+     *                       |   | |   |
+     *                      /    | |    \
+     *                     |_____| |_____|
+     *                     ':---:-'-:---:'
+     *                     /    |   |    \
+     *                jgs /.---.|   |.---.\
+     *                    `.____;   :____.'
+     */
+    private static void buzzMe() {
+        LOGGER.debug("To Infinity... AND BEYOND!");
     }
 
 }
