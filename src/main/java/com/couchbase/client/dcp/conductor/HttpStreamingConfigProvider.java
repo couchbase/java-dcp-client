@@ -24,10 +24,15 @@ import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
+import com.couchbase.client.deps.io.netty.buffer.ByteBufAllocator;
+import com.couchbase.client.deps.io.netty.buffer.PooledByteBufAllocator;
+import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
+import com.couchbase.client.deps.io.netty.channel.ChannelOption;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import com.sun.org.apache.bcel.internal.generic.ALOAD;
 import rx.Completable;
 import rx.Observable;
 import rx.Subscriber;
@@ -152,8 +157,11 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
     }
 
     private Completable tryConnectHost(final String hostname) {
+        ByteBufAllocator allocator = env.poolBuffers()
+            ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
         final Bootstrap bootstrap = new Bootstrap()
             .remoteAddress(hostname, 8091)
+            .option(ChannelOption.ALLOCATOR, allocator)
             .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
             .handler(new ConfigPipeline(hostname, env.bucket(), env.password(), configStream))
             .group(env.eventLoopGroup());

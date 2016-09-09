@@ -26,9 +26,7 @@ import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.PooledByteBufAllocator;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
+import com.couchbase.client.deps.io.netty.buffer.*;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelOption;
@@ -226,8 +224,11 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     subscriber.onCompleted();
                     return;
                 }
+
+                ByteBufAllocator allocator = env.poolBuffers()
+                    ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
                 final Bootstrap bootstrap = new Bootstrap()
-                    //.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                    .option(ChannelOption.ALLOCATOR, allocator)
                     .remoteAddress(inetAddress, 11210)
                     .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
                     .handler(new DcpPipeline(env, controlSubject))

@@ -18,7 +18,6 @@ package com.couchbase.client.dcp.config;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
-import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
@@ -39,6 +38,7 @@ public class ClientEnvironment {
     private final DcpControl dcpControl;
     private final EventLoopGroup eventLoopGroup;
     private final boolean eventLoopGroupIsPrivate;
+    private final boolean poolBuffers;
 
     private final int bufferAckWatermark;
 
@@ -54,6 +54,7 @@ public class ClientEnvironment {
         eventLoopGroup = builder.eventLoopGroup;
         eventLoopGroupIsPrivate = builder.eventLoopGroupIsPrivate;
         bufferAckWatermark = builder.bufferAckWatermark;
+        poolBuffers = builder.poolBuffers;
     }
 
     public static Builder builder() {
@@ -104,6 +105,10 @@ public class ClientEnvironment {
         this.controlEventHandler = controlEventHandler;
     }
 
+    public boolean poolBuffers() {
+        return poolBuffers;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
@@ -112,6 +117,7 @@ public class ClientEnvironment {
         private DcpControl dcpControl;
         private EventLoopGroup eventLoopGroup;
         private boolean eventLoopGroupIsPrivate;
+        private boolean poolBuffers;
 
         private int bufferAckWatermark;
 
@@ -151,12 +157,18 @@ public class ClientEnvironment {
             return this;
         }
 
+        public Builder setBufferPooling(boolean pool) {
+            this.poolBuffers = pool;
+            return this;
+        }
+
         public ClientEnvironment build() {
             return new ClientEnvironment(this);
         }
 
     }
 
+    @SuppressWarnings({"unchecked"})
     public Completable shutdown() {
         if (!eventLoopGroupIsPrivate) {
             return Completable.complete();
@@ -179,4 +191,20 @@ public class ClientEnvironment {
         });
     }
 
+    @Override
+    public String toString() {
+        return "ClientEnvironment{" +
+            "clusterAt=" + clusterAt +
+            ", connectionNameGenerator=" + connectionNameGenerator.getClass().getSimpleName() +
+            ", bucket='" + bucket + '\'' +
+            ", passwordSet=" + !password.isEmpty() +
+            ", dcpControl=" + dcpControl +
+            ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +
+            ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
+            ", poolBuffers=" + poolBuffers +
+            ", bufferAckWatermark=" + bufferAckWatermark +
+            ", dataEventHandler=" + dataEventHandler +
+            ", controlEventHandler=" + controlEventHandler +
+            '}';
+    }
 }

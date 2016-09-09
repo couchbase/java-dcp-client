@@ -27,7 +27,7 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -42,81 +42,62 @@ $ mvn install
 ```
 
 Right now it will install the `com.couchbase.client:dcp-client` artifact
-with the `0.2.0-SNAPSHOT` version. You can then depend on it in your
+with the `0.3.0-SNAPSHOT` version. You can then depend on it in your
 project.
 
 # Basic Usage
 The simplest way is to initiate a stream against `localhost` and open
 all streams available. You always need to attach a callback for both the
 config and the data events - in the simplest case all the messages are
-just discarded. It's important to release the buffers!
+just discarded. **It's important to release the buffers!**
 
-The following example connects to the `beer-sample` bucket, streams
-all the documents it has, counts the number of documents and prints
-out the result:
+The following example connects to the `travel-sample` bucket and prints
+out all subsequent mutations and deletions that occur.
 
 ```java
-import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.ControlEventHandler;
-import com.couchbase.client.dcp.DataEventHandler;
-import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+// Connect to localhost and use the travel-sample bucket
+final Client client = Client.configure()
+    .hostnames("localhost")
+    .bucket("travel-sample")
+    .build();
 
-import java.util.concurrent.atomic.AtomicInteger;
-
-public class CountDocs {
-
-    public static void main(String[] args) throws Exception {
-        // Configure the client with a custom bucket name against localhost.
-        Client client = Client.configure()
-            .hostnames("localhost")
-            .bucket("beer-sample")
-            .build();
-
-        // Attach a Listener for the control events which discards them all.
-        client.controlEventHandler(new ControlEventHandler() {
-            @Override
-            public void onEvent(ByteBuf controlEvent) {
-                controlEvent.release();
-            }
-        });
-
-        // Attach a Listener for the data events which counts the mutations.
-        final AtomicInteger numDocsFound = new AtomicInteger();
-        client.dataEventHandler(new DataEventHandler() {
-            @Override
-            public void onEvent(ByteBuf event) {
-                if (DcpMutationMessage.is(event)) {
-                    numDocsFound.incrementAndGet();
-                }
-                event.release();
-            }
-        });
-
-        // Connect to the cluster
-        client.connect().await();
-        
-        // Initialize the session state to stream from 0 to infinity
-        client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).await();
-        
-        // Use this if you want to start now and no backfill:
-        // client.initializeState(StreamFrom.NOW, StreamTo.INFINITY).await();
-
-        // Use this if you want to start from beginning up to now and then stop:
-        // client.initializeState(StreamFrom.BEGINNING, StreamTo.NOW).await();
-
-        // Start streaming on all partitions
-        client.startStreaming().await();
-
-        while(true) {
-            Thread.sleep(1000);
-            System.out.println("Found " + numDocsFound.get() + " number of docs so far.");
-        }
-
-        // Shut down once done.
-        // client.disconnect().await();
+// Don't do anything with control events in this example
+client.controlEventHandler(new ControlEventHandler() {
+    @Override
+    public void onEvent(ByteBuf event) {
+        event.release();
     }
-}
+});
+
+// Print out Mutations and Deletions
+client.dataEventHandler(new DataEventHandler() {
+    @Override
+    public void onEvent(ByteBuf event) {
+        if (DcpMutationMessage.is(event)) {
+            System.out.println("Mutation: " + DcpMutationMessage.toString(event));
+            // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
+        } else if (DcpDeletionMessage.is(event)) {
+            System.out.println("Deletion: " + DcpDeletionMessage.toString(event));
+        }
+        event.release();
+    }
+});
+
+// Connect the sockets
+client.connect().await();
+
+// Initialize the state (start now, never stop)
+client.initializeState(StreamFrom.NOW, StreamTo.INFINITY).await();
+
+// Start streaming on all partitions
+client.startStreaming().await();
+
+// Sleep for some time to print the mutations
+// The printing happens on the IO threads!
+Thread.sleep(TimeUnit.MINUTES.toMillis(10));
+
+// Once the time is over, shutdown.
+client.disconnect().await();
 ```
 
 ## Dealing with Messages and ByteBufs

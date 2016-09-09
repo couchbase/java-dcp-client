@@ -1,5 +1,19 @@
+/*
+ * Copyright (c) 2016 Couchbase, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.couchbase.client.dcp.state;
-
 
 import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
 import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonGenerator;
@@ -28,6 +42,11 @@ public class SessionState {
     public static final int NO_END_SEQNO = 0xffffffff;
 
     private final AtomicReferenceArray<PartitionState> partitionStates;
+
+    /**
+     * The current version used on export, respected on import.
+     */
+    private final int version = 1;
 
     /**
      * Initializes with an empty partition state for 1024 partitions.
@@ -92,11 +111,15 @@ public class SessionState {
         }
     }
 
-    public byte[] toJson() {
+    public byte[] export(StateFormat format) {
         try {
-            return JACKSON.writeValueAsBytes(this);
+            if (format == StateFormat.JSON) {
+                return JACKSON.writeValueAsBytes(this);
+            } else {
+                throw new IllegalStateException("Unsupported Format " + format);
+            }
         } catch (Exception ex) {
-            throw new RuntimeException("Could not encode SessionState to JSON", ex);
+            throw new RuntimeException("Could not encode SessionState to Format " + format, ex);
         }
     }
 
@@ -105,6 +128,12 @@ public class SessionState {
 
         @Override
         public void serialize(SessionState ss, final JsonGenerator gen, SerializerProvider serializers) throws IOException {
+            gen.writeStartObject();
+
+            gen.writeFieldName("v");
+            gen.writeNumber(ss.version);
+
+            gen.writeFieldName("ps");
             gen.writeStartArray();
             ss.foreachPartition(new Action1<PartitionState>() {
                 @Override
@@ -117,6 +146,8 @@ public class SessionState {
                 }
             });
             gen.writeEndArray();
+
+            gen.writeEndObject();
         }
 
     }
@@ -126,14 +157,15 @@ public class SessionState {
         @Override
         public SessionState deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
             JsonToken current = p.getCurrentToken();
-            if (current == JsonToken.START_ARRAY) {
+
+            // we ignore the version for now, since there is only one. go directly to the array of states.
+            while(current != JsonToken.START_ARRAY) {
                 current = p.nextToken();
-            } else {
-                throw new IllegalStateException("Did expect array, could not decode session state");
             }
 
-            SessionState ss = new SessionState();
+            current = p.nextToken();
             int i = 0;
+            SessionState ss = new SessionState();
             while (current != null && current != JsonToken.END_ARRAY) {
                 PartitionState ps = p.readValueAs(PartitionState.class);
                 ss.set(i++, ps);
@@ -143,4 +175,10 @@ public class SessionState {
         }
     }
 
+    @Override
+    public String toString() {
+        return "SessionState{" +
+            "partitionStates=" + partitionStates +
+            '}';
+    }
 }

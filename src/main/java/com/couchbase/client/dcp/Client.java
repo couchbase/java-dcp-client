@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -85,6 +86,7 @@ public class Client {
             .setDcpControl(builder.dcpControl)
             .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
             .setBufferAckWatermark(builder.bufferAckWatermark)
+            .setBufferPooling(builder.poolBuffers)
             .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
@@ -95,6 +97,7 @@ public class Client {
         }
 
         conductor = new Conductor(env, builder.configProvider);
+        LOGGER.info("Environment Configuration Used: {}", env);
     }
 
     /**
@@ -279,6 +282,7 @@ public class Client {
      * @return a {@link Completable} indicating that streaming has started or failed.
      */
     public Completable startStreaming(Integer... vbids) {
+        sanityCheckSessionState();
         final List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
 
         LOGGER.info("Starting to Stream for " + partitions.size() + " partitions");
@@ -301,6 +305,25 @@ public class Client {
                 }
             })
             .toCompletable();
+    }
+
+    /**
+     * Helper method to check on stream start that some kind of state is initialized to avoid a common error
+     * of starting without initializing.
+     */
+    private void sanityCheckSessionState() {
+        final AtomicBoolean initialized = new AtomicBoolean(false);
+        sessionState().foreachPartition(new Action1<PartitionState>() {
+            @Override
+            public void call(PartitionState ps) {
+                if (ps.getStartSeqno() != 0 || ps.getEndSeqno() != 0) {
+                    initialized.set(true);
+                }
+            }
+        });
+        if (!initialized.get()) {
+            throw new IllegalStateException("State needs to be initialized or recovered first before starting");
+        }
     }
 
     /**
@@ -382,7 +405,7 @@ public class Client {
      *
      * @return the number of partitions (vbuckets).
      */
-    private int numPartitions() {
+    public int numPartitions() {
         return conductor.numberOfPartitions();
     }
 
@@ -626,6 +649,7 @@ public class Client {
         private DcpControl dcpControl = new DcpControl();
         private ConfigProvider configProvider = null;
         private int bufferAckWatermark;
+        private boolean poolBuffers = true;
 
         /**
          * The buffer acknowledge watermark in percent.
@@ -728,6 +752,17 @@ public class Client {
          */
         public Builder configProvider(final ConfigProvider configProvider) {
             this.configProvider = configProvider;
+            return this;
+        }
+
+        /**
+         * If buffer pooling should be enabled (yes by default).
+         *
+         * @param pool enable or disable buffer pooling.
+         * @return this {@link Builder} for nice chainability.
+         */
+        public Builder poolBuffers(final boolean pool) {
+            this.poolBuffers = pool;
             return this;
         }
 

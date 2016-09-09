@@ -111,4 +111,11 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
             return value;
         }
     }
+
+    @Override
+    public String toString() {
+        return "DcpControl{" +
+            "values=" + values +
+            '}';
+    }
 }
