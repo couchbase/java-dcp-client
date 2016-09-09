@@ -6,6 +6,7 @@ import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.ResourceLeakDetector;
+import com.couchbase.client.java.transcoder.JacksonTransformers;
 
 public class Rebalance {
 
@@ -36,7 +37,6 @@ public class Rebalance {
 
         client.connect().await();
 
-        System.err.println(client.numPartitions());
 
 //        client.initializeFromNowToNoEnd().await();
 //

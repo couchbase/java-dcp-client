@@ -15,9 +15,7 @@
  */
 package examples;
 
-import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.ControlEventHandler;
-import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -66,9 +64,9 @@ public class CountBytesPerSecond {
 
         client.connect().await();
 
-        client.initFromBeginningToNoEnd().await();
+        client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).await();
 
-        client.startStreams().await();
+        client.startStreaming().await();
 
 
        long start = System.nanoTime();
