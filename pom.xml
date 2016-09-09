@@ -6,7 +6,7 @@
 
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0-SNAPSHOT</version>
 
     <properties>
         <java-compat.version>1.6</java-compat.version>
@@ -91,6 +91,12 @@
             <artifactId>testcontainers</artifactId>
             <version>1.1.3</version>
             <scope>test</scope>
+        </dependency>
+        <!-- for examples -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.5</version>
         </dependency>
 
         <!-- Compilation dependency to mark exception to enforced JDK 6 API -->

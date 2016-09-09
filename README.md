@@ -51,6 +51,8 @@ all streams available. You always need to attach a callback for both the
 config and the data events - in the simplest case all the messages are
 just discarded. **It's important to release the buffers!**
 
+Please check out the [examples](https://github.com/couchbaselabs/java-dcp-client/tree/master/src/test/java/examples)!
+
 The following example connects to the `travel-sample` bucket and prints
 out all subsequent mutations and deletions that occur.
 
