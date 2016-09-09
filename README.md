@@ -15,7 +15,7 @@ It supports:
  - [x] Session Management for restartability
  - [x] Rebalance Support
  - [x] Export current session state for durability (ships with JSON)
- - [x] (Re)Start from specific session state (import durable state)
+ - [x] Start and Restart from specific session state (import durable state)
  - [x] Pausing and Restarts
  - [x] Stream up to a specific point in time for a vbucket and then stop
  - [x] Proper shutdown/disconnect and cleanup
