@@ -15,47 +15,70 @@
  */
 package com.couchbase.client.dcp.state;
 
-import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
-import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonGenerator;
-import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonParser;
-import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonProcessingException;
-import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonToken;
+import com.couchbase.client.dcp.state.json.SessionStateDeserializer;
+import com.couchbase.client.dcp.state.json.SessionStateSerializer;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.*;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import rx.functions.Action1;
-import rx.functions.Func1;
 
-import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Holds the state information for the current session (all partitions involved).
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
  */
-@JsonSerialize(using = SessionState.SessionStateSerializer.class)
-@JsonDeserialize(using = SessionState.SessionStateDeserializer.class)
+@JsonSerialize(using = SessionStateSerializer.class)
+@JsonDeserialize(using = SessionStateDeserializer.class)
 public class SessionState {
 
+    /**
+     * Private jackson mapper instance used for encoding and decoding into JSON for the session
+     * and partition states.
+     */
     private static final ObjectMapper JACKSON = new ObjectMapper();
 
-    public static final int NO_END_SEQNO = 0xffffffff;
-
-    private final AtomicReferenceArray<PartitionState> partitionStates;
+    /**
+     * Special Sequence number defined by DCP which says "no end".
+     */
+    private static final int NO_END_SEQNO = 0xffffffff;
 
     /**
-     * The current version used on export, respected on import.
+     * The current version format used on export, respected on import to aid backwards compatibility.
      */
-    private final int version = 1;
+    public static final int CURRENT_VERSION = 1;
+
+    /**
+     * The maximum number of partitions that can be stored.
+     */
+    private static final int MAX_PARTITIONS = 1024;
+
+    /**
+     * Contains states for each individual partition.
+     */
+    private final AtomicReferenceArray<PartitionState> partitionStates;
 
     /**
      * Initializes with an empty partition state for 1024 partitions.
      */
     public SessionState() {
-        this.partitionStates = new AtomicReferenceArray<PartitionState>(1024);
+        this.partitionStates = new AtomicReferenceArray<PartitionState>(MAX_PARTITIONS);
     }
 
-    public void setToBeginningWithNoEnd(int numPartitions) {
+    /**
+     * Initializes all partition states to start at the beginning (0) with no end.
+     *
+     * @param numPartitions the actual number of partitions used.
+     */
+    public void setToBeginningWithNoEnd(final int numPartitions) {
+        if (numPartitions > MAX_PARTITIONS) {
+            throw new IllegalArgumentException("Can only hold " + MAX_PARTITIONS + " partitions, " + numPartitions
+                + "supplied as initializer.");
+        }
+
         for (int i = 0; i < numPartitions; i++) {
             PartitionState partitionState = new PartitionState();
             partitionState.setEndSeqno(NO_END_SEQNO);
@@ -64,7 +87,12 @@ public class SessionState {
         }
     }
 
-    public void setFromJson(byte[] persisted) {
+    /**
+     * Recovers the session state from persisted JSON.
+     *
+     * @param persisted the persisted JSON format.
+     */
+    public void setFromJson(final byte[] persisted) {
         try {
             SessionState decoded = JACKSON.readValue(persisted, SessionState.class);
             decoded.foreachPartition(new Action1<PartitionState>() {
@@ -79,14 +107,33 @@ public class SessionState {
         }
     }
 
-    public PartitionState get(int partiton) {
-        return partitionStates.get(partiton);
+    /**
+     * Accessor into the partition state, only use this if really needed.
+     *
+     * If you want to avoid going out of bounds, use the simpler iterator way on {@link #foreachPartition(Action1)}.
+     *
+     * @param partition the index of the partition.
+     * @return the partition state for the given partition id.
+     */
+    public PartitionState get(final int partition) {
+        return partitionStates.get(partition);
     }
 
+    /**
+     * Accessor to set/override the current partition state, only use this if really needed.
+     *
+     * @param partition the index of the partition.
+     * @param partitionState the partition state to override.
+     */
     public void set(int partition, PartitionState partitionState) {
         partitionStates.set(partition, partitionState);
     }
 
+    /**
+     * Check if the current sequence numbers for all partitions are equal to the ones set as end.
+     *
+     * @return true if all are at the end, false otherwise.
+     */
     public boolean isAtEnd() {
         final AtomicBoolean atEnd = new AtomicBoolean(true);
         foreachPartition(new Action1<PartitionState>() {
@@ -100,7 +147,12 @@ public class SessionState {
         return atEnd.get();
     }
 
-    public void foreachPartition(Action1<PartitionState> action) {
+    /**
+     * Provides an iterator over all partitions, calling the callback for each one.
+     *
+     * @param action the action to be called with the state for every partition.
+     */
+    public void foreachPartition(final Action1<PartitionState> action) {
         int len = partitionStates.length();
         for (int i = 0; i < len; i++) {
             PartitionState ps = partitionStates.get(i);
@@ -111,7 +163,13 @@ public class SessionState {
         }
     }
 
-    public byte[] export(StateFormat format) {
+    /**
+     * Export the {@link PartitionState} into the desired format.
+     *
+     * @param format the format in which the state should be exposed, always uses the current version.
+     * @return the exported format, depending on the type can be converted into a string by the user.
+     */
+    public byte[] export(final StateFormat format) {
         try {
             if (format == StateFormat.JSON) {
                 return JACKSON.writeValueAsBytes(this);
@@ -123,62 +181,8 @@ public class SessionState {
         }
     }
 
-
-    public static class SessionStateSerializer extends JsonSerializer<SessionState> {
-
-        @Override
-        public void serialize(SessionState ss, final JsonGenerator gen, SerializerProvider serializers) throws IOException {
-            gen.writeStartObject();
-
-            gen.writeFieldName("v");
-            gen.writeNumber(ss.version);
-
-            gen.writeFieldName("ps");
-            gen.writeStartArray();
-            ss.foreachPartition(new Action1<PartitionState>() {
-                @Override
-                public void call(PartitionState partitionState) {
-                    try {
-                        gen.writeObject(partitionState);
-                    } catch (Exception ex) {
-                        throw new RuntimeException("Could not serialize PartitionState to JSON: " + partitionState, ex);
-                    }
-                }
-            });
-            gen.writeEndArray();
-
-            gen.writeEndObject();
-        }
-
-    }
-
-    public static class SessionStateDeserializer extends JsonDeserializer<SessionState> {
-
-        @Override
-        public SessionState deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-            JsonToken current = p.getCurrentToken();
-
-            // we ignore the version for now, since there is only one. go directly to the array of states.
-            while(current != JsonToken.START_ARRAY) {
-                current = p.nextToken();
-            }
-
-            current = p.nextToken();
-            int i = 0;
-            SessionState ss = new SessionState();
-            while (current != null && current != JsonToken.END_ARRAY) {
-                PartitionState ps = p.readValueAs(PartitionState.class);
-                ss.set(i++, ps);
-                current = p.nextToken();
-            }
-            return ss;
-        }
-    }
-
     @Override
     public String toString() {
-        return "SessionState{" +
-            "partitionStates=" + partitionStates +
-            '}';
+        return "SessionState[" + partitionStates + ']';
     }
 }
