@@ -38,9 +38,7 @@ import java.net.SocketAddress;
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-public class DcpConnectHandler
-    extends SimpleChannelInboundHandler<ByteBuf>
-    implements ChannelOutboundHandler {
+public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
     /**
      * Status indicating a successful open connect attempt.
@@ -61,11 +59,6 @@ public class DcpConnectHandler
      * The generated connection name, set fresh once a channel becomes active.
      */
     private String connectionName;
-
-    /**
-     * The original connect promise stored for later fulfillment.
-     */
-    private ChannelPromise originalPromise;
 
     /**
      * Creates a new connect handler.
@@ -97,66 +90,13 @@ public class DcpConnectHandler
         short status = MessageUtil.getStatus(msg);
         if (status == CONNECT_SUCCESS) {
             ctx.pipeline().remove(this);
-            originalPromise.setSuccess();
+            originalPromise().setSuccess();
             ctx.fireChannelActive();
             LOGGER.debug("DCP Connection opened with Name \"{}\" against Node {}", connectionName,
                 ctx.channel().remoteAddress());
         } else {
-            originalPromise.setFailure(new IllegalStateException("Could not open DCP Connection: Status is " + status));
+            originalPromise().setFailure(new IllegalStateException("Could not open DCP Connection: Status is " + status));
         }
     }
 
-    /**
-     * Intercept the connect phase and store the original promise.
-     */
-    @Override
-    public void connect(final ChannelHandlerContext ctx, final SocketAddress remoteAddress,
-        final SocketAddress localAddress, ChannelPromise promise) throws Exception {
-        originalPromise = promise;
-        ChannelPromise inboundPromise = ctx.newPromise();
-        inboundPromise.addListener(new GenericFutureListener<Future<Void>>() {
-            @Override
-            public void operationComplete(Future<Void> future) throws Exception {
-                if (!future.isSuccess() && !originalPromise.isDone()) {
-                    originalPromise.setFailure(future.cause());
-                }
-            }
-        });
-        ctx.connect(remoteAddress, localAddress, inboundPromise);
-    }
-
-    @Override
-    public void bind(ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) throws Exception {
-        ctx.bind(localAddress, promise);
-    }
-
-    @Override
-    public void disconnect(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        ctx.disconnect(promise);
-    }
-
-    @Override
-    public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        ctx.close(promise);
-    }
-
-    @Override
-    public void deregister(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        ctx.deregister(promise);
-    }
-
-    @Override
-    public void read(ChannelHandlerContext ctx) throws Exception {
-        ctx.read();
-    }
-
-    @Override
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        ctx.read();
-    }
-
-    @Override
-    public void flush(ChannelHandlerContext ctx) throws Exception {
-        ctx.flush();
-    }
 }

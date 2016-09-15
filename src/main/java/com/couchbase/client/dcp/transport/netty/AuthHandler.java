@@ -30,7 +30,6 @@ import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import javax.security.auth.callback.*;
 import javax.security.sasl.SaslClient;
 import java.io.IOException;
-import java.net.SocketAddress;
 
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
@@ -38,9 +37,7 @@ import java.net.SocketAddress;
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-class AuthHandler
-    extends SimpleChannelInboundHandler<ByteBuf>
-    implements CallbackHandler, ChannelOutboundHandler {
+class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements CallbackHandler {
 
     /**
      * Indicates a successful SASL auth.
@@ -66,12 +63,6 @@ class AuthHandler
      * The user/bucket password.
      */
     private final String password;
-
-    /**
-     * The original connect promise which is intercepted and then completed/failed after the
-     * authentication procedure.
-     */
-    private ChannelPromise originalPromise;
 
     /**
      * The SASL client reused from core-io since it has our SCRAM-* additions that are not
@@ -163,7 +154,7 @@ class AuthHandler
                 public void operationComplete(Future<Void> future) throws Exception {
                     if (!future.isSuccess()) {
                         LOGGER.warn("Error during SASL Auth negotiation phase.", future);
-                        originalPromise.setFailure(future.cause());
+                        originalPromise().setFailure(future.cause());
                     }
                 }
             });
@@ -181,14 +172,14 @@ class AuthHandler
             case AUTH_SUCCESS:
                 LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
                 ctx.pipeline().remove(this);
-                originalPromise.setSuccess();
+                originalPromise().setSuccess();
                 ctx.fireChannelActive();
                 break;
             case AUTH_ERROR:
-                originalPromise.setFailure(new AuthenticationException("SASL Authentication Failure"));
+                originalPromise().setFailure(new AuthenticationException("SASL Authentication Failure"));
                 break;
             default:
-                originalPromise.setFailure(new AuthenticationException("Unhandled SASL auth status: " + status));
+                originalPromise().setFailure(new AuthenticationException("Unhandled SASL auth status: " + status));
         }
     }
 
@@ -220,7 +211,7 @@ class AuthHandler
             public void operationComplete(Future<Void> future) throws Exception {
                 if (!future.isSuccess()) {
                     LOGGER.warn("Error during SASL Auth negotiation phase.", future);
-                    originalPromise.setFailure(future.cause());
+                    originalPromise().setFailure(future.cause());
                 }
             }
         });
@@ -240,60 +231,6 @@ class AuthHandler
                 throw new AuthenticationException("SASLClient requested unsupported callback: " + callback);
             }
         }
-    }
-
-    /**
-     * Intercept the connect phase and store the original promise.
-     */
-    @Override
-    public void connect(final ChannelHandlerContext ctx, final SocketAddress remoteAddress,
-        final SocketAddress localAddress, final ChannelPromise promise) throws Exception {
-        originalPromise = promise;
-        ChannelPromise inboundPromise = ctx.newPromise();
-        inboundPromise.addListener(new GenericFutureListener<Future<Void>>() {
-            @Override
-            public void operationComplete(Future<Void> future) throws Exception {
-                if (!future.isSuccess() && !originalPromise.isDone()) {
-                    originalPromise.setFailure(future.cause());
-                }
-            }
-        });
-        ctx.connect(remoteAddress, localAddress, inboundPromise);
-    }
-
-    @Override
-    public void bind(ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) throws Exception {
-        ctx.bind(localAddress, promise);
-    }
-
-    @Override
-    public void disconnect(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        ctx.disconnect(promise);
-    }
-
-    @Override
-    public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        ctx.close(promise);
-    }
-
-    @Override
-    public void deregister(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        ctx.deregister(promise);
-    }
-
-    @Override
-    public void read(ChannelHandlerContext ctx) throws Exception {
-        ctx.read();
-    }
-
-    @Override
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        ctx.read();
-    }
-
-    @Override
-    public void flush(ChannelHandlerContext ctx) throws Exception {
-        ctx.flush();
     }
 
 }
