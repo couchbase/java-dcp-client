@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * emitted via the observable's onError method.
  *
  * @author Simon Baslé
- * @since 2.1
+ * @since 1.0.0
  */
 @InterfaceStability.Committed
 @InterfaceAudience.Public

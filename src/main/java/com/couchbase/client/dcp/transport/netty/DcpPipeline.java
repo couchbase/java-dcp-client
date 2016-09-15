@@ -28,21 +28,46 @@ import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import rx.subjects.Subject;
 
+/**
+ * Sets up the pipeline for the actual DCP communication channels.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
+ */
 public class DcpPipeline extends ChannelInitializer<Channel> {
 
+    /**
+     * The logger used.
+     */
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpPipeline.class);
 
-
+    /**
+     * The stateful environment.
+     */
     private final ClientEnvironment environment;
+
+    /**
+     * The observable where all the control events are fed into for advanced handling up the stack.
+     */
     private final Subject<ByteBuf, ByteBuf> controlEvents;
 
-    public DcpPipeline(ClientEnvironment environment, Subject<ByteBuf, ByteBuf> controlEvents) {
+    /**
+     * Creates the pipeline.
+     *
+     * @param environment the stateful environment.
+     * @param controlEvents the control event observable.
+     */
+    public DcpPipeline(final ClientEnvironment environment, final Subject<ByteBuf, ByteBuf> controlEvents) {
         this.environment = environment;
         this.controlEvents = controlEvents;
     }
 
+    /**
+     * Initializes the full pipeline with all handlers needed (some of them may remove themselves during
+     * steady state, like auth and feature negotiation).
+     */
     @Override
-    protected void initChannel(Channel ch) throws Exception {
+    protected void initChannel(final Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
 
         pipeline.addLast(new LengthFieldBasedFrameDecoder(

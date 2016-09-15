@@ -23,7 +23,7 @@ import com.couchbase.client.core.CouchbaseException;
  *
  * @see Retry
  * @author Simon Baslé
- * @since 1.1
+ * @since 1.0.0
  */
 public class CannotRetryException extends CouchbaseException {
 

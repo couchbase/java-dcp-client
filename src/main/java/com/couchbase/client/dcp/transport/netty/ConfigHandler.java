@@ -25,32 +25,73 @@ import com.couchbase.client.deps.io.netty.handler.codec.http.*;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.subjects.Subject;
 
+/**
+ * This handler is responsible to consume chunks of JSON configs via HTTP, aggregate them and once a complete
+ * config is received send it into a {@link Subject} for external usage.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
+ */
+class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
 
-public class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
-
+    /**
+     * Hostname used to replace $HOST parts in the config when used against localhost.
+     */
     private final String hostname;
+
+    /**
+     * The name of the bucket (used for http auth).
+     */
     private final String bucket;
+
+    /**
+     * THe password of the bucket (used for http auth).
+     */
     private final String password;
-    private ByteBuf responseContent;
+
+    /**
+     * The config stream where the configs are emitted into.
+     */
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
 
-    public ConfigHandler(String hostname, String bucket, String password,
-        Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
+    /**
+     * The current aggregated chunk of the JSON config.
+     */
+    private ByteBuf responseContent;
+
+    /**
+     * Creates a new config handler.
+     *
+     * @param hostname hostname of the remote server.
+     * @param bucket name of the bucket/user.
+     * @param password password of the bucket/user.
+     * @param configStream config stream where to send the configs.
+     */
+    ConfigHandler(final String hostname, final String bucket, final String password,
+        final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
         this.hostname = hostname;
         this.bucket = bucket;
         this.password = password;
         this.configStream = configStream;
     }
 
+    /**
+     * If we get a new content chunk, send it towards decoding.
+     */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) throws Exception {
+    protected void channelRead0(final ChannelHandlerContext ctx, final HttpObject msg) throws Exception {
         if (msg instanceof HttpContent) {
             HttpContent content = (HttpContent) msg;
             decodeChunk(content.content());
         }
     }
 
-    private void decodeChunk(ByteBuf chunk) {
+    /**
+     * Helper method to decode and analyze the chunk.
+     *
+     * @param chunk the chunk to analyze.
+     */
+    private void decodeChunk(final ByteBuf chunk) {
         responseContent.writeBytes(chunk);
 
         String currentChunk = responseContent.toString(CharsetUtil.UTF_8);
@@ -65,30 +106,31 @@ public class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
             responseContent.clear();
             responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(CharsetUtil.UTF_8));
         }
-
     }
 
+    /**
+     * Once the channel is active, start to send the HTTP request to begin chunking.
+     */
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
         responseContent = ctx.alloc().buffer();
         ctx.fireChannelActive();
 
-        FullHttpRequest request = new DefaultFullHttpRequest(
-            HttpVersion.HTTP_1_1,
-            HttpMethod.GET,
-            "/pools/default/bs/" + bucket
-        );
-
+        String terseUri = "/pools/default/bs/" + bucket;
+        FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, terseUri);
         request.headers().add(HttpHeaders.Names.ACCEPT, "application/json");
-        addHttpBasicAuth(ctx, request, bucket, password);
+        addHttpBasicAuth(ctx, request);
+
         ctx.writeAndFlush(request);
     }
 
-    public static void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request, final String user,
-        final String password) {
+    /**
+     * Helper method to add authentication credentials to the config stream request.
+     */
+    private void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request) {
         final String pw = password == null ? "" : password;
-        ByteBuf raw = ctx.alloc().buffer(user.length() + pw.length() + 1);
-        raw.writeBytes((user + ":" + pw).getBytes(CharsetUtil.UTF_8));
+        ByteBuf raw = ctx.alloc().buffer(bucket.length() + pw.length() + 1);
+        raw.writeBytes((bucket + ":" + pw).getBytes(CharsetUtil.UTF_8));
         ByteBuf encoded = Base64.encode(raw, false);
         request.headers().add(HttpHeaders.Names.AUTHORIZATION, "Basic " + encoded.toString(CharsetUtil.UTF_8));
         encoded.release();

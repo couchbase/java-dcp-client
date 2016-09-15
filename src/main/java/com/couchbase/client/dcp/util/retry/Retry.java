@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  * Utility methods to deal with retrying {@link Observable}s.
  *
  * @author Simon Baslé
- * @since 2.1
+ * @since 1.0.0
  */
 @InterfaceStability.Committed
 @InterfaceAudience.Public

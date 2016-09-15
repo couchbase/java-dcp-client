@@ -28,7 +28,7 @@ import rx.functions.Func1;
  * @see RetryBuilder how to construct such a function in a fluent manner.
  *
  * @author Simon Baslé
- * @since 2.1
+ * @since 1.0.0
  */
 @InterfaceStability.Committed
 @InterfaceAudience.Public

@@ -23,20 +23,45 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.*;
 import rx.subjects.Subject;
 
+/**
+ * Handles the "business logic" of incoming DCP mutation and control messages.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
+ */
 public class DcpMessageHandler extends ChannelDuplexHandler {
 
+    /**
+     * The logger used.
+     */
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpMessageHandler.class);
 
+    /**
+     * The data callback where the events are fed to the user.
+     */
     private final DataEventHandler dataEventHandler;
+
+    /**
+     * The subject for the control events since they need more advanced handling up the stack.
+     */
     private final Subject<ByteBuf, ByteBuf> controlEvents;
 
-    public DcpMessageHandler(DataEventHandler dataEventHandler, Subject<ByteBuf, ByteBuf> controlEvents) {
+    /**
+     * Create a new message handler.
+     *
+     * @param dataEventHandler data event callback handler.
+     * @param controlEvents control event subject.
+     */
+    DcpMessageHandler(final DataEventHandler dataEventHandler, final Subject<ByteBuf, ByteBuf> controlEvents) {
         this.dataEventHandler = dataEventHandler;
         this.controlEvents = controlEvents;
     }
 
+    /**
+     * Dispatch every incoming message to either the data or the control feeds.
+     */
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         ByteBuf message = (ByteBuf) msg;
 
         if (isDataMessage(message)) {
@@ -53,7 +78,13 @@ public class DcpMessageHandler extends ChannelDuplexHandler {
         }
     }
 
-    private static boolean isControlMessage(ByteBuf msg) {
+    /**
+     * Helper method to check if the given byte buffer is a control message.
+     *
+     * @param msg the message to check.
+     * @return true if it is, false otherwise.
+     */
+    private static boolean isControlMessage(final ByteBuf msg) {
         return DcpOpenStreamResponse.is(msg)
             || DcpStreamEndMessage.is(msg)
             || DcpSnapshotMarkerMessage.is(msg)
@@ -62,10 +93,14 @@ public class DcpMessageHandler extends ChannelDuplexHandler {
             || DcpGetPartitionSeqnosResponse.is(msg);
     }
 
-    private static boolean isDataMessage(ByteBuf msg) {
-        return DcpMutationMessage.is(msg)
-            || DcpDeletionMessage.is(msg)
-            || DcpExpirationMessage.is(msg);
+    /**
+     * Helper method to check if the given byte buffer is a data message.
+     *
+     * @param msg the message to check.
+     * @return true if it is, false otherwise.
+     */
+    private static boolean isDataMessage(final ByteBuf msg) {
+        return DcpMutationMessage.is(msg) || DcpDeletionMessage.is(msg) || DcpExpirationMessage.is(msg);
     }
 
 }

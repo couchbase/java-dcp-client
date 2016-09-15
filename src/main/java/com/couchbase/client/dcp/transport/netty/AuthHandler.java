@@ -34,47 +34,100 @@ import java.net.SocketAddress;
 
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
  */
-public class AuthHandler
+class AuthHandler
     extends SimpleChannelInboundHandler<ByteBuf>
     implements CallbackHandler, ChannelOutboundHandler {
 
+    /**
+     * Indicates a successful SASL auth.
+     */
+    private static final byte AUTH_SUCCESS = 0x00;
+
+    /**
+     * Indicates a failed SASL auth.
+     */
+    private static final byte AUTH_ERROR = 0x20;
+
+    /**
+     * The logger used for the auth handler.
+     */
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(AuthHandler.class);
 
+    /**
+     * Username used to authenticate against the bucket (likely to be the bucket name itself).
+     */
     private final String username;
+
+    /**
+     * The user/bucket password.
+     */
     private final String password;
-    private ChannelHandlerContext ctx;
+
+    /**
+     * The original connect promise which is intercepted and then completed/failed after the
+     * authentication procedure.
+     */
     private ChannelPromise originalPromise;
+
+    /**
+     * The SASL client reused from core-io since it has our SCRAM-* additions that are not
+     * provided by the vanilla JDK implementation.
+     */
     private SaslClient saslClient;
+
+    /**
+     * Stores the selected SASL mechanism in the process.
+     */
     private String selectedMechanism;
 
-    public AuthHandler(String username, String password) {
+    /**
+     * Creates a new auth handler.
+     *
+     * @param username user/bucket name.
+     * @param password password of the user/bucket.
+     */
+    AuthHandler(final String username, final String password) {
         this.username = username;
         this.password = password == null ? "" : password;
     }
 
+    /**
+     * Once the channel is active, start the SASL auth negotiation.
+     */
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        this.ctx = ctx;
+    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
         ByteBuf request = ctx.alloc().buffer();
         SaslListMechsRequest.init(request);
         ctx.writeAndFlush(request);
     }
 
+    /**
+     * Every time we recieve a message as part of the negotiation process, handle
+     * it according to the req/res process.
+     */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+    protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
         if (SaslListMechsResponse.is(msg)) {
             handleListMechsResponse(ctx, msg);
         } else if (SaslAuthResponse.is(msg)) {
             handleAuthResponse(ctx, msg);
         } else if (SaslStepResponse.is(msg)) {
-            checkIsAuthed(MessageUtil.getStatus(msg));
+            checkIsAuthed(ctx, MessageUtil.getStatus(msg));
+        } else {
+            throw new IllegalStateException("Received unexpected SASL response! " + MessageUtil.humanize(msg));
         }
     }
 
-    private void handleAuthResponse(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+    /**
+     * Runs the SASL challenge protocol and dispatches the next step if required.
+     */
+    private void handleAuthResponse(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
         if (saslClient.isComplete()) {
-            checkIsAuthed(MessageUtil.getStatus(msg));
+            checkIsAuthed(ctx, MessageUtil.getStatus(msg));
             return;
         }
 
@@ -110,6 +163,7 @@ public class AuthHandler
                 public void operationComplete(Future<Void> future) throws Exception {
                     if (!future.isSuccess()) {
                         LOGGER.warn("Error during SASL Auth negotiation phase.", future);
+                        originalPromise.setFailure(future.cause());
                     }
                 }
             });
@@ -119,31 +173,38 @@ public class AuthHandler
 
     }
 
-    private void checkIsAuthed(final short status) {
+    /**
+     * Check if the authenication process suceeded or failed based on the response status.
+     */
+    private void checkIsAuthed(final ChannelHandlerContext ctx, final short status) {
         switch (status) {
-            case 0x00: // auth success
-                LOGGER.debug("Authenticated against Node {}", ctx.channel().remoteAddress());
+            case AUTH_SUCCESS:
+                LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
                 ctx.pipeline().remove(this);
                 originalPromise.setSuccess();
                 ctx.fireChannelActive();
                 break;
-            case 0x20: // auth failure
-                originalPromise.setFailure(new AuthenticationException("Authentication Failure"));
+            case AUTH_ERROR:
+                originalPromise.setFailure(new AuthenticationException("SASL Authentication Failure"));
                 break;
             default:
                 originalPromise.setFailure(new AuthenticationException("Unhandled SASL auth status: " + status));
         }
     }
 
-    private void handleListMechsResponse(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+    /**
+     * Helper method to parse the list of supported SASL mechs and dispatch the initial auth request following.
+     */
+    private void handleListMechsResponse(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
         String remote = ctx.channel().remoteAddress().toString();
         String[] supportedMechanisms = SaslListMechsResponse.supportedMechs(msg);
-        if (supportedMechanisms.length == 0) {
+        if (supportedMechanisms == null || supportedMechanisms.length == 0) {
             throw new AuthenticationException("Received empty SASL mechanisms list from server: " + remote);
         }
 
         saslClient = Sasl.createSaslClient(supportedMechanisms, null, "couchbase", remote, null, this);
         selectedMechanism = saslClient.getMechanismName();
+
         byte[] bytePayload = saslClient.hasInitialResponse() ? saslClient.evaluateChallenge(new byte[]{}) : null;
         ByteBuf payload = bytePayload != null ? ctx.alloc().buffer().writeBytes(bytePayload) : Unpooled.EMPTY_BUFFER;
 
@@ -159,11 +220,15 @@ public class AuthHandler
             public void operationComplete(Future<Void> future) throws Exception {
                 if (!future.isSuccess()) {
                     LOGGER.warn("Error during SASL Auth negotiation phase.", future);
+                    originalPromise.setFailure(future.cause());
                 }
             }
         });
     }
 
+    /**
+     * Handles the SASL defined callbacks to set user and password (the {@link CallbackHandler} interface).
+     */
     @Override
     public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
         for (Callback callback : callbacks) {
@@ -177,20 +242,23 @@ public class AuthHandler
         }
     }
 
+    /**
+     * Intercept the connect phase and store the original promise.
+     */
     @Override
-    public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress, SocketAddress localAddress,
-                        ChannelPromise promise) throws Exception {
-            originalPromise = promise;
-            ChannelPromise downPromise = ctx.newPromise();
-            downPromise.addListener(new GenericFutureListener<Future<Void>>() {
-                @Override
-                public void operationComplete(Future<Void> future) throws Exception {
-                    if (!future.isSuccess() && !originalPromise.isDone()) {
-                        originalPromise.setFailure(future.cause());
-                    }
+    public void connect(final ChannelHandlerContext ctx, final SocketAddress remoteAddress,
+        final SocketAddress localAddress, final ChannelPromise promise) throws Exception {
+        originalPromise = promise;
+        ChannelPromise inboundPromise = ctx.newPromise();
+        inboundPromise.addListener(new GenericFutureListener<Future<Void>>() {
+            @Override
+            public void operationComplete(Future<Void> future) throws Exception {
+                if (!future.isSuccess() && !originalPromise.isDone()) {
+                    originalPromise.setFailure(future.cause());
                 }
-            });
-            ctx.connect(remoteAddress, localAddress, downPromise);
+            }
+        });
+        ctx.connect(remoteAddress, localAddress, inboundPromise);
     }
 
     @Override

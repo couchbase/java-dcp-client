@@ -35,22 +35,50 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Opens the DCP connection on the channel and once established removes itself.
+ * Negotiates DCP control flags once connected and removes itself afterwards.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
  */
 public class DcpControlHandler
     extends SimpleChannelInboundHandler<ByteBuf>
     implements ChannelOutboundHandler {
 
+    /**
+     * Status indicating a successful negotiation of one control param.
+     */
+    private static final byte CONTROL_SUCCESS = 0x00;
+
+    /**
+     * The logger used.
+     */
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpControlHandler.class);
 
+    /**
+     * Stores an iterator over the control settings that need to be negotiated.
+     */
     private final Iterator<Map.Entry<String, String>> controlSettings;
+
+    /**
+     * The original connect promise which is intercepted and then completed/failed after the
+     * authentication procedure.
+     */
     private ChannelPromise originalPromise;
 
-    public DcpControlHandler(DcpControl dcpControl) {
+    /**
+     * Create a new dcp control handler.
+     *
+     * @param dcpControl the options set by the caller which should be negotiated.
+     */
+    DcpControlHandler(final DcpControl dcpControl) {
         controlSettings = dcpControl.iterator();
     }
 
-    private void negotiate(ChannelHandlerContext ctx) {
+    /**
+     * Helper method to walk the iterator and create a new request that defines which control param
+     * should be negotiated right now.
+     */
+    private void negotiate(final ChannelHandlerContext ctx) {
         if (controlSettings.hasNext()) {
             Map.Entry<String, String> setting = controlSettings.next();
 
@@ -69,27 +97,37 @@ public class DcpControlHandler
         }
     }
 
+    /**
+     * Once the channel becomes active, start negotiating the dcp control params.
+     */
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
         negotiate(ctx);
     }
 
+    /**
+     * Since only one feature per req/res can be negotiated, repeat the process once a response comes
+     * back until the iterator is complete or a non-success response status is received.
+     */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+    protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
         short status = MessageUtil.getStatus(msg);
-        if (status == 0) {
+        if (status == CONTROL_SUCCESS) {
             negotiate(ctx);
         } else {
             originalPromise.setFailure(new IllegalStateException("Could not configure DCP Controls: " + status));
         }
     }
 
+    /**
+     * Intercept the connect phase and store the original promise.
+     */
     @Override
-    public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress, SocketAddress localAddress,
-                        ChannelPromise promise) throws Exception {
+    public void connect(final ChannelHandlerContext ctx, final SocketAddress remoteAddress,
+        final SocketAddress localAddress, final ChannelPromise promise) throws Exception {
         originalPromise = promise;
-        ChannelPromise downPromise = ctx.newPromise();
-        downPromise.addListener(new GenericFutureListener<Future<Void>>() {
+        ChannelPromise inboundPromise = ctx.newPromise();
+        inboundPromise.addListener(new GenericFutureListener<Future<Void>>() {
             @Override
             public void operationComplete(Future<Void> future) throws Exception {
                 if (!future.isSuccess() && !originalPromise.isDone()) {
@@ -97,7 +135,7 @@ public class DcpControlHandler
                 }
             }
         });
-        ctx.connect(remoteAddress, localAddress, downPromise);
+        ctx.connect(remoteAddress, localAddress, inboundPromise);
     }
 
     @Override

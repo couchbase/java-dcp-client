@@ -24,11 +24,22 @@ import com.couchbase.client.deps.io.netty.channel.socket.nio.NioSocketChannel;
 import com.couchbase.client.deps.io.netty.channel.socket.oio.OioSocketChannel;
 
 /**
- * Created by daschl on 10/07/16.
+ * Various netty channel related utility methods.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
  */
 public enum ChannelUtils {
     ;
 
+    /**
+     * Helper method to detect the right channel for the given event loop group.
+     *
+     * Supports Epoll, Nio and Oio.
+     *
+     * @param group the event loop group passed in.
+     * @return returns the right channel class for the group.
+     */
     public static Class<? extends Channel> channelForEventLoopGroup(final EventLoopGroup group) {
         Class<? extends Channel> channelClass = NioSocketChannel.class;
         if (group instanceof EpollEventLoopGroup) {

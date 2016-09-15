@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * @see RetryBuilder how to construct a RetryWhenFunction in a fluent manner.
  *
  * @author Simon Baslé
- * @since 2.1
+ * @since 1.0.0
  */
 @InterfaceStability.Committed
 @InterfaceAudience.Public
