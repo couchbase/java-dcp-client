@@ -322,6 +322,7 @@ public class Client {
             }
         });
         if (!initialized.get()) {
+            LOGGER.warn("Invalid session state is: {}", sessionState());
             throw new IllegalStateException("State needs to be initialized or recovered first before starting");
         }
     }
