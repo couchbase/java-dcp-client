@@ -62,12 +62,15 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private final Subject<ByteBuf, ByteBuf> controlSubject;
     private final Map<Integer, Promise<?>> outstandingPromises;
     private final Map<Integer, Short> outstandingVbucketInfos;
-    private volatile Channel channel;
     private final AtomicIntegerArray openStreams;
     private final boolean needsBufferAck;
     private final int bufferAckWatermark;
     private final Conductor conductor;
+
+    private volatile boolean disconnected;
     private volatile int bufferAckCounter;
+    private volatile Channel channel;
+
 
     public DcpChannel(InetAddress inetAddress, final ClientEnvironment env, final Conductor conductor) {
         super(LifecycleState.DISCONNECTED);
@@ -79,6 +82,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
         this.openStreams = new AtomicIntegerArray(1024);
         this.needsBufferAck = env.dcpControl().bufferAckEnabled();
+        this.disconnected = false;
 
         this.bufferAckCounter = 0;
         if (needsBufferAck) {
@@ -240,9 +244,31 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             channel = future.channel();
-                            transitionState(LifecycleState.CONNECTED);
-                            LOGGER.info("Connected to Node {}", inetAddress);
-                            subscriber.onCompleted();
+                            if (disconnected) {
+                                LOGGER.info("Connected Node {}, but got instructed to disconnect in " +
+                                    "the meantime.", inetAddress);
+                                // disconnected before we could finish the connect :/
+                                disconnect().subscribe(new Completable.CompletableSubscriber() {
+                                    @Override
+                                    public void onCompleted() {
+                                        subscriber.onCompleted();
+                                    }
+
+                                    @Override
+                                    public void onError(Throwable e) {
+                                        LOGGER.warn("Got error during disconnect.", e);
+                                    }
+
+                                    @Override
+                                    public void onSubscribe(Subscription d) {
+                                        // ignored.
+                                    }
+                                });
+                            } else {
+                                transitionState(LifecycleState.CONNECTED);
+                                LOGGER.info("Connected to Node {}", inetAddress);
+                                subscriber.onCompleted();
+                            }
                         } else {
                             transitionState(LifecycleState.DISCONNECTED);
                             // todo!
@@ -259,6 +285,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
+                disconnected = true;
                 if (channel != null) {
                     transitionState(LifecycleState.DISCONNECTING);
                     bufferAckCounter = 0;
