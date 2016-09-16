@@ -41,6 +41,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
 
 public class Conductor {
@@ -308,13 +309,52 @@ public class Conductor {
         LOGGER.debug("Adding DCP Channel against {}", node);
         DcpChannel channel = new DcpChannel(node, env, this);
         channels.add(channel);
-        channel.connect().subscribe();
+
+        channel
+            .connect()
+            .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.fixed(200, TimeUnit.MILLISECONDS)).doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+                @Override
+                public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                    LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node);
+                }
+            }).build())
+            .subscribe(new Completable.CompletableSubscriber() {
+                @Override
+                public void onCompleted() {
+                    LOGGER.debug("Completed Node connect for DCP channel {}", node);
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    LOGGER.warn("Got error during connect (maybe retried) for node {}" + node, e);
+                }
+
+                @Override
+                public void onSubscribe(Subscription d) {
+                    // ignored.
+                }
+            });
     }
 
-    private void remove(DcpChannel node) {
+    private void remove(final DcpChannel node) {
         if(channels.remove(node)) {
             LOGGER.debug("Removing DCP Channel against {}", node);
-            node.disconnect().subscribe();
+            node.disconnect().subscribe(new Completable.CompletableSubscriber() {
+                @Override
+                public void onCompleted() {
+                    LOGGER.debug("Channel remove notified as complete for {}", node.hostname());
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    LOGGER.warn("Got error during Node removal for node {}" + node.hostname(), e);
+                }
+
+                @Override
+                public void onSubscribe(Subscription d) {
+                    // ignored.
+                }
+            });
        }
     }
 

@@ -67,7 +67,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private final int bufferAckWatermark;
     private final Conductor conductor;
 
-    private volatile boolean disconnected;
+    private volatile boolean isShutdown;
     private volatile int bufferAckCounter;
     private volatile Channel channel;
 
@@ -82,7 +82,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         this.controlSubject = PublishSubject.<ByteBuf>create().toSerialized();
         this.openStreams = new AtomicIntegerArray(1024);
         this.needsBufferAck = env.dcpControl().bufferAckEnabled();
-        this.disconnected = false;
+        this.isShutdown = false;
 
         this.bufferAckCounter = 0;
         if (needsBufferAck) {
@@ -224,7 +224,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
-                if (state() != LifecycleState.DISCONNECTED) {
+                if (isShutdown || state() != LifecycleState.DISCONNECTED) {
                     subscriber.onCompleted();
                     return;
                 }
@@ -244,10 +244,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             channel = future.channel();
-                            if (disconnected) {
+                            if (isShutdown) {
                                 LOGGER.info("Connected Node {}, but got instructed to disconnect in " +
                                     "the meantime.", inetAddress);
-                                // disconnected before we could finish the connect :/
+                                // isShutdown before we could finish the connect :/
                                 disconnect().subscribe(new Completable.CompletableSubscriber() {
                                     @Override
                                     public void onCompleted() {
@@ -271,8 +271,6 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             }
                         } else {
                             transitionState(LifecycleState.DISCONNECTED);
-                            // todo!
-                            LOGGER.warn("IMPLEMENT ME!!! (retry on failure until removed)");
                             subscriber.onError(future.cause());
                         }
                     }
@@ -281,11 +279,15 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         });
     }
 
+    public boolean isShutdown() {
+        return isShutdown;
+    }
+
     public Completable disconnect() {
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
-                disconnected = true;
+                isShutdown = true;
                 if (channel != null) {
                     transitionState(LifecycleState.DISCONNECTING);
                     bufferAckCounter = 0;
