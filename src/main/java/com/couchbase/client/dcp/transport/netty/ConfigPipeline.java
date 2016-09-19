@@ -92,7 +92,8 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
 
         pipeline
             .addLast(new HttpClientCodec())
-            .addLast(new ConfigHandler(hostname, bucket, password, configStream));
+            .addLast(new StartStreamHandler(bucket, password))
+            .addLast(new ConfigHandler(hostname, configStream));
     }
 
 }

@@ -21,6 +21,7 @@ import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -258,7 +259,12 @@ public class Client {
             throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
         }
         LOGGER.info("Connecting to seed nodes and bootstrapping bucket {}.", env.bucket());
-        return conductor.connect();
+        return conductor.connect().onErrorResumeNext(new Func1<Throwable, Completable>() {
+            @Override
+            public Completable call(Throwable throwable) {
+                return Completable.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable));
+            }
+        });
     }
 
     /**

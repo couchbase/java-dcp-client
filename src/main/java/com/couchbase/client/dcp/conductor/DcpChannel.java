@@ -290,7 +290,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                                 subscriber.onCompleted();
                             }
                         } else {
-                            LOGGER.debug("Connect attempt to {} failed because of {}.", inetAddress, future.cause());
+                            LOGGER.info("Connect attempt to {} failed.", inetAddress, future.cause());
                             transitionState(LifecycleState.DISCONNECTED);
                             subscriber.onError(future.cause());
                         }

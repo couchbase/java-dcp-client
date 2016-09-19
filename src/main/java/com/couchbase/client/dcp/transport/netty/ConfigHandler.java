@@ -20,7 +20,6 @@ import com.couchbase.client.core.config.parser.BucketConfigParser;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
-import com.couchbase.client.deps.io.netty.handler.codec.base64.Base64;
 import com.couchbase.client.deps.io.netty.handler.codec.http.*;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.subjects.Subject;
@@ -40,16 +39,6 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     private final String hostname;
 
     /**
-     * The name of the bucket (used for http auth).
-     */
-    private final String bucket;
-
-    /**
-     * THe password of the bucket (used for http auth).
-     */
-    private final String password;
-
-    /**
      * The config stream where the configs are emitted into.
      */
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
@@ -63,15 +52,11 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
      * Creates a new config handler.
      *
      * @param hostname hostname of the remote server.
-     * @param bucket name of the bucket/user.
-     * @param password password of the bucket/user.
      * @param configStream config stream where to send the configs.
      */
-    ConfigHandler(final String hostname, final String bucket, final String password,
+    ConfigHandler(final String hostname,
         final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
         this.hostname = hostname;
-        this.bucket = bucket;
-        this.password = password;
         this.configStream = configStream;
     }
 
@@ -108,32 +93,10 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
         }
     }
 
-    /**
-     * Once the channel is active, start to send the HTTP request to begin chunking.
-     */
     @Override
-    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
         responseContent = ctx.alloc().buffer();
         ctx.fireChannelActive();
-
-        String terseUri = "/pools/default/bs/" + bucket;
-        FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, terseUri);
-        request.headers().add(HttpHeaders.Names.ACCEPT, "application/json");
-        addHttpBasicAuth(ctx, request);
-
-        ctx.writeAndFlush(request);
     }
 
-    /**
-     * Helper method to add authentication credentials to the config stream request.
-     */
-    private void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request) {
-        final String pw = password == null ? "" : password;
-        ByteBuf raw = ctx.alloc().buffer(bucket.length() + pw.length() + 1);
-        raw.writeBytes((bucket + ":" + pw).getBytes(CharsetUtil.UTF_8));
-        ByteBuf encoded = Base64.encode(raw, false);
-        request.headers().add(HttpHeaders.Names.AUTHORIZATION, "Basic " + encoded.toString(CharsetUtil.UTF_8));
-        encoded.release();
-        raw.release();
-    }
 }
