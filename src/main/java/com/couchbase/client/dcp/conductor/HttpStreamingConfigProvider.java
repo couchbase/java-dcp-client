@@ -52,7 +52,6 @@ import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 /**
  * The {@link HttpStreamingConfigProvider}s only purpose is to keep new configs coming in all the time in a resilient manner.
  *
- * Todo: attach a listener to the channel close event and try to rebootstrap as long as not stopped.
  *
  * @author Michael Nitschinger
  */
@@ -196,7 +195,7 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
         if (!stopped) {
             tryConnectHosts()
                 .retryWhen(any()
-                    .delay(Delay.fixed(1, TimeUnit.SECONDS))
+                    .delay(Delay.linear(TimeUnit.SECONDS, 10, 1))
                     .max(Integer.MAX_VALUE)
                     .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                         @Override

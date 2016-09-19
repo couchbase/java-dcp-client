@@ -101,4 +101,12 @@ abstract class ConnectInterceptingHandler<T>
     public void flush(ChannelHandlerContext ctx) throws Exception {
         ctx.flush();
     }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        if (originalPromise != null) {
+            originalPromise.setFailure(cause);
+        }
+        ctx.fireExceptionCaught(cause);
+    }
 }

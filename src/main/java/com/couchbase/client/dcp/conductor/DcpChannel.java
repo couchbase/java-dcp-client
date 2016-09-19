@@ -20,6 +20,7 @@ import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
+import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.*;
@@ -36,6 +37,7 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
 import rx.*;
+import rx.functions.Action4;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
@@ -43,8 +45,11 @@ import rx.subjects.Subject;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 
 /**
  * Logical representation of a DCP cluster connection.
@@ -267,9 +272,25 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             } else {
                                 transitionState(LifecycleState.CONNECTED);
                                 LOGGER.info("Connected to Node {}", inetAddress);
+
+                                // attach callback which listens on future close and dispatches a
+                                // reconnect if needed.
+                                channel.closeFuture().addListener(new GenericFutureListener<ChannelFuture>() {
+                                    @Override
+                                    public void operationComplete(ChannelFuture future) throws Exception {
+                                        LOGGER.debug("Got notified of channel close on Node {}", inetAddress);
+                                        transitionState(LifecycleState.DISCONNECTED);
+                                        if (!isShutdown) {
+                                            dispatchReconnect();
+                                        }
+                                        channel = null;
+                                    }
+                                });
+
                                 subscriber.onCompleted();
                             }
                         } else {
+                            LOGGER.debug("Connect attempt to {} failed because of {}.", inetAddress, future.cause());
                             transitionState(LifecycleState.DISCONNECTED);
                             subscriber.onError(future.cause());
                         }
@@ -277,6 +298,39 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 });
             }
         });
+    }
+
+    private void dispatchReconnect() {
+        if (isShutdown) {
+            LOGGER.debug("Ignoring reconnect on {} because already shutdown.", inetAddress);
+            return;
+        }
+        LOGGER.info("Node {} socket closed, initiating reconnect.", inetAddress);
+
+        connect()
+            .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32))
+                .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+                    @Override
+                    public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                        LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", inetAddress);
+                    }
+            }).build())
+            .subscribe(new Completable.CompletableSubscriber() {
+                @Override
+                public void onCompleted() {
+                    LOGGER.debug("Completed Node connect for DCP channel {}", inetAddress);
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    LOGGER.warn("Got error during connect (maybe retried) for node {}" + inetAddress, e);
+                }
+
+                @Override
+                public void onSubscribe(Subscription d) {
+                    // ignored.
+                }
+            });
     }
 
     public boolean isShutdown() {
