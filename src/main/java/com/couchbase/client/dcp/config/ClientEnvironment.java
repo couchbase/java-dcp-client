@@ -301,8 +301,6 @@ public class ClientEnvironment {
             ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
             ", poolBuffers=" + poolBuffers +
             ", bufferAckWatermark=" + bufferAckWatermark +
-            ", dataEventHandler=" + dataEventHandler.getClass().getSimpleName() +
-            ", controlEventHandler=" + controlEventHandler.getClass().getSimpleName() +
             '}';
     }
 }
