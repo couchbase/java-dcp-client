@@ -16,15 +16,38 @@
 package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
+import com.couchbase.client.core.state.LifecycleState;
+import com.couchbase.client.core.state.Stateful;
+import com.couchbase.client.deps.com.lmax.disruptor.LifecycleAware;
 import rx.Completable;
 import rx.Observable;
 
-public interface ConfigProvider {
+/**
+ * Describes the contract for a class that provides Couchbase Server configurations.
+ *
+ * Note that it is assumed by contract that the configuration provider is "cluster aware" and
+ * tries until stopped to find a new node to grab a configuration from if the current source
+ * is not available anymore.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
+ */
+public interface ConfigProvider extends Stateful<LifecycleState> {
 
+    /**
+     * Asynchronously starts the configuration provider.
+     */
     Completable start();
 
+    /**
+     * Asynchronously stops the configuration provider.
+     */
     Completable stop();
 
+    /**
+     * Returns an {@link Observable} which emits a new config every time it arrives from
+     * the server side.
+     */
     Observable<CouchbaseBucketConfig> configs();
 
 }

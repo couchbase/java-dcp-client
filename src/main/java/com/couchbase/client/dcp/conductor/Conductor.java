@@ -89,6 +89,23 @@ public class Conductor {
         return configProvider.start().concatWith(atLeastOneConfig);
     }
 
+    /**
+     * Returns true if all channels and the config provider are in a disconnected state.
+     */
+    public boolean disconnected() {
+        if (!configProvider.isState(LifecycleState.DISCONNECTED)) {
+            return false;
+        }
+
+        for (DcpChannel channel : channels) {
+            if (!channel.isState(LifecycleState.DISCONNECTED)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public Completable stop() {
         LOGGER.debug("Instructed to shutdown.");
 

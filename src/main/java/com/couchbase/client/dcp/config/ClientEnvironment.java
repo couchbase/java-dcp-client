@@ -27,25 +27,75 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Stateful environment for internal usage.
+ * The {@link ClientEnvironment} is responsible to carry various configuration and
+ * state information throughout the lifecycle.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
  */
 public class ClientEnvironment {
 
+    /**
+     * Stores the list of bootstrap nodes (where the cluster is).
+     */
     private final List<String> clusterAt;
+
+    /**
+     * Stores the generator for each DCP connection name.
+     */
     private final ConnectionNameGenerator connectionNameGenerator;
+
+    /**
+     * The name of the bucket.
+     */
     private final String bucket;
+
+    /**
+     * The password of the bucket.
+     */
     private final String password;
+
+    /**
+     * DCP control params, optional.
+     */
     private final DcpControl dcpControl;
+
+    /**
+     * The IO loops.
+     */
     private final EventLoopGroup eventLoopGroup;
+
+    /**
+     * If the client instantiated the IO loops (it is then responsible for shutdown).
+     */
     private final boolean eventLoopGroupIsPrivate;
+
+    /**
+     * If buffer pooling is enabled throughout the client.
+     */
     private final boolean poolBuffers;
 
+    /**
+     * What the buffer ack watermark in percent should be.
+     */
     private final int bufferAckWatermark;
 
+    /**
+     * User-attached data event handler.
+     */
     private volatile DataEventHandler dataEventHandler;
+
+    /**
+     * User-attached control event handler.
+     */
     private volatile ControlEventHandler controlEventHandler;
 
-    private ClientEnvironment(Builder builder) {
+    /**
+     * Creates a new environment based on the builder.
+     *
+     * @param builder the builder to build the environment.
+     */
+    private ClientEnvironment(final Builder builder) {
         clusterAt = builder.clusterAt;
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
@@ -57,54 +107,93 @@ public class ClientEnvironment {
         poolBuffers = builder.poolBuffers;
     }
 
+    /**
+     * Returns a new {@link Builder} to craft a {@link ClientEnvironment}.
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Lists the bootstrap nodes.
+     */
     public List<String> clusterAt() {
         return clusterAt;
     }
 
+    /**
+     * Returns the currently attached data event handler.
+     */
     public DataEventHandler dataEventHandler() {
         return dataEventHandler;
     }
 
+    /**
+     * Returns the current attached control event handler.
+     */
     public ControlEventHandler controlEventHandler() {
         return controlEventHandler;
     }
 
+    /**
+     * Returns the name generator used to identify DCP sockets.
+     */
     public ConnectionNameGenerator connectionNameGenerator() {
         return connectionNameGenerator;
     }
 
+    /**
+     * Name of the bucket used.
+     */
     public String bucket() {
         return bucket;
     }
 
+    /**
+     * Password of the bucket used.
+     */
     public String password() {
         return password;
     }
 
+    /**
+     * Returns all DCP control params set, may be empty.
+     */
     public DcpControl dcpControl() {
         return dcpControl;
     }
 
+    /**
+     * The watermark in percent for buffer acknowledgements.
+     */
     public int bufferAckWatermark() {
         return bufferAckWatermark;
     }
 
+    /**
+     * Returns the currently attached event loop group for IO process.ing.
+     */
     public EventLoopGroup eventLoopGroup() {
         return eventLoopGroup;
     }
 
+    /**
+     * Set/Override the data event handler.
+     */
     public void setDataEventHandler(DataEventHandler dataEventHandler) {
         this.dataEventHandler = dataEventHandler;
     }
 
+    /**
+     * Set/Override the control event handler.
+     */
     public void setControlEventHandler(ControlEventHandler controlEventHandler) {
         this.controlEventHandler = controlEventHandler;
     }
 
+    /**
+     * If buffer pooling is enabled.
+     */
     public boolean poolBuffers() {
         return poolBuffers;
     }
@@ -168,6 +257,15 @@ public class ClientEnvironment {
 
     }
 
+    /**
+     * Shut down this stateful environment.
+     *
+     * Note that it will only release/terminate resources which are owned by the client,
+     * especially if a custom event loop group is passed in it needs to be shut down
+     * separately.
+     *
+     * @return a {@link Completable} indicating completion of the shutdown process.
+     */
     @SuppressWarnings({"unchecked"})
     public Completable shutdown() {
         if (!eventLoopGroupIsPrivate) {
@@ -203,8 +301,8 @@ public class ClientEnvironment {
             ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
             ", poolBuffers=" + poolBuffers +
             ", bufferAckWatermark=" + bufferAckWatermark +
-            ", dataEventHandler=" + dataEventHandler +
-            ", controlEventHandler=" + controlEventHandler +
+            ", dataEventHandler=" + dataEventHandler.getClass().getSimpleName() +
+            ", controlEventHandler=" + controlEventHandler.getClass().getSimpleName() +
             '}';
     }
 }

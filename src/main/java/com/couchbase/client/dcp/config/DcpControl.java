@@ -20,35 +20,69 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Container for all configurable DCP control params.
+ * This class is used during bootstrap to configure all the possible DCP negotiation parameters.
+ *
+ * @author Michael Nitschinger
+ * @since 1.0.0
  */
 public class DcpControl implements Iterable<Map.Entry<String, String>> {
 
+    /**
+     * Stores the params to negotiate in a map.
+     */
     private Map<String, String> values;
 
+    /**
+     * Creates a new {@link DcpControl} instance with no params set upfront.
+     */
     public DcpControl() {
         this.values = new HashMap<String, String>();
     }
 
-    public DcpControl put(Names name, String value) {
+    /**
+     * Store/Override a control parameter.
+     *
+     * @param name the name of the control parameter.
+     * @param value the stringified version what it should be set to.
+     * @return the {@link DcpControl} instance for chainability.
+     */
+    public DcpControl put(final Names name, final String value) {
         values.put(name.value(), value);
         return this;
     }
 
-    public String get(Names name) {
+    /**
+     * Returns a param if set, otherwise null is returned.
+     *
+     * @param name the name of the param.
+     * @return the stringified value if set, null otherwise.
+     */
+    public String get(final Names name) {
         return values.get(name.value());
     }
 
+    /**
+     * Shorthand getter to check if buffer acknowledgements are enabled.
+     */
     public boolean bufferAckEnabled() {
         String bufSize = values.get(Names.CONNECTION_BUFFER_SIZE.value());
         return bufSize != null && Integer.parseInt(bufSize) > 0;
     }
 
+    /**
+     * Provides an iterator over the stored values in the map.
+     */
     @Override
     public Iterator<Map.Entry<String, String>> iterator() {
         return values.entrySet().iterator();
     }
 
+    /**
+     * All the possible control options available.
+     *
+     * Note that not all params might be supported by the used server version, see the
+     * description for each for more information.
+     */
     public enum Names {
         /**
          * Used to enable to tell the Producer that the Consumer supports detecting
@@ -114,8 +148,6 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
 
     @Override
     public String toString() {
-        return "DcpControl{" +
-            "values=" + values +
-            '}';
+        return "DcpControl{" + values + '}';
     }
 }

@@ -252,6 +252,12 @@ public class Client {
      * @return a {@link Completable} signaling that the connect phase has been completed or failed.
      */
     public Completable connect() {
+        if (!conductor.disconnected()) {
+            // short-circuit connect attempt if the conductor is already connecting/connected.
+            LOGGER.debug("Ignoring duplicate connect attempt, already connecting/connected.");
+            return Completable.complete();
+        }
+
         if (env.dataEventHandler() == null) {
             throw new IllegalArgumentException("A DataEventHandler needs to be provided!");
         }

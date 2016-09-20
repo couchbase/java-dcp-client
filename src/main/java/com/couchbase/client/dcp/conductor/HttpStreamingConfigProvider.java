@@ -19,6 +19,8 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.state.AbstractStateMachine;
+import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
@@ -55,7 +57,7 @@ import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
  *
  * @author Michael Nitschinger
  */
-public class HttpStreamingConfigProvider implements ConfigProvider {
+public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleState> implements ConfigProvider {
 
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HttpStreamingConfigProvider.class);
 
@@ -66,6 +68,7 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
     private final ClientEnvironment env;
 
     public HttpStreamingConfigProvider(ClientEnvironment env) {
+        super(LifecycleState.DISCONNECTED);
         this.env = env;
         this.remoteHosts = new AtomicReference<List<String>>(env.clusterAt());
         this.configStream = PublishSubject.<CouchbaseBucketConfig>create().toSerialized();
@@ -107,12 +110,14 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
                 LOGGER.debug("Initiating streaming config provider shutdown on channel.");
+                transitionState(LifecycleState.DISCONNECTING);
                 if (channel != null) {
                     Channel ch = channel;
                     channel = null;
                     ch.close().addListener(new GenericFutureListener<ChannelFuture>() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
+                            transitionState(LifecycleState.DISCONNECTED);
                             if (future.isSuccess()) {
                                 LOGGER.debug("Streaming config provider channel shutdown completed.");
                                 subscriber.onCompleted();
@@ -140,6 +145,7 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
             return Completable.complete();
         }
 
+        transitionState(LifecycleState.CONNECTING);
         List<String> hosts = remoteHosts.get();
         Completable chain = tryConnectHost(hosts.get(0));
         for (int i = 1; i < hosts.size(); i++) {
@@ -176,11 +182,13 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
                             channel.closeFuture().addListener(new GenericFutureListener<ChannelFuture>() {
                                 @Override
                                 public void operationComplete(ChannelFuture future) throws Exception {
+                                    transitionState(LifecycleState.DISCONNECTED);
                                     channel = null;
                                     triggerReconnect();
                                 }
                             });
                             LOGGER.debug("Successfully established config connection to Socket {}", channel.remoteAddress());
+                            transitionState(LifecycleState.CONNECTED);
                             subscriber.onCompleted();
                         } else {
                             subscriber.onError(future.cause());
@@ -192,6 +200,7 @@ public class HttpStreamingConfigProvider implements ConfigProvider {
     }
 
     private void triggerReconnect() {
+        transitionState(LifecycleState.CONNECTING);
         if (!stopped) {
             tryConnectHosts()
                 .retryWhen(any()
