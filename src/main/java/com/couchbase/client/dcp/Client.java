@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -294,8 +295,9 @@ public class Client {
      * @return a {@link Completable} indicating that streaming has started or failed.
      */
     public Completable startStreaming(Integer... vbids) {
-        sanityCheckSessionState();
-        final List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
+        int numPartitions = numPartitions();
+        sanityCheckSessionState(numPartitions);
+        final List<Integer> partitions = partitionsForVbids(numPartitions, vbids);
 
         LOGGER.info("Starting to Stream for " + partitions.size() + " partitions");
         LOGGER.debug("Stream start against partitions: {}", partitions);
@@ -323,11 +325,13 @@ public class Client {
      * Helper method to check on stream start that some kind of state is initialized to avoid a common error
      * of starting without initializing.
      */
-    private void sanityCheckSessionState() {
+    private void sanityCheckSessionState(int clusterPartitions) {
         final AtomicBoolean initialized = new AtomicBoolean(false);
+        final AtomicInteger sessionPartitions = new AtomicInteger(0);
         sessionState().foreachPartition(new Action1<PartitionState>() {
             @Override
             public void call(PartitionState ps) {
+                sessionPartitions.incrementAndGet();
                 if (ps.getStartSeqno() != 0 || ps.getEndSeqno() != 0) {
                     initialized.set(true);
                 }
@@ -336,6 +340,11 @@ public class Client {
         if (!initialized.get()) {
             LOGGER.warn("Invalid session state is: {}", sessionState());
             throw new IllegalStateException("State needs to be initialized or recovered first before starting");
+        }
+
+        if (clusterPartitions != sessionPartitions.get()) {
+            throw new IllegalStateException("Session State has " + sessionPartitions.get()
+                + " partitions while the cluster has " + clusterPartitions + "!");
         }
     }
 
