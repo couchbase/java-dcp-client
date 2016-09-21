@@ -39,13 +39,14 @@ import java.util.concurrent.TimeUnit;
  */
 public class StatePersistence {
 
-    static String FILENAME = "state.json";
+    static String BUCKET = "travel-sample";
+    static String FILENAME = "state-" + BUCKET + ".json";
 
     public static void main(String[] args) throws Exception {
         // Connect to localhost and use the travel-sample bucket
         final Client client = Client.configure()
             .hostnames("localhost")
-            .bucket("travel-sample")
+            .bucket(BUCKET)
             .build();
 
         // Don't do anything with control events in this example
