@@ -18,7 +18,15 @@ package examples;
 import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.state.PartitionState;
+import com.couchbase.client.dcp.state.SessionState;
+import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import com.sun.tools.doclets.formats.html.SourceToHTMLConverter;
+import rx.Completable;
+import rx.Subscription;
 
 import java.util.concurrent.TimeUnit;
 
@@ -44,10 +52,29 @@ public class PrintIncomingChanges {
             .bucket("travel-sample")
             .build();
 
-        // Don't do anything with control events in this example
+        // If we are in a rollback scenario, rollback the partition and restart the stream.
         client.controlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(final ByteBuf event) {
+                if (RollbackMessage.is(event)) {
+                    final short partition = RollbackMessage.vbucket(event);
+                    client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
+                        .subscribe(new Completable.CompletableSubscriber() {
+                            @Override
+                            public void onCompleted() {
+                                System.out.println("Rollback for partition " + partition + " complete!");
+                            }
+
+                            @Override
+                            public void onError(Throwable e) {
+                                System.err.println("Rollback for partition " + partition + " failed!");
+                                e.printStackTrace();
+                            }
+
+                            @Override
+                            public void onSubscribe(Subscription d) {}
+                        });
+                }
                 event.release();
             }
         });

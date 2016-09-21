@@ -235,8 +235,12 @@ public class Conductor {
     }
 
     public Completable stopStreamForPartition(final short partition) {
-        DcpChannel channel = masterChannelByPartition(partition);
-        return channel.closeStream(partition);
+        if (streamIsOpen(partition)) {
+            DcpChannel channel = masterChannelByPartition(partition);
+            return channel.closeStream(partition);
+        } else {
+            return Completable.complete();
+        }
     }
 
     public boolean streamIsOpen(final short partition) {

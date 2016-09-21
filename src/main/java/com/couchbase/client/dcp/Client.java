@@ -22,6 +22,7 @@ import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.error.BootstrapException;
+import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -294,28 +295,38 @@ public class Client {
      * @param vbids the partition ids (0-indexed) to start streaming for.
      * @return a {@link Completable} indicating that streaming has started or failed.
      */
-    public Completable startStreaming(Integer... vbids) {
+    public Completable startStreaming(Short... vbids) {
         int numPartitions = numPartitions();
         sanityCheckSessionState(numPartitions);
-        final List<Integer> partitions = partitionsForVbids(numPartitions, vbids);
+        final List<Short> partitions = partitionsForVbids(numPartitions, vbids);
 
         LOGGER.info("Starting to Stream for " + partitions.size() + " partitions");
         LOGGER.debug("Stream start against partitions: {}", partitions);
 
         return Observable
             .from(partitions)
-            .flatMap(new Func1<Integer, Observable<?>>() {
+            .flatMap(new Func1<Short, Observable<?>>() {
                 @Override
-                public Observable<?> call(Integer partition) {
+                public Observable<?> call(Short partition) {
                     PartitionState partitionState = sessionState().get(partition);
                     return conductor.startStreamForPartition(
-                        partition.shortValue(),
+                        partition,
                         partitionState.getLastUuid(),
                         partitionState.getStartSeqno(),
                         partitionState.getEndSeqno(),
                         partitionState.getSnapshotStartSeqno(),
                         partitionState.getSnapshotEndSeqno()
-                    ).toObservable();
+                    ).onErrorResumeNext(new Func1<Throwable, Completable>() {
+                        @Override
+                        public Completable call(Throwable throwable) {
+                            if (throwable instanceof RollbackException) {
+                                // We ignore rollbacks since they are handled out of band by the user.
+                                return Completable.complete();
+                            } else {
+                                return Completable.error(throwable);
+                            }
+                        }
+                    }).toObservable();
                 }
             })
             .toCompletable();
@@ -352,24 +363,24 @@ public class Client {
      * Stop DCP streams for the given partition IDs (vbids).
      *
      * If no ids are provided, all partitions will be stopped. Note that you can also use this to "pause" streams
-     * if {@link #startStreaming(Integer...)} is called later - since the session state is persisted and streaming
+     * if {@link #startStreaming(Short...)} is called later - since the session state is persisted and streaming
      * will resume from the current position.
      *
      * @param vbids the partition ids (0-indexed) to stop streaming for.
      * @return a {@link Completable} indicating that streaming has stopped or failed.
      */
-    public Completable stopStreaming(Integer... vbids) {
-        List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
+    public Completable stopStreaming(Short... vbids) {
+        List<Short> partitions = partitionsForVbids(numPartitions(), vbids);
 
         LOGGER.info("Stopping to Stream for " + partitions.size() + " partitions");
         LOGGER.debug("Stream stop against partitions: {}", partitions);
 
         return Observable
             .from(partitions)
-            .flatMap(new Func1<Integer, Observable<?>>() {
+            .flatMap(new Func1<Short, Observable<?>>() {
                 @Override
-                public Observable<?> call(Integer p) {
-                    return conductor.stopStreamForPartition(p.shortValue()).toObservable();
+                public Observable<?> call(Short p) {
+                    return conductor.stopStreamForPartition(p).toObservable();
                 }
             })
             .toCompletable();
@@ -382,12 +393,12 @@ public class Client {
      * @param vbids the potentially empty array of selected vbids.
      * @return a sorted list of partitions to use.
      */
-    private static List<Integer> partitionsForVbids(int numPartitions, Integer... vbids) {
-        List<Integer> partitions = new ArrayList<Integer>();
+    private static List<Short> partitionsForVbids(int numPartitions, Short... vbids) {
+        List<Short> partitions = new ArrayList<Short>();
         if (vbids.length > 0) {
             partitions = Arrays.asList(vbids);
         } else {
-            for (int i = 0; i < numPartitions; i++) {
+            for (short i = 0; i < numPartitions; i++) {
                 partitions.add(i);
             }
         }
@@ -404,20 +415,46 @@ public class Client {
      * @param vbids the partitions to return the failover logs from.
      * @return an {@link Observable} containing all failover logs.
      */
-    public Observable<ByteBuf> failoverLogs(Integer... vbids) {
-        List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
+    public Observable<ByteBuf> failoverLogs(Short... vbids) {
+        List<Short> partitions = partitionsForVbids(numPartitions(), vbids);
 
         LOGGER.debug("Asking for failover logs on partitions {}", partitions);
 
         return Observable
             .from(partitions)
-            .flatMap(new Func1<Integer, Observable<ByteBuf>>() {
+            .flatMap(new Func1<Short, Observable<ByteBuf>>() {
                 @Override
-                public Observable<ByteBuf> call(Integer p) {
-                    return conductor.getFailoverLog(p.shortValue()).toObservable();
+                public Observable<ByteBuf> call(Short p) {
+                    return conductor.getFailoverLog(p).toObservable();
                 }
             });
     }
+
+    /**
+     * Helper method to rollback the partition state and stop/restart the stream.
+     *
+     * The stream is stopped (if not already done). Then:
+     *
+     * The rollback seqno state is applied. Note that this will also remove all the failover logs for the partition
+     * that are higher than the given seqno, since the server told us we are ahead of it.
+     *
+     * Finally, the stream is restarted again.
+     *
+     * @param partition the partition id
+     * @param seqno the sequence number to rollback to
+     */
+    public Completable rollbackAndRestartStream(final short partition, final long seqno) {
+        return stopStreaming(partition)
+            .andThen(Completable.create(new Completable.CompletableOnSubscribe() {
+                @Override
+                public void call(Completable.CompletableSubscriber subscriber) {
+                    sessionState().rollbackToPosition(partition, seqno);
+                    subscriber.onCompleted();
+                }
+            }))
+            .andThen(startStreaming(partition));
+    }
+
 
     /**
      * Returns the number of partitions on the remote cluster.
@@ -596,6 +633,7 @@ public class Client {
                 PartitionState partitionState = sessionState().get(partition);
                 partitionState.setStartSeqno(seqno);
                 partitionState.setSnapshotStartSeqno(seqno);
+                partitionState.setSnapshotEndSeqno(seqno);
                 sessionState().set(partition, partitionState);
             }
         });
@@ -612,7 +650,6 @@ public class Client {
                 long seqno = longs[1];
                 PartitionState partitionState = sessionState().get(partition);
                 partitionState.setEndSeqno(seqno);
-                partitionState.setSnapshotEndSeqno(seqno);
                 sessionState().set(partition, partitionState);
             }
         });
@@ -629,22 +666,22 @@ public class Client {
 
         return getSeqnos()
             .doOnNext(callback)
-            .reduce(new ArrayList<Integer>(), new Func2<ArrayList<Integer>, long[], ArrayList<Integer>>() {
+            .reduce(new ArrayList<Short>(), new Func2<ArrayList<Short>, long[], ArrayList<Short>>() {
                 @Override
-                public ArrayList<Integer> call(ArrayList<Integer> integers, long[] longs) {
-                    integers.add((int) longs[0]);
-                    return integers;
+                public ArrayList<Short> call(ArrayList<Short> shorts, long[] longs) {
+                    shorts.add((short) longs[0]);
+                    return shorts;
                 }
             })
-            .flatMap(new Func1<ArrayList<Integer>, Observable<ByteBuf>>() {
+            .flatMap(new Func1<ArrayList<Short>, Observable<ByteBuf>>() {
                 @Override
-                public Observable<ByteBuf> call(ArrayList<Integer> integers) {
-                    return failoverLogs(integers.toArray(new Integer[] {}));
+                public Observable<ByteBuf> call(ArrayList<Short> shorts) {
+                    return failoverLogs(shorts.toArray(new Short[] {}));
                 }
             })
-            .map(new Func1<ByteBuf, Integer>() {
+            .map(new Func1<ByteBuf, Short>() {
                 @Override
-                public Integer call(ByteBuf buf) {
+                public Short call(ByteBuf buf) {
                     short partition = DcpFailoverLogResponse.vbucket(buf);
                     int numEntries = DcpFailoverLogResponse.numLogEntries(buf);
                     PartitionState ps = sessionState().get(partition);
@@ -656,7 +693,7 @@ public class Client {
                     }
                     sessionState().set(partition, ps);
                     buf.release();
-                    return (int) partition;
+                    return partition;
                 }
             }).last().toCompletable();
     }

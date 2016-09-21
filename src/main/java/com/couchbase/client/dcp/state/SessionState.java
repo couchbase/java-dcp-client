@@ -22,6 +22,7 @@ import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonD
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import rx.functions.Action1;
 
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -82,7 +83,9 @@ public class SessionState {
         for (int i = 0; i < numPartitions; i++) {
             PartitionState partitionState = new PartitionState();
             partitionState.setEndSeqno(NO_END_SEQNO);
-            partitionState.setSnapshotEndSeqno(NO_END_SEQNO);
+            partitionState.setStartSeqno(0);
+            partitionState.setSnapshotStartSeqno(0);
+            partitionState.setSnapshotEndSeqno(0);
             partitionStates.set(i, partitionState);
         }
     }
@@ -145,6 +148,31 @@ public class SessionState {
             }
         });
         return atEnd.get();
+    }
+
+    /**
+     * Helper method to rollback the given partition to the given sequence number.
+     *
+     * This will set the seqno AND REMOVE ALL ENTRIES from the failover log that are higher
+     * than the given sequence number!
+     *
+     * @param partition the partition to rollback
+     * @param seqno the sequence number where to roll it back to.
+     */
+    public void rollbackToPosition(short partition, long seqno) {
+        PartitionState ps = partitionStates.get(partition);
+        ps.setStartSeqno(seqno);
+        ps.setSnapshotStartSeqno(seqno);
+        ps.setSnapshotEndSeqno(seqno);
+        Iterator<FailoverLogEntry> flog = ps.getFailoverLog().iterator();
+        while (flog.hasNext()) {
+            FailoverLogEntry entry = flog.next();
+            // check if this entry is has a higher seqno than we need to roll back to
+            if (entry.getSeqno() > seqno) {
+                flog.remove();
+            }
+        }
+        partitionStates.set(partition, ps);
     }
 
     /**

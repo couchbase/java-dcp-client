@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.core.CouchbaseException;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
@@ -23,6 +24,7 @@ import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.message.*;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -149,7 +151,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     env.controlEventHandler().onEvent(flog);
                     break;
                 case 0x23:
-                    promise.setSuccess(null);
+                    promise.setFailure(new RollbackException());
                     // create a rollback message and emit
                     ByteBuf rb = Unpooled.buffer();
                     RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
@@ -536,12 +538,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 outstandingVbucketInfos.put(opaque, vbid);
                 channel.writeAndFlush(buffer);
 
-
+                LOGGER.debug("Asked for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);
                 promise.addListener(new GenericFutureListener<Future<ByteBuf>>() {
                     @Override
                     public void operationComplete(Future<ByteBuf> future) throws Exception {
                         if (future.isSuccess()) {
-                            LOGGER.debug("Asked for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);
+                            LOGGER.debug("Failover log for vbid {} is {}", vbid, DcpFailoverLogResponse.toString(future.getNow()));
                             subscriber.onSuccess(future.getNow());
                         } else {
                             LOGGER.debug("Failed to ask for failover log on {} for vbid: {}", channel.remoteAddress(), vbid);

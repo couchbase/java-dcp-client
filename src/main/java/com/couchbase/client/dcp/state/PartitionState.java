@@ -18,8 +18,10 @@ package com.couchbase.client.dcp.state;
 import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonIgnore;
 import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Represents the individual current session state for a given partition.
@@ -33,7 +35,7 @@ public class PartitionState {
      * Stores the failover log for this partition.
      */
     @JsonProperty("flog")
-    private final SortedMap<Long, Long> failoverLog;
+    private final List<FailoverLogEntry> failoverLog;
 
     /**
      * Stores the starting sequence number for this partition.
@@ -63,7 +65,7 @@ public class PartitionState {
      * Initialize a new partition state.
      */
     PartitionState() {
-        failoverLog = new ConcurrentSkipListMap<Long, Long>();
+        failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>();
     }
 
     /**
@@ -97,7 +99,7 @@ public class PartitionState {
     /**
      * Returns the full failover log stored, in sorted order.
      */
-    public SortedMap<Long, Long> getFailoverLog() {
+    public List<FailoverLogEntry> getFailoverLog() {
         return failoverLog;
     }
 
@@ -108,7 +110,7 @@ public class PartitionState {
      * @param vbuuid the uuid for the sequence.
      */
     public void addToFailoverLog(long seqno, long vbuuid) {
-        failoverLog.put(seqno, vbuuid);
+        failoverLog.add(new FailoverLogEntry(seqno, vbuuid));
     }
 
     /**
@@ -154,7 +156,7 @@ public class PartitionState {
      */
     @JsonIgnore
     public long getLastUuid() {
-        return failoverLog.isEmpty() ? 0 : failoverLog.get(failoverLog.lastKey());
+        return failoverLog.isEmpty() ? 0 : failoverLog.get(failoverLog.size() - 1).getUuid();
     }
 
     @Override
