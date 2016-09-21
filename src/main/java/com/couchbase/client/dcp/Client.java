@@ -180,24 +180,41 @@ public class Client {
                 } else if (DcpFailoverLogResponse.is(event)) {
                     // Do not forward failover log responses for now since their info is kept
                     // in the session state transparently
-                    short partition = DcpFailoverLogResponse.vbucket(event);
-                    int numEntries = DcpFailoverLogResponse.numLogEntries(event);
-                    PartitionState ps = sessionState().get(partition);
-                    for (int i = 0; i < numEntries; i++) {
-                        ps.addToFailoverLog(
-                            DcpFailoverLogResponse.seqnoEntry(event, i),
-                            DcpFailoverLogResponse.vbuuidEntry(event, i)
-                        );
-                    }
-                    sessionState().set(partition, ps);
+                    handleFailoverLogResponse(event);
                     event.release();
                     return;
+                } else if (RollbackMessage.is(event)) {
+                    // even if forwarded to the user, warn in case the user is not
+                    // aware of rollback messages.
+                    LOGGER.warn(
+                        "Received rollback for vbucket {} to seqno {}",
+                        RollbackMessage.vbucket(event),
+                        RollbackMessage.seqno(event)
+                    );
                 }
 
                 // Forward event to user.
                 controlEventHandler.onEvent(event);
             }
         });
+    }
+
+    /**
+     * Helper method to handle a failover log response.
+     *
+     * @param event the buffer representing the {@link DcpFailoverLogResponse}.
+     */
+    private void handleFailoverLogResponse(final ByteBuf event) {
+        short partition = DcpFailoverLogResponse.vbucket(event);
+        int numEntries = DcpFailoverLogResponse.numLogEntries(event);
+        PartitionState ps = sessionState().get(partition);
+        for (int i = 0; i < numEntries; i++) {
+            ps.addToFailoverLog(
+                DcpFailoverLogResponse.seqnoEntry(event, i),
+                DcpFailoverLogResponse.vbuuidEntry(event, i)
+            );
+        }
+        sessionState().set(partition, ps);
     }
 
     /**
@@ -683,15 +700,7 @@ public class Client {
                 @Override
                 public Short call(ByteBuf buf) {
                     short partition = DcpFailoverLogResponse.vbucket(buf);
-                    int numEntries = DcpFailoverLogResponse.numLogEntries(buf);
-                    PartitionState ps = sessionState().get(partition);
-                    for (int i = 0; i < numEntries; i++) {
-                        ps.addToFailoverLog(
-                            DcpFailoverLogResponse.seqnoEntry(buf, i),
-                            DcpFailoverLogResponse.vbuuidEntry(buf, i)
-                        );
-                    }
-                    sessionState().set(partition, ps);
+                    handleFailoverLogResponse(buf);
                     buf.release();
                     return partition;
                 }
