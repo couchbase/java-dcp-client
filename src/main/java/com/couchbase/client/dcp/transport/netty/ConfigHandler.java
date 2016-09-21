@@ -99,4 +99,10 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
         ctx.fireChannelActive();
     }
 
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        if (responseContent != null && responseContent.refCnt() > 0) {
+            responseContent.release();
+        }
+    }
 }

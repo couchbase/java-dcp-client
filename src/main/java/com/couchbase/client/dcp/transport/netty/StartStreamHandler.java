@@ -44,7 +44,6 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
      */
     @Override
     public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-        ctx.fireChannelActive();
         String terseUri = "/pools/default/bs/" + bucket;
         FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, terseUri);
         request.headers().add(HttpHeaders.Names.ACCEPT, "application/json");
