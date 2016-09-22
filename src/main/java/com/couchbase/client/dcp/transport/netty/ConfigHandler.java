@@ -93,16 +93,22 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
         }
     }
 
+    /**
+     * Once the handler is added, initialize the response content buffer.
+     */
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    public void handlerAdded(final ChannelHandlerContext ctx) throws Exception {
         responseContent = ctx.alloc().buffer();
-        ctx.fireChannelActive();
     }
 
+    /**
+     * Once the handler is removed, make sure the response content is released and freed.
+     */
     @Override
-    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+    public void handlerRemoved(final ChannelHandlerContext ctx) throws Exception {
         if (responseContent != null && responseContent.refCnt() > 0) {
             responseContent.release();
+            responseContent = null;
         }
     }
 }
