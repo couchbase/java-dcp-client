@@ -19,12 +19,7 @@ import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.RollbackMessage;
-import com.couchbase.client.dcp.state.PartitionState;
-import com.couchbase.client.dcp.state.SessionState;
-import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-import com.sun.tools.doclets.formats.html.SourceToHTMLConverter;
 import rx.Completable;
 import rx.Subscription;
 
