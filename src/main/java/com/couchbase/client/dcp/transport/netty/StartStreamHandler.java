@@ -62,7 +62,7 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
             CouchbaseException exception;
             switch (statusCode) {
                 case 401:
-                    exception = new CouchbaseException("Username or Password invalid (Unauthorized)");
+                    exception = new CouchbaseException("Unauthorized (bucket/password invalid) - please check credentials!");
                     break;
                 default:
                     exception = new CouchbaseException("Unknown error code during connect: " + msg.getStatus());
