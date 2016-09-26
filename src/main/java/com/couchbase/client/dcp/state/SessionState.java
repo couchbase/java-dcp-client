@@ -45,7 +45,7 @@ public class SessionState {
     /**
      * Special Sequence number defined by DCP which says "no end".
      */
-    private static final int NO_END_SEQNO = 0xffffffff;
+    private static final long NO_END_SEQNO = 0xffffffffffffffffL;
 
     /**
      * The current version format used on export, respected on import to aid backwards compatibility.
