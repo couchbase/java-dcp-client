@@ -499,6 +499,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 ByteBuf buffer = Unpooled.buffer();
                 DcpGetPartitionSeqnosRequest.init(buffer);
                 DcpGetPartitionSeqnosRequest.opaque(buffer, opaque);
+                DcpGetPartitionSeqnosRequest.vbucketState(buffer, VbucketState.ACTIVE);
 
                 outstandingPromises.put(opaque, promise);
                 channel.writeAndFlush(buffer);
