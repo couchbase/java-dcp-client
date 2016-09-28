@@ -36,7 +36,9 @@ public enum DcpBufferAckRequest {
     }
 
     public static void ackBytes(final ByteBuf buffer, int bytes) {
-        MessageUtil.setExtras(Unpooled.buffer(4).writeInt(bytes), buffer);
+        ByteBuf extras = Unpooled.buffer(4);
+        MessageUtil.setExtras(extras.writeInt(bytes), buffer);
+        extras.release();
     }
 
 }

@@ -39,7 +39,9 @@ public enum DcpOpenConnectionRequest {
     public static void init(final ByteBuf buffer) {
         MessageUtil.initRequest(OPEN_CONNECTION_OPCODE, buffer);
         // Initialize lower parts of extras flag  to producer ("1" set)
-        MessageUtil.setExtras(Unpooled.buffer(8).writeInt(0).writeInt(1), buffer);
+        ByteBuf extras = Unpooled.buffer(8);
+        MessageUtil.setExtras(extras.writeInt(0).writeInt(1), buffer);
+        extras.release();
     }
 
     /**
