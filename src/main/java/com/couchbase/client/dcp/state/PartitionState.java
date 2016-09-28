@@ -153,10 +153,13 @@ public class PartitionState {
      * Convenience method to get the last UUID returned on the failover log.
      *
      * Note that if the failover log is empty, 0 is sent out to indicate the start.
+     *
+     * Historically the server inserts failover records into the head of the list,
+     * so the first one is the most recent.
      */
     @JsonIgnore
     public long getLastUuid() {
-        return failoverLog.isEmpty() ? 0 : failoverLog.get(failoverLog.size() - 1).getUuid();
+        return failoverLog.isEmpty() ? 0 : failoverLog.get(0).getUuid();
     }
 
     @Override
