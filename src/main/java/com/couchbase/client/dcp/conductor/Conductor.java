@@ -19,9 +19,7 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
-import com.couchbase.client.core.message.observe.Observe;
 import com.couchbase.client.core.service.ServiceType;
-import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
@@ -30,14 +28,19 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
-import rx.*;
+import rx.Completable;
 import rx.Observable;
-import rx.functions.*;
-import rx.subjects.PublishSubject;
-import rx.subjects.Subject;
+import rx.Single;
+import rx.Subscription;
+import rx.functions.Action0;
+import rx.functions.Action1;
+import rx.functions.Action4;
+import rx.functions.Func1;
 
 import java.net.InetAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -219,7 +222,7 @@ public class Conductor {
                         .toObservable();
                 }
             })
-            .retryWhen(anyOf(NotConnectedException.class)
+            .retryWhen(anyOf(NotConnectedException.class, ChannelTimeoutException.class)
                 .max(Integer.MAX_VALUE)
                 .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
                 .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {

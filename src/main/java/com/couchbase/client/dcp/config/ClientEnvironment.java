@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.config;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
  * @since 1.0.0
  */
 public class ClientEnvironment {
+    private static final long DEFAULT_START_STREAM_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -54,6 +56,11 @@ public class ClientEnvironment {
      * The password of the bucket.
      */
     private final String password;
+
+    /**
+     * Time in milliseconds to wait before retrying {@link DcpOpenStreamRequest}
+     */
+    private final long startStreamTimeout;
 
     /**
      * DCP control params, optional.
@@ -100,6 +107,7 @@ public class ClientEnvironment {
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
         password = builder.password;
+        startStreamTimeout = builder.startStreamTimeout;
         dcpControl = builder.dcpControl;
         eventLoopGroup = builder.eventLoopGroup;
         eventLoopGroupIsPrivate = builder.eventLoopGroupIsPrivate;
@@ -178,6 +186,13 @@ public class ClientEnvironment {
     }
 
     /**
+     * Time in milliseconds to wait for reply when opening the stream.
+     */
+    public long startStreamTimeout() {
+        return startStreamTimeout;
+    }
+
+    /**
      * Set/Override the data event handler.
      */
     public void setDataEventHandler(DataEventHandler dataEventHandler) {
@@ -203,6 +218,7 @@ public class ClientEnvironment {
         private ConnectionNameGenerator connectionNameGenerator;
         private String bucket;
         private String password;
+        private long startStreamTimeout = DEFAULT_START_STREAM_TIMEOUT;
         private DcpControl dcpControl;
         private EventLoopGroup eventLoopGroup;
         private boolean eventLoopGroupIsPrivate;
@@ -232,6 +248,11 @@ public class ClientEnvironment {
 
         public Builder setPassword(String password) {
             this.password = password;
+            return this;
+        }
+
+        public Builder setStartStreamTimeout(long startStreamTimeout) {
+            this.startStreamTimeout = startStreamTimeout;
             return this;
         }
 
