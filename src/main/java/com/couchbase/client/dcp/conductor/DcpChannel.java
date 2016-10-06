@@ -15,7 +15,6 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.CouchbaseException;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
@@ -25,11 +24,27 @@ import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.error.RollbackException;
-import com.couchbase.client.dcp.message.*;
+import com.couchbase.client.dcp.message.DcpBufferAckRequest;
+import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
+import com.couchbase.client.dcp.message.DcpCloseStreamResponse;
+import com.couchbase.client.dcp.message.DcpFailoverLogRequest;
+import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
+import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosRequest;
+import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosResponse;
+import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
+import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
+import com.couchbase.client.dcp.message.DcpStreamEndMessage;
+import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.message.VbucketState;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
-import com.couchbase.client.deps.io.netty.buffer.*;
+import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.buffer.ByteBufAllocator;
+import com.couchbase.client.deps.io.netty.buffer.PooledByteBufAllocator;
+import com.couchbase.client.deps.io.netty.buffer.Unpooled;
+import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelOption;
@@ -38,7 +53,12 @@ import com.couchbase.client.deps.io.netty.util.concurrent.DefaultPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
-import rx.*;
+import rx.Completable;
+import rx.Single;
+import rx.SingleSubscriber;
+import rx.Subscriber;
+import rx.Subscription;
+import rx.functions.Action0;
 import rx.functions.Action4;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
@@ -408,8 +428,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}",
                     channel.remoteAddress(), vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
 
-                int opaque = OPAQUE.incrementAndGet();
-                ChannelPromise promise = channel.newPromise();
+                final int opaque = OPAQUE.incrementAndGet();
+                final ChannelPromise promise = channel.newPromise();
 
                 ByteBuf buffer = Unpooled.buffer();
                 DcpOpenStreamRequest.init(buffer, vbid);
@@ -424,9 +444,20 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 outstandingVbucketInfos.put(opaque, vbid);
                 channel.writeAndFlush(buffer);
 
+                final Subscription timer = Completable.timer(env.startStreamTimeout(), TimeUnit.MILLISECONDS).subscribe(new Action0() {
+                    @Override
+                    public void call() {
+                        outstandingPromises.remove(opaque);
+                        outstandingVbucketInfos.remove(opaque);
+                        LOGGER.warn("Timeout on open Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
+                        promise.setFailure(new ChannelTimeoutException());
+                    }
+                });
+
                 promise.addListener(new GenericFutureListener<ChannelFuture>() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
+                        timer.unsubscribe();
                         if (future.isSuccess()) {
                             LOGGER.debug("Opened Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
                             openStreams.set(vbid, 1);
