@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
  * @since 1.0.0
  */
 public class ClientEnvironment {
+    private static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
+    private static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -54,6 +56,16 @@ public class ClientEnvironment {
      * The password of the bucket.
      */
     private final String password;
+
+    /**
+     * Time in milliseconds to wait for initial configuration during bootstrap.
+     */
+    private final long bootstrapTimeout;
+
+    /**
+     * Time in milliseconds to wait configuration provider socket to connect.
+     */
+    private final long connectTimeout;
 
     /**
      * DCP control params, optional.
@@ -100,6 +112,8 @@ public class ClientEnvironment {
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
         password = builder.password;
+        bootstrapTimeout = builder.bootstrapTimeout;
+        connectTimeout = builder.connectTimeout;
         dcpControl = builder.dcpControl;
         eventLoopGroup = builder.eventLoopGroup;
         eventLoopGroupIsPrivate = builder.eventLoopGroupIsPrivate;
@@ -178,6 +192,20 @@ public class ClientEnvironment {
     }
 
     /**
+     * Time in milliseconds to wait for first configuration during bootstrap.
+     */
+    public long bootstrapTimeout() {
+        return bootstrapTimeout;
+    }
+
+    /**
+     * Time in milliseconds to wait configuration provider socket to connect.
+     */
+    public long connectTimeout() {
+        return connectTimeout;
+    }
+
+    /**
      * Set/Override the data event handler.
      */
     public void setDataEventHandler(DataEventHandler dataEventHandler) {
@@ -203,6 +231,8 @@ public class ClientEnvironment {
         private ConnectionNameGenerator connectionNameGenerator;
         private String bucket;
         private String password;
+        private long bootstrapTimeout = DEFAULT_BOOTSTRAP_TIMEOUT;
+        private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
         private DcpControl dcpControl;
         private EventLoopGroup eventLoopGroup;
         private boolean eventLoopGroupIsPrivate;
@@ -232,6 +262,16 @@ public class ClientEnvironment {
 
         public Builder setPassword(String password) {
             this.password = password;
+            return this;
+        }
+
+        public Builder setBootstrapTimeout(long bootstrapTimeout) {
+            this.bootstrapTimeout = bootstrapTimeout;
+            return this;
+        }
+
+        public Builder setConnectTimeout(long connectTimeout) {
+            this.connectTimeout = connectTimeout;
             return this;
         }
 
@@ -301,6 +341,8 @@ public class ClientEnvironment {
             ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
             ", poolBuffers=" + poolBuffers +
             ", bufferAckWatermark=" + bufferAckWatermark +
+            ", connectTimeout=" + connectTimeout +
+            ", bootstrapTimeout=" + bootstrapTimeout +
             '}';
     }
 }

@@ -19,9 +19,7 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
-import com.couchbase.client.core.message.observe.Observe;
 import com.couchbase.client.core.service.ServiceType;
-import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
@@ -30,14 +28,19 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
-import rx.*;
+import rx.Completable;
 import rx.Observable;
-import rx.functions.*;
-import rx.subjects.PublishSubject;
-import rx.subjects.Subject;
+import rx.Single;
+import rx.Subscription;
+import rx.functions.Action0;
+import rx.functions.Action1;
+import rx.functions.Action4;
+import rx.functions.Func1;
 
 import java.net.InetAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,7 +76,7 @@ public class Conductor {
                     currentConfig.set(config);
                     reconfigure(config);
                 } else {
-                 LOGGER.trace("Ignoring config, since rev has not changed.");
+                    LOGGER.trace("Ignoring config, since rev has not changed.");
                 }
             }
         });
@@ -85,8 +88,24 @@ public class Conductor {
     }
 
     public Completable connect() {
-        Completable atLeastOneConfig = configProvider.configs().first().toCompletable();
-        return configProvider.start().concatWith(atLeastOneConfig);
+        Completable atLeastOneConfig = configProvider.configs().first()
+                .timeout(env.bootstrapTimeout(), TimeUnit.SECONDS)
+                .doOnError(new Action1<Throwable>() {
+                    @Override
+                    public void call(Throwable throwable) {
+                        LOGGER.warn("Did not receive initial configuration from provider.");
+                    }
+                })
+                .toCompletable();
+        return configProvider.start()
+                .timeout(env.connectTimeout(), TimeUnit.SECONDS)
+                .doOnError(new Action1<Throwable>() {
+                    @Override
+                    public void call(Throwable throwable) {
+                        LOGGER.warn("Cannot connect configuration provider.");
+                    }
+                })
+                .concatWith(atLeastOneConfig);
     }
 
     /**
