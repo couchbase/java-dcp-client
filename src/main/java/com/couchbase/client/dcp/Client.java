@@ -287,7 +287,8 @@ public class Client {
         return conductor.connect().onErrorResumeNext(new Func1<Throwable, Completable>() {
             @Override
             public Completable call(Throwable throwable) {
-                return Completable.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable));
+                return conductor.stop()
+                        .andThen(Completable.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable)));
             }
         });
     }
