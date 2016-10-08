@@ -21,7 +21,6 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
-import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
@@ -32,13 +31,10 @@ import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelOption;
-import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-import com.sun.org.apache.bcel.internal.generic.ALOAD;
 import rx.Completable;
 import rx.Observable;
 import rx.Subscriber;
-import rx.functions.Action1;
 import rx.functions.Action4;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
@@ -204,8 +200,8 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         if (!stopped) {
             tryConnectHosts()
                 .retryWhen(any()
-                    .delay(Delay.linear(TimeUnit.SECONDS, 10, 1))
-                    .max(Integer.MAX_VALUE)
+                    .delay(env.configProviderReconnectDelay())
+                    .max(env.configProviderReconnectMaxAttempts())
                     .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                         @Override
                         public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {

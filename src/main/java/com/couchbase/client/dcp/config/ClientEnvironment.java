@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.config;
 
+import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -36,6 +37,8 @@ import java.util.concurrent.TimeUnit;
 public class ClientEnvironment {
     private static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     private static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
+    private static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
+    private static final int DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -103,6 +106,16 @@ public class ClientEnvironment {
     private volatile ControlEventHandler controlEventHandler;
 
     /**
+     * Delay strategy for configuration provider reconnection.
+     */
+    private final Delay configProviderReconnectDelay;
+
+    /**
+     * Maximum number of attempts to reconnect configuration provider before giving up.
+     */
+    private final int configProviderReconnectMaxAttempts;
+
+    /**
      * Creates a new environment based on the builder.
      *
      * @param builder the builder to build the environment.
@@ -119,6 +132,8 @@ public class ClientEnvironment {
         eventLoopGroupIsPrivate = builder.eventLoopGroupIsPrivate;
         bufferAckWatermark = builder.bufferAckWatermark;
         poolBuffers = builder.poolBuffers;
+        configProviderReconnectDelay = builder.configProviderReconnectDelay;
+        configProviderReconnectMaxAttempts = builder.configProviderReconnectMaxAttempts;
     }
 
     /**
@@ -226,6 +241,20 @@ public class ClientEnvironment {
         return poolBuffers;
     }
 
+    /**
+     * Delay strategy for configuration provider reconnection.
+     */
+    public Delay configProviderReconnectDelay() {
+        return configProviderReconnectDelay;
+    }
+
+    /**
+     * Maximum number of attempts to reconnect configuration provider before giving up.
+     */
+    public int configProviderReconnectMaxAttempts() {
+        return configProviderReconnectMaxAttempts;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
@@ -237,6 +266,8 @@ public class ClientEnvironment {
         private EventLoopGroup eventLoopGroup;
         private boolean eventLoopGroupIsPrivate;
         private boolean poolBuffers;
+        private Delay configProviderReconnectDelay = DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
+        private int configProviderReconnectMaxAttempts = DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
 
         private int bufferAckWatermark;
 
@@ -272,6 +303,16 @@ public class ClientEnvironment {
 
         public Builder setConnectTimeout(long connectTimeout) {
             this.connectTimeout = connectTimeout;
+            return this;
+        }
+
+        public Builder setConfigProviderReconnectDelay(Delay configProviderReconnectDelay) {
+            this.configProviderReconnectDelay = configProviderReconnectDelay;
+            return this;
+        }
+
+        public Builder setConfigProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts) {
+            this.configProviderReconnectMaxAttempts = configProviderReconnectMaxAttempts;
             return this;
         }
 
