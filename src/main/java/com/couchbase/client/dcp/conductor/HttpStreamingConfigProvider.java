@@ -37,7 +37,7 @@ import rx.Observable;
 import rx.Subscriber;
 import rx.functions.Action4;
 import rx.functions.Func1;
-import rx.subjects.PublishSubject;
+import rx.subjects.BehaviorSubject;
 import rx.subjects.Subject;
 
 import java.util.ArrayList;
@@ -67,7 +67,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         super(LifecycleState.DISCONNECTED);
         this.env = env;
         this.remoteHosts = new AtomicReference<List<String>>(env.clusterAt());
-        this.configStream = PublishSubject.<CouchbaseBucketConfig>create().toSerialized();
+        this.configStream = BehaviorSubject.<CouchbaseBucketConfig>create().toSerialized();
 
         configStream.subscribe(new Subscriber<CouchbaseBucketConfig>() {
             @Override

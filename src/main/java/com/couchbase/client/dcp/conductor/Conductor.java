@@ -88,15 +88,14 @@ public class Conductor {
     }
 
     public Completable connect() {
-        Completable atLeastOneConfig = configProvider.configs().first()
+        Completable atLeastOneConfig = configProvider.configs().first().toCompletable()
                 .timeout(env.bootstrapTimeout(), TimeUnit.SECONDS)
                 .doOnError(new Action1<Throwable>() {
                     @Override
                     public void call(Throwable throwable) {
                         LOGGER.warn("Did not receive initial configuration from provider.");
                     }
-                })
-                .toCompletable();
+                });
         return configProvider.start()
                 .timeout(env.connectTimeout(), TimeUnit.SECONDS)
                 .doOnError(new Action1<Throwable>() {
