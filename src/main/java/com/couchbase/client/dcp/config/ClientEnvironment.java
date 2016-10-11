@@ -35,10 +35,11 @@ import java.util.concurrent.TimeUnit;
  * @since 1.0.0
  */
 public class ClientEnvironment {
-    private static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
-    private static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
-    private static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
-    private static final int DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
+    public static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
+    public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
+    public static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
+    public static final int DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
+    public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -96,6 +97,11 @@ public class ClientEnvironment {
     private final int bufferAckWatermark;
 
     /**
+     * Socket connect timeout in milliseconds.
+     */
+    private final long socketConnectTimeout;
+
+    /**
      * User-attached data event handler.
      */
     private volatile DataEventHandler dataEventHandler;
@@ -134,6 +140,7 @@ public class ClientEnvironment {
         poolBuffers = builder.poolBuffers;
         configProviderReconnectDelay = builder.configProviderReconnectDelay;
         configProviderReconnectMaxAttempts = builder.configProviderReconnectMaxAttempts;
+        socketConnectTimeout = builder.socketConnectTimeout;
     }
 
     /**
@@ -255,6 +262,13 @@ public class ClientEnvironment {
         return configProviderReconnectMaxAttempts;
     }
 
+    /**
+     * Socket connect timeout in milliseconds.
+     */
+    public long socketConnectTimeout() {
+        return socketConnectTimeout;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
@@ -268,6 +282,7 @@ public class ClientEnvironment {
         private boolean poolBuffers;
         private Delay configProviderReconnectDelay = DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
         private int configProviderReconnectMaxAttempts = DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
+        private long socketConnectTimeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
 
         private int bufferAckWatermark;
 
@@ -313,6 +328,16 @@ public class ClientEnvironment {
 
         public Builder setConfigProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts) {
             this.configProviderReconnectMaxAttempts = configProviderReconnectMaxAttempts;
+            return this;
+        }
+
+        /**
+         * Sets a custom socket connect timeout.
+         *
+         * @param socketConnectTimeout the socket connect timeout in milliseconds.
+         */
+        public Builder setSocketConnectTimeout(long socketConnectTimeout) {
+            this.socketConnectTimeout = socketConnectTimeout;
             return this;
         }
 

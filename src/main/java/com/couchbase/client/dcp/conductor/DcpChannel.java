@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.core.endpoint.AbstractEndpoint;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
@@ -240,6 +241,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
                 final Bootstrap bootstrap = new Bootstrap()
                     .option(ChannelOption.ALLOCATOR, allocator)
+                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int)env.socketConnectTimeout())
                     .remoteAddress(inetAddress, 11210)
                     .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
                     .handler(new DcpPipeline(env, controlSubject))

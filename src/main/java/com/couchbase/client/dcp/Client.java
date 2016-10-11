@@ -90,6 +90,9 @@ public class Client {
             .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
             .setBufferAckWatermark(builder.bufferAckWatermark)
             .setBufferPooling(builder.poolBuffers)
+            .setConnectTimeout(builder.connectTimeout)
+            .setBootstrapTimeout(builder.bootstrapTimeout)
+            .setSocketConnectTimeout(builder.socketConnectTimeout)
             .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
@@ -721,6 +724,9 @@ public class Client {
         private ConfigProvider configProvider = null;
         private int bufferAckWatermark;
         private boolean poolBuffers = true;
+        private long connectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
+        private long bootstrapTimeout = ClientEnvironment.DEFAULT_BOOTSTRAP_TIMEOUT;
+        private long socketConnectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
 
         /**
          * The buffer acknowledge watermark in percent.
@@ -834,6 +840,34 @@ public class Client {
          */
         public Builder poolBuffers(final boolean pool) {
             this.poolBuffers = pool;
+            return this;
+        }
+
+        /**
+         * Sets a custom socket connect timeout.
+         *
+         * @param socketConnectTimeout the socket connect timeout in milliseconds.
+         */
+        public Builder socketConnectTimeout(long socketConnectTimeout) {
+            this.socketConnectTimeout = socketConnectTimeout;
+            return this;
+        }
+
+        /**
+         * Time to wait for first configuration during bootstrap.
+         * @param bootstrapTimeout time in milliseconds.
+         */
+        public Builder bootstrapTimeout(long bootstrapTimeout) {
+            this.bootstrapTimeout = bootstrapTimeout;
+            return this;
+        }
+
+        /**
+         * Time to wait configuration provider socket to connect.
+         * @param connectTimeout time in milliseconds.
+         */
+        public Builder connectTimeout(long connectTimeout) {
+            this.connectTimeout = connectTimeout;
             return this;
         }
 
