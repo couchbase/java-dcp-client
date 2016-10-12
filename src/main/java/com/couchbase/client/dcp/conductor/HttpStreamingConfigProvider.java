@@ -163,6 +163,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         final Bootstrap bootstrap = new Bootstrap()
             .remoteAddress(hostname, 8091)
             .option(ChannelOption.ALLOCATOR, allocator)
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int)env.socketConnectTimeout())
             .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
             .handler(new ConfigPipeline(hostname, env.bucket(), env.password(), configStream))
             .group(env.eventLoopGroup());
