@@ -18,6 +18,7 @@ package examples;
 import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import rx.Completable;
@@ -51,6 +52,9 @@ public class PrintIncomingChanges {
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(final ByteBuf event) {
+                if (DcpSnapshotMarkerMessage.is(event)) {
+                    client.acknowledgeBuffer(event);
+                }
                 if (RollbackMessage.is(event)) {
                     final short partition = RollbackMessage.vbucket(event);
                     client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
