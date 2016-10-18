@@ -64,7 +64,7 @@ public class PartitionState {
     /**
      * Initialize a new partition state.
      */
-    PartitionState() {
+    public PartitionState() {
         failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>();
     }
 
