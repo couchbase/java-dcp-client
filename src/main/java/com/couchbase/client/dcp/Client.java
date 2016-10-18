@@ -15,15 +15,29 @@
  */
 package com.couchbase.client.dcp;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
-import com.couchbase.client.dcp.message.*;
+import com.couchbase.client.dcp.message.DcpDeletionMessage;
+import com.couchbase.client.dcp.message.DcpExpirationMessage;
+import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
+import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
+import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
@@ -31,18 +45,12 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+
 import rx.Completable;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -93,6 +101,10 @@ public class Client {
             .setConnectTimeout(builder.connectTimeout)
             .setBootstrapTimeout(builder.bootstrapTimeout)
             .setSocketConnectTimeout(builder.socketConnectTimeout)
+            .setConfigProviderReconnectDelay(builder.configProviderReconnectDelay)
+            .setConfigProviderReconnectMaxAttempts(builder.configProviderReconnectMaxAttempts)
+            .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
+            .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
             .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
@@ -727,6 +739,10 @@ public class Client {
         private long connectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
         private long bootstrapTimeout = ClientEnvironment.DEFAULT_BOOTSTRAP_TIMEOUT;
         private long socketConnectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
+        private Delay configProviderReconnectDelay = ClientEnvironment.DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
+        private int configProviderReconnectMaxAttempts = ClientEnvironment.DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
+        private int dcpChannelsReconnectMaxAttempts = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
+        private Delay dcpChannelsReconnectDelay = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
 
         /**
          * The buffer acknowledge watermark in percent.
@@ -868,6 +884,43 @@ public class Client {
          */
         public Builder connectTimeout(long connectTimeout) {
             this.connectTimeout = connectTimeout;
+            return this;
+        }
+
+        /**
+         * Delay between retry attempts for configuration provider
+         * @param configProviderReconnectDelay
+         */
+        public Builder configProviderReconnectDelay(Delay configProviderReconnectDelay){
+            this.configProviderReconnectDelay = configProviderReconnectDelay;
+            return this;
+        }
+
+
+        /**
+         * The maximum number of reconnect attempts for configuration provider
+         * @param configProviderReconnectMaxAttempts
+         */
+        public Builder configProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts){
+            this.configProviderReconnectMaxAttempts = configProviderReconnectMaxAttempts;
+            return this;
+        }
+
+        /**
+         * The maximum number of reconnect attempts for DCP channels
+         * @param dcpChannelsReconnectMaxAttempts
+         */
+        public Builder dcpChannelsReconnectMaxAttempts(int dcpChannelsReconnectMaxAttempts){
+            this.dcpChannelsReconnectMaxAttempts = dcpChannelsReconnectMaxAttempts;
+            return this;
+        }
+
+        /**
+         * Delay between retry attempts for DCP channels
+         * @param dcpChannelsReconnectDelay
+         */
+        public Builder dcpChannelsReconnectDelay(Delay dcpChannelsReconnectDelay){
+            this.dcpChannelsReconnectDelay = dcpChannelsReconnectDelay;
             return this;
         }
 
