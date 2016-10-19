@@ -159,6 +159,10 @@ public class Client {
      * - {@link RollbackMessage}: If during a connect phase the server responds with rollback
      *   information, this event is forwarded to the callback. Does not need to be acknowledged.
      *
+     * - {@link DcpSnapshotMarkerMessage}: Server transmits data in batches called snapshots
+     *   before sending anything, it send marker message, which contains start and end sequence
+     *   numbers of the data in it. Need to be acknowledged.
+     *
      * Keep in mind that the callback is executed on the IO thread (netty's thread pool for the
      * event loops) so further synchronization is needed if the data needs to be used on a different
      * thread in a thread safe manner.
@@ -170,16 +174,12 @@ public class Client {
             @Override
             public void onEvent(ByteBuf event) {
                 if (DcpSnapshotMarkerMessage.is(event)) {
-                    // Do not snapshot marker messages for now since their info is kept
-                    // in the session state transparently
+                    // Keep snapshot information in the session state, but also forward event to user
                     short partition = DcpSnapshotMarkerMessage.partition(event);
                     PartitionState ps = sessionState().get(partition);
                     ps.setSnapshotStartSeqno(DcpSnapshotMarkerMessage.startSeqno(event));
                     ps.setSnapshotEndSeqno(DcpSnapshotMarkerMessage.endSeqno(event));
                     sessionState().set(partition, ps);
-                    acknowledgeBuffer(event);
-                    event.release();
-                    return;
                 } else if (DcpFailoverLogResponse.is(event)) {
                     // Do not forward failover log responses for now since their info is kept
                     // in the session state transparently

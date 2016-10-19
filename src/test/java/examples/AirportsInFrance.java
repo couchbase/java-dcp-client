@@ -17,6 +17,7 @@ package examples;
 
 import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import com.couchbase.client.java.document.json.JsonObject;
@@ -43,6 +44,9 @@ public class AirportsInFrance {
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
+                if (DcpSnapshotMarkerMessage.is(event)) {
+                    client.acknowledgeBuffer(event);
+                }
                 event.release();
             }
         });

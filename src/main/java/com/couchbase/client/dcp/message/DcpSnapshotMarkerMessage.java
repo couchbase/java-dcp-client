@@ -58,7 +58,7 @@ public enum DcpSnapshotMarkerMessage {
 
     public enum SnapshotType {
         /**
-         * Specifies that the snapshot contains in-meory items only.
+         * Specifies that the snapshot contains in-memory items only.
          */
         MEMORY,
         /**

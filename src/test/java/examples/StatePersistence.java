@@ -18,6 +18,7 @@ package examples;
 import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import org.apache.commons.io.IOUtils;
@@ -53,6 +54,9 @@ public class StatePersistence {
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
+                if (DcpSnapshotMarkerMessage.is(event)) {
+                    client.acknowledgeBuffer(event);
+                }
                 event.release();
             }
         });

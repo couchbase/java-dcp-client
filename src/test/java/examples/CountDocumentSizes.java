@@ -17,6 +17,7 @@ package examples;
 
 import com.couchbase.client.dcp.*;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -48,6 +49,9 @@ public class CountDocumentSizes {
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
+                if (DcpSnapshotMarkerMessage.is(event)) {
+                    client.acknowledgeBuffer(event);
+                }
                 event.release();
             }
         });
