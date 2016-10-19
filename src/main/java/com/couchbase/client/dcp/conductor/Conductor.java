@@ -15,6 +15,15 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
+
+import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
@@ -26,8 +35,10 @@ import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
+import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
+
 import rx.Completable;
 import rx.Observable;
 import rx.Single;
@@ -37,16 +48,6 @@ import rx.functions.Action1;
 import rx.functions.Action4;
 import rx.functions.Func1;
 
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
-
 public class Conductor {
 
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Conductor.class);
@@ -54,6 +55,7 @@ public class Conductor {
     private final ConfigProvider configProvider;
     private final Set<DcpChannel> channels;
     private volatile long configRev = -1;
+    private volatile boolean stopped = true;
     private final ClientEnvironment env;
     private final AtomicReference<CouchbaseBucketConfig> currentConfig;
     private final boolean ownsConfigProvider;
@@ -63,10 +65,8 @@ public class Conductor {
         this.env = env;
         this.currentConfig = new AtomicReference<CouchbaseBucketConfig>();
         sessionState = new SessionState();
-
         configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
         ownsConfigProvider = cp == null;
-
         configProvider.configs().forEach(new Action1<CouchbaseBucketConfig>() {
             @Override
             public void call(CouchbaseBucketConfig config) {
@@ -88,6 +88,7 @@ public class Conductor {
     }
 
     public Completable connect() {
+        stopped = false;
         Completable atLeastOneConfig = configProvider.configs().first().toCompletable()
                 .timeout(env.bootstrapTimeout(), TimeUnit.SECONDS)
                 .doOnError(new Action1<Throwable>() {
@@ -126,7 +127,7 @@ public class Conductor {
 
     public Completable stop() {
         LOGGER.debug("Instructed to shutdown.");
-
+        stopped = true;
        Completable channelShutdown = Observable
             .from(channels)
             .flatMap(new Func1<DcpChannel, Observable<?>>() {
@@ -351,13 +352,18 @@ public class Conductor {
 
         channel
             .connect()
-            .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.fixed(200, TimeUnit.MILLISECONDS)).doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+            .retryWhen(RetryBuilder.anyMatches(new Func1<Throwable, Boolean>() {
+                @Override
+                public Boolean call(Throwable t) {
+                    return !stopped;
+                }
+            }).max(env.dcpChannelsReconnectMaxAttempts()).delay(env.dcpChannelsReconnectDelay()).
+                    doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
                 @Override
                 public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
                     LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node);
                 }
-            }).build())
-            .subscribe(new Completable.CompletableSubscriber() {
+            }).build()).subscribe(new Completable.CompletableSubscriber() {
                 @Override
                 public void onCompleted() {
                     LOGGER.debug("Completed Node connect for DCP channel {}", node);

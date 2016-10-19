@@ -15,6 +15,9 @@
  */
 package com.couchbase.client.dcp.config;
 
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
@@ -22,10 +25,8 @@ import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-import rx.Completable;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import rx.Completable;
 
 /**
  * The {@link ClientEnvironment} is responsible to carry various configuration and
@@ -40,6 +41,8 @@ public class ClientEnvironment {
     public static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
     public static final int DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
     public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
+    public static final Delay DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Delay.fixed(200, TimeUnit.MILLISECONDS);
+    public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -122,6 +125,16 @@ public class ClientEnvironment {
     private final int configProviderReconnectMaxAttempts;
 
     /**
+     * Delay strategy for configuration provider reconnection.
+     */
+    private final Delay dcpChannelsReconnectDelay;
+
+    /**
+     * Maximum number of attempts to reconnect configuration provider before giving up.
+     */
+    private final int dcpChannelsReconnectMaxAttempts;
+
+    /**
      * Creates a new environment based on the builder.
      *
      * @param builder the builder to build the environment.
@@ -141,6 +154,8 @@ public class ClientEnvironment {
         configProviderReconnectDelay = builder.configProviderReconnectDelay;
         configProviderReconnectMaxAttempts = builder.configProviderReconnectMaxAttempts;
         socketConnectTimeout = builder.socketConnectTimeout;
+        dcpChannelsReconnectDelay = builder.dcpChannelsReconnectDelay;
+        dcpChannelsReconnectMaxAttempts = builder.dcpChannelsReconnectMaxAttempts;
     }
 
     /**
@@ -283,6 +298,8 @@ public class ClientEnvironment {
         private Delay configProviderReconnectDelay = DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
         private int configProviderReconnectMaxAttempts = DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
         private long socketConnectTimeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
+        public Delay dcpChannelsReconnectDelay = DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
+        public int dcpChannelsReconnectMaxAttempts = DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
 
         private int bufferAckWatermark;
 
@@ -331,6 +348,16 @@ public class ClientEnvironment {
             return this;
         }
 
+        public Builder setDcpChannelsReconnectDelay(Delay dcpChannelsReconnectDelay) {
+            this.dcpChannelsReconnectDelay = dcpChannelsReconnectDelay;
+            return this;
+        }
+
+        public Builder setDcpChannelsReconnectMaxAttempts(int dcpChannelsReconnectMaxAttempts){
+            this.dcpChannelsReconnectMaxAttempts = dcpChannelsReconnectMaxAttempts;
+            return this;
+        }
+
         /**
          * Sets a custom socket connect timeout.
          *
@@ -372,25 +399,25 @@ public class ClientEnvironment {
      *
      * @return a {@link Completable} indicating completion of the shutdown process.
      */
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings({ "unchecked" })
     public Completable shutdown() {
         if (!eventLoopGroupIsPrivate) {
             return Completable.complete();
         }
-
         return Completable.create(new Completable.CompletableOnSubscribe() {
             @Override
             public void call(final Completable.CompletableSubscriber subscriber) {
-                eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS).addListener(new GenericFutureListener() {
-                    @Override
-                    public void operationComplete(Future future) throws Exception {
-                        if (future.isSuccess()) {
-                            subscriber.onCompleted();
-                        } else {
-                            subscriber.onError(future.cause());
-                        }
-                    }
-                });
+                eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS).addListener(
+                        new GenericFutureListener() {
+                            @Override
+                            public void operationComplete(Future future) throws Exception {
+                                if (future.isSuccess()) {
+                                    subscriber.onCompleted();
+                                } else {
+                                    subscriber.onError(future.cause());
+                                }
+                            }
+                        });
             }
         });
     }
@@ -398,17 +425,25 @@ public class ClientEnvironment {
     @Override
     public String toString() {
         return "ClientEnvironment{" +
-            "clusterAt=" + clusterAt +
-            ", connectionNameGenerator=" + connectionNameGenerator.getClass().getSimpleName() +
-            ", bucket='" + bucket + '\'' +
-            ", passwordSet=" + !password.isEmpty() +
-            ", dcpControl=" + dcpControl +
-            ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +
-            ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
-            ", poolBuffers=" + poolBuffers +
-            ", bufferAckWatermark=" + bufferAckWatermark +
-            ", connectTimeout=" + connectTimeout +
-            ", bootstrapTimeout=" + bootstrapTimeout +
-            '}';
+                "clusterAt=" + clusterAt +
+                ", connectionNameGenerator=" + connectionNameGenerator.getClass().getSimpleName() +
+                ", bucket='" + bucket + '\'' +
+                ", passwordSet=" + !password.isEmpty() +
+                ", dcpControl=" + dcpControl +
+                ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +
+                ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
+                ", poolBuffers=" + poolBuffers +
+                ", bufferAckWatermark=" + bufferAckWatermark +
+                ", connectTimeout=" + connectTimeout +
+                ", bootstrapTimeout=" + bootstrapTimeout +
+                '}';
+    }
+
+    public Delay dcpChannelsReconnectDelay() {
+        return dcpChannelsReconnectDelay;
+    }
+
+    public int dcpChannelsReconnectMaxAttempts() {
+        return dcpChannelsReconnectMaxAttempts;
     }
 }
