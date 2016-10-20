@@ -42,7 +42,7 @@ $ mvn install
 ```
 
 Right now it will install the `com.couchbase.client:dcp-client` artifact
-with the `0.4.0-SNAPSHOT` version. You can then depend on it in your
+with the `0.7.0-SNAPSHOT` version. You can then depend on it in your
 project.
 
 # Basic Usage
