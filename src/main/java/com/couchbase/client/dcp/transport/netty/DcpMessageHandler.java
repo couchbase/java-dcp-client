@@ -87,7 +87,7 @@ public class DcpMessageHandler extends ChannelDuplexHandler {
     private static boolean isControlMessage(final ByteBuf msg) {
         return DcpOpenStreamResponse.is(msg)
             || DcpStreamEndMessage.is(msg)
-            || DcpSnapshotMarkerMessage.is(msg)
+            || DcpSnapshotMarkerRequest.is(msg)
             || DcpFailoverLogResponse.is(msg)
             || DcpCloseStreamResponse.is(msg)
             || DcpGetPartitionSeqnosResponse.is(msg);

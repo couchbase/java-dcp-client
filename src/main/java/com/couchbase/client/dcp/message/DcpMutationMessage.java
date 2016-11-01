@@ -81,13 +81,13 @@ public enum DcpMutationMessage {
 
     public static String toString(final ByteBuf buffer) {
         return "MutationMessage [key: \"" + keyString(buffer)
-            + "\", vbid: " + partition(buffer)
-            + ", cas: " + cas(buffer)
-            + ", bySeqno: " + bySeqno(buffer)
-            + ", revSeqno: " + revisionSeqno(buffer)
-            + ", flags: " + flags(buffer)
-            + ", expiry: " + expiry(buffer)
-            + ", lockTime: " + lockTime(buffer)
-            + ", clength: " + content(buffer).readableBytes() + "]";
+                + "\", vbid: " + partition(buffer)
+                + ", cas: " + cas(buffer)
+                + ", bySeqno: " + bySeqno(buffer)
+                + ", revSeqno: " + revisionSeqno(buffer)
+                + ", flags: " + flags(buffer)
+                + ", expiry: " + expiry(buffer)
+                + ", lockTime: " + lockTime(buffer)
+                + ", clength: " + content(buffer).readableBytes() + "]";
     }
 }

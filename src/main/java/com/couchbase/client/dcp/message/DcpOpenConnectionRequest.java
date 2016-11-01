@@ -18,7 +18,6 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 
-import static com.couchbase.client.dcp.message.MessageUtil.HEADER_SIZE;
 import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
 
 public enum DcpOpenConnectionRequest {
@@ -38,9 +37,8 @@ public enum DcpOpenConnectionRequest {
      */
     public static void init(final ByteBuf buffer) {
         MessageUtil.initRequest(OPEN_CONNECTION_OPCODE, buffer);
-        // Initialize lower parts of extras flag  to producer ("1" set)
         ByteBuf extras = Unpooled.buffer(8);
-        MessageUtil.setExtras(extras.writeInt(0).writeInt(1), buffer);
+        MessageUtil.setExtras(extras.writeInt(0).writeInt(Type.PRODUCER.value), buffer);
         extras.release();
     }
 
@@ -58,4 +56,29 @@ public enum DcpOpenConnectionRequest {
         return MessageUtil.getKey(buffer);
     }
 
+    enum Type {
+        /**
+         * Consumer type of DCP connection is set then the sender of the {@link DcpOpenConnectionRequest}
+         * will be a Producer
+         */
+        CONSUMER(0x00),
+        /**
+         * Producer type of DCP connection is set then the sender of the {@link DcpOpenConnectionRequest}
+         * will be a Consumer
+         */
+        PRODUCER(0x01),
+        /**
+         * Notifier type of DCP connection is set then the sender of the {@link DcpOpenConnectionRequest}
+         * will be a Consumer. Notifier mode is almost the same as Producer, but it relaxes some of the
+         * checks when adding streams. It does not check provided sequence numbers and always streams
+         * vbucket from highest sequence number.
+         */
+        NOTIFIER(0x02);
+
+        private final int value;
+
+        Type(int value) {
+            this.value = value;
+        }
+    }
 }

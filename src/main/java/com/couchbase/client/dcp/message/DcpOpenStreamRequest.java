@@ -41,15 +41,15 @@ public enum DcpOpenStreamRequest {
 
         MessageUtil.setVbucket(vbucket, buffer);
         MessageUtil.setExtras(Unpooled
-            .buffer(48)
-            .writeInt(0) // flags
-            .writeInt(0) // reserved
-            .writeLong(0) // start sequence number
-            .writeLong(0) // end sequence number
-            .writeLong(0) // vbucket uuid
-            .writeLong(0) // snapshot start sequence number
-            .writeLong(0), // snapshot end sequence number
-            buffer
+                        .buffer(48)
+                        .writeInt(0) // flags
+                        .writeInt(0) // reserved
+                        .writeLong(0) // start sequence number
+                        .writeLong(0) // end sequence number
+                        .writeLong(0) // vbucket uuid
+                        .writeLong(0) // snapshot start sequence number
+                        .writeLong(0), // snapshot end sequence number
+                buffer
         );
     }
 
@@ -77,5 +77,48 @@ public enum DcpOpenStreamRequest {
 
     public static void opaque(final ByteBuf buffer, int opaque) {
         MessageUtil.setOpaque(opaque, buffer);
+    }
+
+    public static int flags(final ByteBuf buffer) {
+        return MessageUtil.getExtras(buffer).getInt(0);
+    }
+
+    public static void flags(final ByteBuf buffer, int flags) {
+        MessageUtil.getExtras(buffer).setInt(0, flags);
+    }
+
+    /**
+     * Set {@link StreamFlags#TAKEOVER} flag for the stream.
+     */
+    public static void takeover(final ByteBuf buffer) {
+        flags(buffer, flags(buffer) | StreamFlags.TAKEOVER.value());
+    }
+
+    /**
+     * Set {@link StreamFlags#DISK_ONLY} flag for the stream.
+     */
+    public static void diskOnly(final ByteBuf buffer) {
+        flags(buffer, flags(buffer) | StreamFlags.DISK_ONLY.value());
+    }
+
+    /**
+     * Set {@link StreamFlags#LATEST} flag for the stream.
+     */
+    public static void latest(final ByteBuf buffer) {
+        flags(buffer, flags(buffer) | StreamFlags.LATEST.value());
+    }
+
+    /**
+     * Set {@link StreamFlags#NO_VALUE} flag for the stream.
+     */
+    public static void noValue(final ByteBuf buffer) {
+        flags(buffer, flags(buffer) | StreamFlags.NO_VALUE.value());
+    }
+
+    /**
+     * Set {@link StreamFlags#ACTIVE_VB_ONLY} flag for the stream.
+     */
+    public static void activeVbucketOnly(final ByteBuf buffer) {
+        flags(buffer, flags(buffer) | StreamFlags.ACTIVE_VB_ONLY.value());
     }
 }

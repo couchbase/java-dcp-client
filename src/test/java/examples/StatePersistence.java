@@ -15,10 +15,14 @@
  */
 package examples;
 
-import com.couchbase.client.dcp.*;
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import org.apache.commons.io.IOUtils;
@@ -46,15 +50,15 @@ public class StatePersistence {
     public static void main(String[] args) throws Exception {
         // Connect to localhost and use the travel-sample bucket
         final Client client = Client.configure()
-            .hostnames("localhost")
-            .bucket(BUCKET)
-            .build();
+                .hostnames("localhost")
+                .bucket(BUCKET)
+                .build();
 
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
-                if (DcpSnapshotMarkerMessage.is(event)) {
+                if (DcpSnapshotMarkerRequest.is(event)) {
                     client.acknowledgeBuffer(event);
                 }
                 event.release();
@@ -94,7 +98,7 @@ public class StatePersistence {
         client.startStreaming().await();
 
         // Persist the State ever 10 seconds
-        while(true) {
+        while (true) {
             Thread.sleep(TimeUnit.SECONDS.toMillis(10));
 
             // export the state as a JSON byte array

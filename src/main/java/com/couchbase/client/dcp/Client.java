@@ -35,7 +35,7 @@ import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.state.PartitionState;
@@ -171,7 +171,7 @@ public class Client {
      * - {@link RollbackMessage}: If during a connect phase the server responds with rollback
      *   information, this event is forwarded to the callback. Does not need to be acknowledged.
      *
-     * - {@link DcpSnapshotMarkerMessage}: Server transmits data in batches called snapshots
+     * - {@link DcpSnapshotMarkerRequest}: Server transmits data in batches called snapshots
      *   before sending anything, it send marker message, which contains start and end sequence
      *   numbers of the data in it. Need to be acknowledged.
      *
@@ -185,12 +185,12 @@ public class Client {
         env.setControlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
-                if (DcpSnapshotMarkerMessage.is(event)) {
+                if (DcpSnapshotMarkerRequest.is(event)) {
                     // Keep snapshot information in the session state, but also forward event to user
-                    short partition = DcpSnapshotMarkerMessage.partition(event);
+                    short partition = DcpSnapshotMarkerRequest.partition(event);
                     PartitionState ps = sessionState().get(partition);
-                    ps.setSnapshotStartSeqno(DcpSnapshotMarkerMessage.startSeqno(event));
-                    ps.setSnapshotEndSeqno(DcpSnapshotMarkerMessage.endSeqno(event));
+                    ps.setSnapshotStartSeqno(DcpSnapshotMarkerRequest.startSeqno(event));
+                    ps.setSnapshotEndSeqno(DcpSnapshotMarkerRequest.endSeqno(event));
                     sessionState().set(partition, ps);
                 } else if (DcpFailoverLogResponse.is(event)) {
                     // Do not forward failover log responses for now since their info is kept

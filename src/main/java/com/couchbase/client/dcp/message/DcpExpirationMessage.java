@@ -65,5 +65,4 @@ public enum DcpExpirationMessage {
                 + ", bySeqno: " + bySeqno(buffer)
                 + ", revSeqno: " + revisionSeqno(buffer) + "]";
     }
-
 }

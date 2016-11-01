@@ -15,14 +15,20 @@
  */
 package examples;
 
-import com.couchbase.client.dcp.*;
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
+import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import rx.Completable;
 import rx.Subscription;
+import rx.functions.Action1;
 
 import java.util.concurrent.TimeUnit;
 
@@ -32,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * Example output from the log when a document is modified and then deleted:
  *
  * Mutation: MutationMessage [key: "airline_10226", vbid: 7, cas: 820685701775360, bySeqno: 490, revSeqno: 11,
- *      flags: 0, expiry: 0, lockTime: 0, clength: 171]
+ * flags: 0, expiry: 0, lockTime: 0, clength: 171]
  * Deletion: DeletionMessage [key: "airline_10226", vbid: 7, cas: 820691821527040, bySeqno: 491, revSeqno: 12]
  *
  * @author Michael Nitschinger
@@ -44,35 +50,36 @@ public class PrintIncomingChanges {
 
         // Connect to localhost and use the travel-sample bucket
         final Client client = Client.configure()
-            .hostnames("localhost")
-            .bucket("travel-sample")
-            .build();
+                .hostnames("localhost")
+                .bucket("travel-sample")
+                .build();
 
         // If we are in a rollback scenario, rollback the partition and restart the stream.
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(final ByteBuf event) {
-                if (DcpSnapshotMarkerMessage.is(event)) {
+                if (DcpSnapshotMarkerRequest.is(event)) {
                     client.acknowledgeBuffer(event);
                 }
                 if (RollbackMessage.is(event)) {
                     final short partition = RollbackMessage.vbucket(event);
                     client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
-                        .subscribe(new Completable.CompletableSubscriber() {
-                            @Override
-                            public void onCompleted() {
-                                System.out.println("Rollback for partition " + partition + " complete!");
-                            }
+                            .subscribe(new Completable.CompletableSubscriber() {
+                                @Override
+                                public void onCompleted() {
+                                    System.out.println("Rollback for partition " + partition + " complete!");
+                                }
 
-                            @Override
-                            public void onError(Throwable e) {
-                                System.err.println("Rollback for partition " + partition + " failed!");
-                                e.printStackTrace();
-                            }
+                                @Override
+                                public void onError(Throwable e) {
+                                    System.err.println("Rollback for partition " + partition + " failed!");
+                                    e.printStackTrace();
+                                }
 
-                            @Override
-                            public void onSubscribe(Subscription d) {}
-                        });
+                                @Override
+                                public void onSubscribe(Subscription d) {
+                                }
+                            });
                 }
                 event.release();
             }
