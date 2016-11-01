@@ -39,6 +39,7 @@ public enum MessageUtil {
     public static final byte SASL_AUTH_OPCODE = 0x21;
     public static final byte SASL_STEP_OPCODE = 0x22;
     public static final byte DCP_CONTROL_OPCODE = 0x5e;
+    public static final byte DCP_FLUSH_OPCODE = 0x5a;
     public static final byte DCP_STREAM_CLOSE_OPCODE = 0x52;
     public static final byte DCP_STREAM_REQUEST_OPCODE = 0x53;
     public static final byte DCP_FAILOVER_LOG_OPCODE = 0x54;
@@ -46,7 +47,7 @@ public enum MessageUtil {
     public static final byte DCP_SNAPSHOT_MARKER_OPCODE = 0x56;
     public static final byte DCP_MUTATION_OPCODE = 0x57;
     public static final byte DCP_DELETION_OPCODE = 0x58;
-    public static final byte DCP_EXPIRATION_OPCODE = 0x58;
+    public static final byte DCP_EXPIRATION_OPCODE = 0x59;
     public static final byte DCP_NOOP_OPCODE = 0x5C;
     public static final byte DCP_BUFFER_ACK_OPCODE = 0x5D;
 
