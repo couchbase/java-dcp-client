@@ -344,6 +344,11 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 @Override
                 public void onCompleted() {
                     LOGGER.debug("Completed Node connect for DCP channel {}", inetAddress);
+                    for (short vbid = 0; vbid < openStreams.length(); vbid++) {
+                        if (openStreams.get(vbid) != 0) {
+                            conductor.maybeMovePartition(vbid);
+                        }
+                    }
                 }
 
                 @Override
