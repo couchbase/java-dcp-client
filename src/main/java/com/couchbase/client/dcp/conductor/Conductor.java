@@ -169,6 +169,7 @@ public class Conductor {
             });
     }
 
+    @SuppressWarnings("unchecked")
     private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
         return Observable
             .just(channel)
@@ -192,6 +193,7 @@ public class Conductor {
             );
     }
 
+    @SuppressWarnings("unchecked")
     public Single<ByteBuf> getFailoverLog(final short partition) {
         return Observable
             .just(partition)
@@ -221,6 +223,7 @@ public class Conductor {
             ).toSingle();
     }
 
+    @SuppressWarnings("unchecked")
     public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno,
         final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
         return Observable
@@ -342,6 +345,7 @@ public class Conductor {
     }
 
     private void add(final InetAddress node) {
+        //noinspection SuspiciousMethodCalls: channel proxies equals/hashcode to its address
         if (channels.contains(node)) {
             return;
         }
@@ -409,6 +413,7 @@ public class Conductor {
      *
      * @param partition the partition to move if needed
      */
+    @SuppressWarnings("unchecked")
     void maybeMovePartition(final short partition) {
         Observable
             .timer(50, TimeUnit.MILLISECONDS)

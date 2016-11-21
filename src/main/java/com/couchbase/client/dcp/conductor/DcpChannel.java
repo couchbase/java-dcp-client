@@ -154,6 +154,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             });
     }
 
+    @SuppressWarnings("unchecked")
     private boolean filterOpenStreamResponse(ByteBuf buf) {
         try {
             Promise promise = outstandingPromises.remove(MessageUtil.getOpaque(buf));
@@ -190,6 +191,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private boolean filterDcpGetPartitionSeqnosResponse(ByteBuf buf) {
         try {
             Promise<ByteBuf> promise = (Promise<ByteBuf>) outstandingPromises.remove(MessageUtil.getOpaque(buf));
@@ -200,6 +202,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private boolean filterFailoverLogResponse(ByteBuf buf) {
         try {
             Promise<ByteBuf> promise = (Promise<ByteBuf>) outstandingPromises.remove(MessageUtil.getOpaque(buf));
@@ -610,7 +613,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     @Override
     public boolean equals(Object o) {
-        return inetAddress.equals(o);
+        if (o instanceof InetAddress) {
+            return inetAddress.equals(o);
+        } else if (o instanceof DcpChannel) {
+            return inetAddress.equals(((DcpChannel)o).inetAddress);
+        }
+        return false;
     }
 
     @Override
