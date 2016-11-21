@@ -1,7 +1,7 @@
 # Couchbase Java DCP Client
 This repository contains a pure java-based implementation for a Couchbase
 DCP (Database Change Protocol) client. It is currently a work in progress
-and intended to be the primary DCP client going forward, eventually 
+and intended to be the primary DCP client going forward, eventually
 deprecating the experimental supported inside `core-io`.
 
 It supports:
@@ -19,7 +19,7 @@ It supports:
  - [x] Pausing and Restarts
  - [x] Stream up to a specific point in time for a vbucket and then stop
  - [x] Proper shutdown/disconnect and cleanup
- 
+
 # Installation
 We publish the releases (including pre-releases to maven central):
 
@@ -27,7 +27,7 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
 </dependency>
 ```
 
@@ -42,7 +42,7 @@ $ mvn install
 ```
 
 Right now it will install the `com.couchbase.client:dcp-client` artifact
-with the `0.7.0-SNAPSHOT` version. You can then depend on it in your
+with the `0.8.0-SNAPSHOT` version. You can then depend on it in your
 project.
 
 # Basic Usage
@@ -110,7 +110,7 @@ it is always important to `release()` them when not needed anymore.
 Since working with the raw buffers is not fun, the client provides
 flyweights that allow you to extract the information out of the buffers
 easily. Consult the docs for information on which message types to expect
-when, but as an example if you want to print the key and content of an 
+when, but as an example if you want to print the key and content of an
 incoming mutation in the data handler you can do it like this:
 
 ```java
@@ -157,7 +157,7 @@ The following messages need to be acknowledged by the user:
  - `DcpMutationMessage` (on the `DataEventHandler`)
  - `DcpDeletionMessage` (on the `DataEventHandler`)
  - `DcpExpirationMessage` (on the `DataEventHandler`)
- 
+
 Acknowledging works by passing the number of bytes from the event to the
 `Client#acknowledgeBytes` method. Note that the vbucket id also needs to
 be passed since the client needs to know against which connection the
@@ -178,3 +178,48 @@ the lower level API:
 client.acknowledgeBuffer(vbid, numBytes);
 ```
 
+### SSL (Couchbase Enterprise feature)
+
+Read in details about SSL in Couchbase on
+[our documentation](http://developer.couchbase.com/documentation/server/4.5/sdk/java/managing-connections.html).
+Here we will just post quick start steps:
+
+1. Download and store in file cluster certificate from "Security" -> "Root Certificate" section on Admin Console.
+2. Import this certificate using keytool:
+
+        keytool -importcert -keystore /tmp/keystore \
+                            -storepass secret \
+                            -file /tmp/cluster.cert
+
+3. And update configuration of the DCP client:
+
+    ``` java
+    final Client client = Client.configure()
+            .hostnames("localhost")
+            .bucket("travel-sample")
+            .sslEnabled(true)
+            .sslKeystoreFile("/tmp/keystore")
+            .sslKeystorePassword("secret")
+            .build();
+    ```
+
+### System events
+
+Since 0.7.0 release, the client implements notification service, which allows to react on events, which are not tied
+directly to protocol and data transmission, such as connection errors, or notification about stream completion when the
+end sequence number wasn't set to infinity. The following example subscribes handler to system events to find out when
+partition 42 has done with data transmission:
+
+``` java
+client.systemEventHandler(new SystemEventHandler() {
+    @Override
+    public void onEvent(CouchbaseEvent event) {
+        if (event instanceof StreamEndEvent) {
+            StreamEndEvent streamEnd = (StreamEndEvent) event;
+            if (streamEnd.partition() == 42) {
+                System.out.println("Stream for partition 42 has ended (reason: " + streamEnd.reason() + ")");
+            }
+        }
+    }
+});
+```
