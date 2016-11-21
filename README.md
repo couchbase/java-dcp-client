@@ -153,7 +153,7 @@ reached.
 
 The following messages need to be acknowledged by the user:
 
- - `DcpSnapshotMarkerMessage` (on the `ControlEventHandler`)
+ - `DcpSnapshotMarkerRequest` (on the `ControlEventHandler`)
  - `DcpMutationMessage` (on the `DataEventHandler`)
  - `DcpDeletionMessage` (on the `DataEventHandler`)
  - `DcpExpirationMessage` (on the `DataEventHandler`)
