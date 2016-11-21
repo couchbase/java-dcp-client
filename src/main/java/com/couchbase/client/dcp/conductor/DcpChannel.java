@@ -175,7 +175,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     promise.setFailure(new RollbackException());
                     // create a rollback message and emit
                     ByteBuf rb = Unpooled.buffer();
-                    RollbackMessage.init(rb, vbid, MessageUtil.getContent(buf).getLong(0));
+                    RollbackMessage.init(rb, vbid, DcpOpenStreamResponse.rollbackSeqno(buf));
                     env.controlEventHandler().onEvent(rb);
                     break;
                 case 0x07:

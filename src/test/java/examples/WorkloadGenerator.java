@@ -34,9 +34,9 @@ public class WorkloadGenerator {
         CouchbaseCluster cluster = CouchbaseCluster.create("127.0.0.1");
         Bucket bucket = cluster.openBucket("default");
 
-        while(true) {
+        while (true) {
             for (int i = 0; i < 1024; i++) {
-                bucket.upsert(JsonDocument.create("doc:"+i, JsonObject.create().put("uuid", UUID.randomUUID().toString())));
+                bucket.upsert(JsonDocument.create("doc:" + i, JsonObject.create().put("uuid", UUID.randomUUID().toString())));
                 Thread.sleep(1000);
             }
         }

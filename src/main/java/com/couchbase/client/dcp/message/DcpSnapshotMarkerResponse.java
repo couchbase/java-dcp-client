@@ -17,24 +17,16 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
-import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_REQUEST_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.DCP_SNAPSHOT_MARKER_OPCODE;
 
-public enum DcpOpenStreamResponse {
+public enum DcpSnapshotMarkerResponse {
     ;
 
     public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_STREAM_REQUEST_OPCODE;
+        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_SNAPSHOT_MARKER_OPCODE;
     }
 
-    public static short vbucket(ByteBuf buffer) {
-        return MessageUtil.getVbucket(buffer);
-    }
-
-    public static long rollbackSeqno(ByteBuf buffer) {
-        if (MessageUtil.getStatus(buffer) == 0x23) {
-            return MessageUtil.getContent(buffer).getLong(0);
-        } else {
-            throw new IllegalStateException("Rollback sequence number accessible only for ROLLBACK (0x23) status code");
-        }
+    public static void init(final ByteBuf buffer) {
+        MessageUtil.initResponse(DCP_SNAPSHOT_MARKER_OPCODE, buffer);
     }
 }

@@ -15,9 +15,13 @@
  */
 package examples;
 
-import com.couchbase.client.dcp.*;
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -41,15 +45,15 @@ public class CountDocumentSizes {
 
         // Connect to localhost and use the travel-sample bucket
         final Client client = Client.configure()
-            .hostnames("localhost")
-            .bucket("travel-sample")
-            .build();
+                .hostnames("localhost")
+                .bucket("travel-sample")
+                .build();
 
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
-                if (DcpSnapshotMarkerMessage.is(event)) {
+                if (DcpSnapshotMarkerRequest.is(event)) {
                     client.acknowledgeBuffer(event);
                 }
                 event.release();
@@ -81,7 +85,7 @@ public class CountDocumentSizes {
         client.startStreaming().await();
 
         // Sleep and wait until the DCP stream has caught up with the time where we said "now".
-        while(true) {
+        while (true) {
             if (client.sessionState().isAtEnd()) {
                 break;
             }

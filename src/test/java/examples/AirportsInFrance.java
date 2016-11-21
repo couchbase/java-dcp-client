@@ -15,9 +15,13 @@
  */
 package examples;
 
-import com.couchbase.client.dcp.*;
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerMessage;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import com.couchbase.client.java.document.json.JsonObject;
@@ -36,15 +40,15 @@ public class AirportsInFrance {
 
         // Connect to localhost and use the travel-sample bucket
         final Client client = Client.configure()
-            .hostnames("localhost")
-            .bucket("travel-sample")
-            .build();
+                .hostnames("localhost")
+                .bucket("travel-sample")
+                .build();
 
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
             public void onEvent(ByteBuf event) {
-                if (DcpSnapshotMarkerMessage.is(event)) {
+                if (DcpSnapshotMarkerRequest.is(event)) {
                     client.acknowledgeBuffer(event);
                 }
                 event.release();
@@ -60,10 +64,10 @@ public class AirportsInFrance {
                 if (DcpMutationMessage.is(event)) {
                     // Using the Java SDKs JsonObject for simple access to the document
                     JsonObject content = JsonObject.fromJson(
-                        DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8)
+                            DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8)
                     );
                     if (content.getString("type").equals("airport")
-                        && content.getString("country").toLowerCase().equals("france")) {
+                            && content.getString("country").toLowerCase().equals("france")) {
                         numAirports.incrementAndGet();
                     }
                 }
@@ -81,7 +85,7 @@ public class AirportsInFrance {
         client.startStreaming().await();
 
         // Sleep and wait until the DCP stream has caught up with the time where we said "now".
-        while(true) {
+        while (true) {
             if (client.sessionState().isAtEnd()) {
                 break;
             }
