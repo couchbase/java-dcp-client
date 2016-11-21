@@ -15,11 +15,14 @@
  */
 package examples;
 
+import com.couchbase.client.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.SystemEventHandler;
+import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -72,6 +75,17 @@ public class AirportsInFrance {
                     }
                 }
                 event.release();
+            }
+        });
+        client.systemEventHandler(new SystemEventHandler() {
+            @Override
+            public void onEvent(CouchbaseEvent event) {
+                if (event instanceof StreamEndEvent) {
+                    StreamEndEvent streamEnd = (StreamEndEvent) event;
+                    if (streamEnd.partition() == 42) {
+                        System.out.println("Stream for partition 42 has ended (reason: " + streamEnd.reason() + ")");
+                    }
+                }
             }
         });
 

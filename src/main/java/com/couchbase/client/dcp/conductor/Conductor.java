@@ -32,7 +32,10 @@ import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
+import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.events.FailedToRemoveNodeEvent;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
@@ -351,7 +354,7 @@ public class Conductor {
         }
 
         LOGGER.debug("Adding DCP Channel against {}", node);
-        DcpChannel channel = new DcpChannel(node, env, this);
+        final DcpChannel channel = new DcpChannel(node, env, this);
         channels.add(channel);
 
         channel
@@ -376,6 +379,9 @@ public class Conductor {
                 @Override
                 public void onError(Throwable e) {
                     LOGGER.warn("Got error during connect (maybe retried) for node {}" + node, e);
+                    if (env.eventBus() != null) {
+                        env.eventBus().publish(new FailedToAddNodeEvent(node, e));
+                    }
                 }
 
                 @Override
@@ -397,6 +403,9 @@ public class Conductor {
                 @Override
                 public void onError(Throwable e) {
                     LOGGER.warn("Got error during Node removal for node {}" + node.hostname(), e);
+                    if (env.eventBus() != null) {
+                        env.eventBus().publish(new FailedToRemoveNodeEvent(node.hostname(), e));
+                    }
                 }
 
                 @Override
@@ -454,6 +463,9 @@ public class Conductor {
                 @Override
                 public void onError(Throwable e) {
                     LOGGER.warn("Error during Partition Move for partition " + partition, e);
+                    if (env.eventBus() != null) {
+                        env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
+                    }
                 }
 
                 @Override

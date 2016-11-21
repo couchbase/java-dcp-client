@@ -24,6 +24,8 @@ import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.error.RollbackException;
+import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
+import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.message.DcpBufferAckRequest;
 import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
 import com.couchbase.client.dcp.message.DcpCloseStreamResponse;
@@ -228,6 +230,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             short vbid = DcpStreamEndMessage.vbucket(buf);
             StreamEndReason reason = DcpStreamEndMessage.reason(buf);
             LOGGER.debug("Server closed Stream on vbid {} with reason {}", vbid, reason);
+            if (env.eventBus() != null) {
+                env.eventBus().publish(new StreamEndEvent(vbid, reason));
+            }
             openStreams.set(vbid, 0);
             conductor.maybeMovePartition(vbid);
             if (needsBufferAck) {
