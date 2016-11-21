@@ -15,18 +15,31 @@
  */
 package com.couchbase.client.dcp.config;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
+import com.couchbase.client.core.env.CoreScheduler;
+import com.couchbase.client.core.env.resources.NoOpShutdownHook;
+import com.couchbase.client.core.env.resources.ShutdownHook;
+import com.couchbase.client.core.event.CouchbaseEvent;
+import com.couchbase.client.core.event.DefaultEventBus;
+import com.couchbase.client.core.event.EventBus;
+import com.couchbase.client.core.event.EventType;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.SystemEventHandler;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-
 import rx.Completable;
+import rx.Observable;
+import rx.Scheduler;
+import rx.Subscriber;
+import rx.Subscription;
+import rx.functions.Func1;
+import rx.functions.Func2;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The {@link ClientEnvironment} is responsible to carry various configuration and
@@ -134,6 +147,12 @@ public class ClientEnvironment {
      */
     private final int dcpChannelsReconnectMaxAttempts;
 
+    private final EventBus eventBus;
+    private final Scheduler scheduler;
+    private final ShutdownHook schedulerShutdownHook;
+    private SystemEventHandler systemEventHandler;
+    private Subscription systemEventSubscription;
+
     /**
      * Creates a new environment based on the builder.
      *
@@ -156,6 +175,16 @@ public class ClientEnvironment {
         socketConnectTimeout = builder.socketConnectTimeout;
         dcpChannelsReconnectDelay = builder.dcpChannelsReconnectDelay;
         dcpChannelsReconnectMaxAttempts = builder.dcpChannelsReconnectMaxAttempts;
+        if (builder.eventBus != null) {
+            eventBus = builder.eventBus;
+            this.scheduler = null;
+            this.schedulerShutdownHook = new NoOpShutdownHook();
+        } else {
+            CoreScheduler scheduler = new CoreScheduler(3);
+            this.scheduler = scheduler;
+            this.schedulerShutdownHook = scheduler;
+            eventBus = new DefaultEventBus(scheduler);
+        }
     }
 
     /**
@@ -257,6 +286,35 @@ public class ClientEnvironment {
     }
 
     /**
+     * Set/Override the control event handler.
+     */
+    public void setSystemEventHandler(final SystemEventHandler systemEventHandler) {
+        if (systemEventSubscription != null) {
+            systemEventSubscription.unsubscribe();
+        }
+        if (systemEventHandler != null) {
+            systemEventSubscription = eventBus().get()
+                    .filter(new Func1<CouchbaseEvent, Boolean>() {
+                        @Override
+                        public Boolean call(CouchbaseEvent evt) {
+                            return evt.type().equals(EventType.SYSTEM);
+                        }
+                    }).subscribe(new Subscriber<CouchbaseEvent>() {
+                        @Override
+                        public void onCompleted() { /* Ignoring on purpose. */}
+
+                        @Override
+                        public void onError(Throwable e) { /* Ignoring on purpose. */ }
+
+                        @Override
+                        public void onNext(CouchbaseEvent evt) {
+                            systemEventHandler.onEvent(evt);
+                        }
+                    });
+        }
+    }
+
+    /**
      * If buffer pooling is enabled.
      */
     public boolean poolBuffers() {
@@ -284,6 +342,13 @@ public class ClientEnvironment {
         return socketConnectTimeout;
     }
 
+    /**
+     * Returns the event bus where events are broadcasted on and can be published to.
+     */
+    public EventBus eventBus() {
+        return eventBus;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
@@ -302,6 +367,7 @@ public class ClientEnvironment {
         public int dcpChannelsReconnectMaxAttempts = DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
 
         private int bufferAckWatermark;
+        private EventBus eventBus;
 
         public Builder setClusterAt(List<String> clusterAt) {
             this.clusterAt = clusterAt;
@@ -384,6 +450,11 @@ public class ClientEnvironment {
             return this;
         }
 
+        public Builder setEventBus(EventBus eventBus) {
+            this.eventBus = eventBus;
+            return this;
+        }
+
         public ClientEnvironment build() {
             return new ClientEnvironment(this);
         }
@@ -401,25 +472,35 @@ public class ClientEnvironment {
      */
     @SuppressWarnings({ "unchecked" })
     public Completable shutdown() {
-        if (!eventLoopGroupIsPrivate) {
-            return Completable.complete();
-        }
-        return Completable.create(new Completable.CompletableOnSubscribe() {
-            @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
-                eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS).addListener(
-                        new GenericFutureListener() {
-                            @Override
-                            public void operationComplete(Future future) throws Exception {
-                                if (future.isSuccess()) {
-                                    subscriber.onCompleted();
-                                } else {
-                                    subscriber.onError(future.cause());
+        Observable<Boolean> loopShutdown = Observable.empty();
+
+        if (eventLoopGroupIsPrivate) {
+            loopShutdown = Completable.create(new Completable.CompletableOnSubscribe() {
+                @Override
+                public void call(final Completable.CompletableSubscriber subscriber) {
+                    eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS).addListener(
+                            new GenericFutureListener() {
+                                @Override
+                                public void operationComplete(Future future) throws Exception {
+                                    if (future.isSuccess()) {
+                                        subscriber.onCompleted();
+                                    } else {
+                                        subscriber.onError(future.cause());
+                                    }
                                 }
-                            }
-                        });
+                            });
+                }
+            }).toObservable();
+        }
+        return Observable.merge(
+                schedulerShutdownHook.shutdown(),
+                loopShutdown
+        ).reduce(true, new Func2<Boolean, Boolean, Boolean>() {
+            @Override
+            public Boolean call(Boolean previous, Boolean current) {
+                return previous && current;
             }
-        });
+        }).toCompletable();
     }
 
     @Override

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.time.Delay;
@@ -105,6 +106,7 @@ public class Client {
             .setConfigProviderReconnectMaxAttempts(builder.configProviderReconnectMaxAttempts)
             .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
             .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
+            .setEventBus(builder.eventBus)
             .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
@@ -212,6 +214,13 @@ public class Client {
                 controlEventHandler.onEvent(event);
             }
         });
+    }
+
+    /**
+     * Stores a {@link SystemEventHandler} to be called when control events happen.
+     */
+    public void systemEventHandler(final SystemEventHandler systemEventHandler) {
+        env.setSystemEventHandler(systemEventHandler);
     }
 
     /**
@@ -743,6 +752,7 @@ public class Client {
         private int configProviderReconnectMaxAttempts = ClientEnvironment.DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
         private int dcpChannelsReconnectMaxAttempts = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
         private Delay dcpChannelsReconnectDelay = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
+        private EventBus eventBus;
 
         /**
          * The buffer acknowledge watermark in percent.
@@ -921,6 +931,16 @@ public class Client {
          */
         public Builder dcpChannelsReconnectDelay(Delay dcpChannelsReconnectDelay){
             this.dcpChannelsReconnectDelay = dcpChannelsReconnectDelay;
+            return this;
+        }
+
+        /**
+         * Sets the event bus to an alternative implementation.
+         *
+         * This setting should only be tweaked in advanced cases.
+         */
+        public Builder eventBus(final EventBus eventBus) {
+            this.eventBus = eventBus;
             return this;
         }
 
