@@ -30,4 +30,8 @@ public enum DcpStreamEndMessage {
         return MessageUtil.getVbucket(buffer);
     }
 
+    public static StreamEndReason reason(final ByteBuf buffer) {
+        int flags = MessageUtil.getExtras(buffer).getInt(0);
+        return StreamEndReason.of(flags);
+    }
 }

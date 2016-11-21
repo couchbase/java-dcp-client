@@ -36,6 +36,7 @@ import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
 import com.couchbase.client.dcp.message.DcpStreamEndMessage;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.message.VbucketState;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -224,9 +225,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     private boolean filterDcpStreamEndMessage(ByteBuf buf) {
         try {
-            int flag = MessageUtil.getExtras(buf).readInt();
             short vbid = DcpStreamEndMessage.vbucket(buf);
-            LOGGER.debug("Server closed Stream on vbid {} with flag {}", vbid, flag);
+            StreamEndReason reason = DcpStreamEndMessage.reason(buf);
+            LOGGER.debug("Server closed Stream on vbid {} with reason {}", vbid, reason);
             openStreams.set(vbid, 0);
             conductor.maybeMovePartition(vbid);
             if (needsBufferAck) {
