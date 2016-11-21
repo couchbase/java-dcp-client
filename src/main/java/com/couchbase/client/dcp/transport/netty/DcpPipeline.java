@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
@@ -26,6 +27,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelPipeline;
 import com.couchbase.client.deps.io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
+import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 import rx.subjects.Subject;
 
 /**
@@ -50,6 +52,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
      * The observable where all the control events are fed into for advanced handling up the stack.
      */
     private final Subject<ByteBuf, ByteBuf> controlEvents;
+    private final SSLEngineFactory sslEngineFactory;
 
     /**
      * Creates the pipeline.
@@ -60,6 +63,11 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     public DcpPipeline(final ClientEnvironment environment, final Subject<ByteBuf, ByteBuf> controlEvents) {
         this.environment = environment;
         this.controlEvents = controlEvents;
+        if (environment.sslEnabled()) {
+            this.sslEngineFactory = new SSLEngineFactory(environment);
+        } else {
+            this.sslEngineFactory = null;
+        }
     }
 
     /**
@@ -70,6 +78,9 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     protected void initChannel(final Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
 
+        if (environment.sslEnabled()) {
+            pipeline.addLast(new SslHandler(sslEngineFactory.get()));
+        }
         pipeline.addLast(new LengthFieldBasedFrameDecoder(
             Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false
         ));

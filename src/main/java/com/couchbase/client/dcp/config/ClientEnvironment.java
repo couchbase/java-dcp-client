@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.config;
 
 import com.couchbase.client.core.env.CoreScheduler;
+import com.couchbase.client.core.env.DefaultCoreEnvironment;
 import com.couchbase.client.core.env.resources.NoOpShutdownHook;
 import com.couchbase.client.core.env.resources.ShutdownHook;
 import com.couchbase.client.core.event.CouchbaseEvent;
@@ -38,6 +39,7 @@ import rx.Subscription;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
+import java.security.KeyStore;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -48,7 +50,7 @@ import java.util.concurrent.TimeUnit;
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-public class ClientEnvironment {
+public class ClientEnvironment implements SecureEnvironment {
     public static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
     public static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
@@ -56,6 +58,11 @@ public class ClientEnvironment {
     public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
     public static final Delay DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Delay.fixed(200, TimeUnit.MILLISECONDS);
     public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
+    public static final boolean DEFAULT_SSL_ENABLED = false;
+    public static final int BOOTSTRAP_HTTP_DIRECT_PORT = 8091;
+    public static final int BOOTSTRAP_HTTP_SSL_PORT = 18091;
+    public static final int DCP_DIRECT_PORT = 11210;
+    public static final int DCP_SSL_PORT = 11207;
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -152,6 +159,14 @@ public class ClientEnvironment {
     private final ShutdownHook schedulerShutdownHook;
     private SystemEventHandler systemEventHandler;
     private Subscription systemEventSubscription;
+    private final boolean sslEnabled;
+    private final String sslKeystoreFile;
+    private final String sslKeystorePassword;
+    private final KeyStore sslKeystore;
+    private final int bootstrapHttpDirectPort;
+    private final int bootstrapHttpSslPort;
+    private final int dcpDirectPort;
+    private final int dcpSslPort;
 
     /**
      * Creates a new environment based on the builder.
@@ -185,6 +200,14 @@ public class ClientEnvironment {
             this.schedulerShutdownHook = scheduler;
             eventBus = new DefaultEventBus(scheduler);
         }
+        bootstrapHttpDirectPort = builder.bootstrapHttpDirectPort;
+        bootstrapHttpSslPort = builder.bootstrapHttpSslPort;
+        dcpDirectPort = builder.dcpDirectPort;
+        dcpSslPort = builder.dcpSslPort;
+        sslEnabled = builder.sslEnabled;
+        sslKeystoreFile = builder.sslKeystoreFile;
+        sslKeystorePassword = builder.sslKeystorePassword;
+        sslKeystore = builder.sslKeystore;
     }
 
     /**
@@ -349,6 +372,42 @@ public class ClientEnvironment {
         return eventBus;
     }
 
+    public int bootstrapHttpDirectPort() {
+        return bootstrapHttpDirectPort;
+    }
+
+    public int bootstrapHttpSslPort() {
+        return bootstrapHttpSslPort;
+    }
+
+    public int dcpDirectPort() {
+        return dcpDirectPort;
+    }
+
+    public int dcpSslPort() {
+        return dcpSslPort;
+    }
+
+    @Override
+    public boolean sslEnabled() {
+        return sslEnabled;
+    }
+
+    @Override
+    public String sslKeystoreFile() {
+        return sslKeystoreFile;
+    }
+
+    @Override
+    public String sslKeystorePassword() {
+        return sslKeystorePassword;
+    }
+
+    @Override
+    public KeyStore sslKeystore() {
+        return sslKeystore;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
@@ -363,11 +422,19 @@ public class ClientEnvironment {
         private Delay configProviderReconnectDelay = DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
         private int configProviderReconnectMaxAttempts = DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
         private long socketConnectTimeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
-        public Delay dcpChannelsReconnectDelay = DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
-        public int dcpChannelsReconnectMaxAttempts = DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
+        private Delay dcpChannelsReconnectDelay = DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
+        private int dcpChannelsReconnectMaxAttempts = DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
+        private int bootstrapHttpDirectPort = BOOTSTRAP_HTTP_DIRECT_PORT;
+        private int bootstrapHttpSslPort = BOOTSTRAP_HTTP_SSL_PORT;
+        private int dcpDirectPort = DCP_DIRECT_PORT;
+        private int dcpSslPort = DCP_SSL_PORT;
 
         private int bufferAckWatermark;
         private EventBus eventBus;
+        private boolean sslEnabled = DEFAULT_SSL_ENABLED;
+        private String sslKeystoreFile;
+        private String sslKeystorePassword;
+        private KeyStore sslKeystore;
 
         public Builder setClusterAt(List<String> clusterAt) {
             this.clusterAt = clusterAt;
@@ -455,6 +522,85 @@ public class ClientEnvironment {
             return this;
         }
 
+        /**
+         * If SSL not enabled, sets the port to use for HTTP bootstrap
+         * (default value {@value #BOOTSTRAP_HTTP_DIRECT_PORT}).
+         */
+        public Builder setBootstrapHttpDirectPort(final int bootstrapHttpDirectPort) {
+            this.bootstrapHttpDirectPort = bootstrapHttpDirectPort;
+            return this;
+        }
+
+        /**
+         * If SSL enabled, sets the port to use for HTTP bootstrap
+         * (default value {@value #BOOTSTRAP_HTTP_SSL_PORT}).
+         */
+        public Builder setBootstrapHttpSslPort(final int bootstrapHttpSslPort) {
+            this.bootstrapHttpSslPort = bootstrapHttpSslPort;
+            return this;
+        }
+
+        /**
+         * If SSL not enabled, sets the port to use for DCP interaction
+         * (default value {@value #DCP_DIRECT_PORT}).
+         */
+        public Builder setDcpDirectPort(final int dcpDirectPort) {
+            this.dcpDirectPort = dcpDirectPort;
+            return this;
+        }
+
+        /**
+         * If SSL enabled, sets the port to use for  DCP interaction
+         * (default value {@value #DCP_SSL_PORT}).
+         */
+        public Builder setDcpSslPort(final int dcpSslPort) {
+            this.dcpSslPort = dcpSslPort;
+            return this;
+        }
+
+        /**
+         * Set if SSL should be enabled (default value {@value #DEFAULT_SSL_ENABLED}).
+         * If true, also set {@link #setSslKeystoreFile(String)} and {@link #setSslKeystorePassword(String)}.
+         */
+        public Builder setSslEnabled(final boolean sslEnabled) {
+            this.sslEnabled = sslEnabled;
+            return this;
+        }
+
+        /**
+         * Defines the location of the SSL Keystore file (default value null, none).
+         *
+         * You can either specify a file or the keystore directly via {@link #setSslKeystore(KeyStore)}. If the explicit
+         * keystore is used it takes precedence over the file approach.
+         */
+        public Builder setSslKeystoreFile(final String sslKeystoreFile) {
+            this.sslKeystoreFile = sslKeystoreFile;
+            return this;
+        }
+
+        /**
+         * Sets the SSL Keystore password to be used with the Keystore file (default value null, none).
+         *
+         * @see #setSslKeystoreFile(String)
+         */
+        public Builder setSslKeystorePassword(final String sslKeystorePassword) {
+            this.sslKeystorePassword = sslKeystorePassword;
+            return this;
+        }
+
+        /**
+         * Sets the SSL Keystore directly and not indirectly via filepath.
+         *
+         * You can either specify a file or the keystore directly via {@link #setSslKeystore(KeyStore)}. If the explicit
+         * keystore is used it takes precedence over the file approach.
+         *
+         * @param sslKeystore the keystore to use.
+         */
+        public Builder setSslKeystore(final KeyStore sslKeystore) {
+            this.sslKeystore = sslKeystore;
+            return this;
+        }
+
         public ClientEnvironment build() {
             return new ClientEnvironment(this);
         }
@@ -517,7 +663,11 @@ public class ClientEnvironment {
                 ", bufferAckWatermark=" + bufferAckWatermark +
                 ", connectTimeout=" + connectTimeout +
                 ", bootstrapTimeout=" + bootstrapTimeout +
-                '}';
+                ", sslEnabled=" + sslEnabled +
+                ", sslKeystoreFile='" + sslKeystoreFile + '\'' +
+                ", sslKeystorePassword=" + (sslKeystorePassword != null && !sslKeystorePassword.isEmpty()) +
+                ", sslKeystore=" + sslKeystore +
+                 '}';
     }
 
     public Delay dcpChannelsReconnectDelay() {

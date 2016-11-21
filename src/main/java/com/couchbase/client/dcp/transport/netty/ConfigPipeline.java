@@ -18,12 +18,15 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelInitializer;
 import com.couchbase.client.deps.io.netty.channel.ChannelPipeline;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpClientCodec;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
+import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 import rx.subjects.Subject;
 
 /**
@@ -38,6 +41,11 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
      * The logger used.
      */
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigPipeline.class);
+
+    /**
+     * The stateful environment.
+     */
+    private final ClientEnvironment environment;
 
     /**
      * Hostname used to replace $HOST parts in the config when used against localhost.
@@ -58,21 +66,27 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
      * The config stream where the configs are emitted into.
      */
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+    private final SSLEngineFactory sslEngineFactory;
 
     /**
      * Creates a new config pipeline.
      *
+     * @param environment the stateful environment.
      * @param hostname hostname of the remote server.
-     * @param bucket name of the bucket/user.
-     * @param password password of the bucket/user.
      * @param configStream config stream where to send the configs.
      */
-    public ConfigPipeline(final String hostname, final String bucket, final String password,
-        final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
+    public ConfigPipeline(final ClientEnvironment environment, final String hostname,
+                          final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
         this.hostname = hostname;
-        this.bucket = bucket;
-        this.password = password;
+        this.bucket = environment.bucket();
+        this.password = environment.password();
         this.configStream = configStream;
+        this.environment = environment;
+        if (environment.sslEnabled()) {
+            this.sslEngineFactory = new SSLEngineFactory(environment);
+        } else {
+            this.sslEngineFactory = null;
+        }
     }
 
     /**
@@ -86,6 +100,9 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
     protected void initChannel(final Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
 
+        if (environment.sslEnabled()) {
+            pipeline.addLast(new SslHandler(sslEngineFactory.get()));
+        }
         if (LOGGER.isTraceEnabled()) {
             pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
         }

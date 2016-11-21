@@ -161,11 +161,11 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         ByteBufAllocator allocator = env.poolBuffers()
             ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
         final Bootstrap bootstrap = new Bootstrap()
-            .remoteAddress(hostname, 8091)
+            .remoteAddress(hostname, env.sslEnabled() ? env.bootstrapHttpSslPort() : env.bootstrapHttpDirectPort())
             .option(ChannelOption.ALLOCATOR, allocator)
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int)env.socketConnectTimeout())
             .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-            .handler(new ConfigPipeline(hostname, env.bucket(), env.password(), configStream))
+            .handler(new ConfigPipeline(env, hostname, configStream))
             .group(env.eventLoopGroup());
 
         return Completable.create(new Completable.CompletableOnSubscribe() {

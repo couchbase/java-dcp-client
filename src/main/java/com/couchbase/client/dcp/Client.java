@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -107,6 +108,10 @@ public class Client {
             .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
             .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
             .setEventBus(builder.eventBus)
+            .setSslEnabled(builder.sslEnabled)
+            .setSslKeystoreFile(builder.sslKeystoreFile)
+            .setSslKeystorePassword(builder.sslKeystorePassword)
+            .setSslKeystore(builder.sslKeystore)
             .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
@@ -753,6 +758,10 @@ public class Client {
         private int dcpChannelsReconnectMaxAttempts = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
         private Delay dcpChannelsReconnectDelay = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
         private EventBus eventBus;
+        private boolean sslEnabled = ClientEnvironment.DEFAULT_SSL_ENABLED;
+        private String sslKeystoreFile;
+        private String sslKeystorePassword;
+        private KeyStore sslKeystore;
 
         /**
          * The buffer acknowledge watermark in percent.
@@ -944,6 +953,49 @@ public class Client {
             return this;
         }
 
+
+        /**
+         * Set if SSL should be enabled (default value {@value ClientEnvironment#DEFAULT_SSL_ENABLED}).
+         * If true, also set {@link #sslKeystoreFile(String)} and {@link #sslKeystorePassword(String)}.
+         */
+        public Builder sslEnabled(final boolean sslEnabled) {
+            this.sslEnabled = sslEnabled;
+            return this;
+        }
+
+        /**
+         * Defines the location of the SSL Keystore file (default value null, none).
+         *
+         * You can either specify a file or the keystore directly via {@link #sslKeystore(KeyStore)}. If the explicit
+         * keystore is used it takes precedence over the file approach.
+         */
+        public Builder sslKeystoreFile(final String sslKeystoreFile) {
+            this.sslKeystoreFile = sslKeystoreFile;
+            return this;
+        }
+
+        /**
+         * Sets the SSL Keystore password to be used with the Keystore file (default value null, none).
+         *
+         * @see #sslKeystoreFile(String)
+         */
+        public Builder sslKeystorePassword(final String sslKeystorePassword) {
+            this.sslKeystorePassword = sslKeystorePassword;
+            return this;
+        }
+
+        /**
+         * Sets the SSL Keystore directly and not indirectly via filepath.
+         *
+         * You can either specify a file or the keystore directly via {@link #sslKeystore(KeyStore)}. If the explicit
+         * keystore is used it takes precedence over the file approach.
+         *
+         * @param sslKeystore the keystore to use.
+         */
+        public Builder sslKeystore(final KeyStore sslKeystore) {
+            this.sslKeystore = sslKeystore;
+            return this;
+        }
         /**
          * Create the client instance ready to use.
          *

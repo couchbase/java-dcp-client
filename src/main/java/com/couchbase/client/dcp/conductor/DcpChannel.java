@@ -24,7 +24,6 @@ import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.error.RollbackException;
-import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.message.DcpBufferAckRequest;
 import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
@@ -271,7 +270,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 final Bootstrap bootstrap = new Bootstrap()
                     .option(ChannelOption.ALLOCATOR, allocator)
                     .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int)env.socketConnectTimeout())
-                    .remoteAddress(inetAddress, 11210)
+                    .remoteAddress(inetAddress, env.sslEnabled() ? env.dcpSslPort() : env.dcpDirectPort())
                     .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
                     .handler(new DcpPipeline(env, controlSubject))
                     .group(env.eventLoopGroup());
