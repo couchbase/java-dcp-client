@@ -185,7 +185,7 @@ public class SessionState {
         for (int i = 0; i < len; i++) {
             PartitionState ps = partitionStates.get(i);
             if (ps == null) {
-                break;
+                continue;
             }
             action.call(ps);
         }
