@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
+import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
-import com.couchbase.client.deps.io.netty.handler.codec.http.*;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpContent;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpObject;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.subjects.Subject;
 
@@ -42,6 +44,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
      * The config stream where the configs are emitted into.
      */
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+    private final ClientEnvironment environment;
 
     /**
      * The current aggregated chunk of the JSON config.
@@ -51,13 +54,15 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     /**
      * Creates a new config handler.
      *
-     * @param hostname hostname of the remote server.
+     * @param hostname     hostname of the remote server.
      * @param configStream config stream where to send the configs.
+     * @param environment  the environment.
      */
     ConfigHandler(final String hostname,
-        final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
+                  final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream, ClientEnvironment environment) {
         this.hostname = hostname;
         this.configStream = configStream;
+        this.environment = environment;
     }
 
     /**
@@ -83,11 +88,11 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
         int separatorIndex = currentChunk.indexOf("\n\n\n\n");
         if (separatorIndex > 0) {
             String rawConfig = currentChunk
-                .substring(0, separatorIndex)
-                .trim()
-                .replace("$HOST", hostname);
+                    .substring(0, separatorIndex)
+                    .trim()
+                    .replace("$HOST", hostname);
 
-            configStream.onNext((CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig));
+            configStream.onNext((CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment));
             responseContent.clear();
             responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(CharsetUtil.UTF_8));
         }

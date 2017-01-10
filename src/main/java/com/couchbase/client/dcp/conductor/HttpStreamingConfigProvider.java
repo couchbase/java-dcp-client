@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelOption;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
+import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Subscriber;
 import rx.functions.Action4;
@@ -49,7 +50,6 @@ import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 
 /**
  * The {@link HttpStreamingConfigProvider}s only purpose is to keep new configs coming in all the time in a resilient manner.
- *
  *
  * @author Michael Nitschinger
  */
@@ -95,16 +95,16 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
     @Override
     public Completable start() {
-       return tryConnectHosts();
+        return tryConnectHosts();
     }
 
     @Override
     public Completable stop() {
         stopped = true;
 
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final CompletableSubscriber subscriber) {
                 LOGGER.debug("Initiating streaming config provider shutdown on channel.");
                 transitionState(LifecycleState.DISCONNECTING);
                 if (channel != null) {
@@ -159,18 +159,18 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
     private Completable tryConnectHost(final String hostname) {
         ByteBufAllocator allocator = env.poolBuffers()
-            ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
+                ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
         final Bootstrap bootstrap = new Bootstrap()
-            .remoteAddress(hostname, env.sslEnabled() ? env.bootstrapHttpSslPort() : env.bootstrapHttpDirectPort())
-            .option(ChannelOption.ALLOCATOR, allocator)
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int)env.socketConnectTimeout())
-            .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-            .handler(new ConfigPipeline(env, hostname, configStream))
-            .group(env.eventLoopGroup());
+                .remoteAddress(hostname, env.sslEnabled() ? env.bootstrapHttpSslPort() : env.bootstrapHttpDirectPort())
+                .option(ChannelOption.ALLOCATOR, allocator)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
+                .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
+                .handler(new ConfigPipeline(env, hostname, configStream))
+                .group(env.eventLoopGroup());
 
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final CompletableSubscriber subscriber) {
                 bootstrap.connect().addListener(new GenericFutureListener<ChannelFuture>() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
@@ -200,19 +200,19 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         transitionState(LifecycleState.CONNECTING);
         if (!stopped) {
             tryConnectHosts()
-                .retryWhen(any()
-                    .delay(env.configProviderReconnectDelay())
-                    .max(env.configProviderReconnectMaxAttempts())
-                    .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
-                        @Override
-                        public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                            LOGGER.info("No host usable to fetch a config from, waiting and retrying (remote hosts: {}).",
-                                remoteHosts.get());
-                        }
-                    })
-                    .build()
-                )
-                .subscribe();
+                    .retryWhen(any()
+                            .delay(env.configProviderReconnectDelay())
+                            .max(env.configProviderReconnectMaxAttempts())
+                            .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+                                @Override
+                                public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                                    LOGGER.info("No host usable to fetch a config from, waiting and retrying (remote hosts: {}).",
+                                            remoteHosts.get());
+                                }
+                            })
+                            .build()
+                    )
+                    .subscribe();
         }
     }
 

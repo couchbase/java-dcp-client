@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
  */
 package com.couchbase.client.dcp.config;
 
+import com.couchbase.client.core.env.ConfigParserEnvironment;
 import com.couchbase.client.core.env.CoreScheduler;
-import com.couchbase.client.core.env.DefaultCoreEnvironment;
 import com.couchbase.client.core.env.resources.NoOpShutdownHook;
 import com.couchbase.client.core.env.resources.ShutdownHook;
 import com.couchbase.client.core.event.CouchbaseEvent;
 import com.couchbase.client.core.event.DefaultEventBus;
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.event.EventType;
+import com.couchbase.client.core.node.DefaultMemcachedHashingStrategy;
+import com.couchbase.client.core.node.MemcachedHashingStrategy;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
@@ -32,6 +34,7 @@ import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
+import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Subscriber;
@@ -50,7 +53,7 @@ import java.util.concurrent.TimeUnit;
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-public class ClientEnvironment implements SecureEnvironment {
+public class ClientEnvironment implements SecureEnvironment, ConfigParserEnvironment {
     public static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
     public static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
@@ -408,6 +411,12 @@ public class ClientEnvironment implements SecureEnvironment {
         return sslKeystore;
     }
 
+    @Override
+    public MemcachedHashingStrategy memcachedHashingStrategy() {
+        // This is hardcoded, because memcached nodes do not support DCP anyway.
+        return DefaultMemcachedHashingStrategy.INSTANCE;
+    }
+
     public static class Builder {
         private List<String> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
@@ -486,7 +495,7 @@ public class ClientEnvironment implements SecureEnvironment {
             return this;
         }
 
-        public Builder setDcpChannelsReconnectMaxAttempts(int dcpChannelsReconnectMaxAttempts){
+        public Builder setDcpChannelsReconnectMaxAttempts(int dcpChannelsReconnectMaxAttempts) {
             this.dcpChannelsReconnectMaxAttempts = dcpChannelsReconnectMaxAttempts;
             return this;
         }
@@ -616,14 +625,14 @@ public class ClientEnvironment implements SecureEnvironment {
      *
      * @return a {@link Completable} indicating completion of the shutdown process.
      */
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings({"unchecked"})
     public Completable shutdown() {
         Observable<Boolean> loopShutdown = Observable.empty();
 
         if (eventLoopGroupIsPrivate) {
-            loopShutdown = Completable.create(new Completable.CompletableOnSubscribe() {
+            loopShutdown = Completable.create(new Completable.OnSubscribe() {
                 @Override
-                public void call(final Completable.CompletableSubscriber subscriber) {
+                public void call(final CompletableSubscriber subscriber) {
                     eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS).addListener(
                             new GenericFutureListener() {
                                 @Override
@@ -667,7 +676,7 @@ public class ClientEnvironment implements SecureEnvironment {
                 ", sslKeystoreFile='" + sslKeystoreFile + '\'' +
                 ", sslKeystorePassword=" + (sslKeystorePassword != null && !sslKeystorePassword.isEmpty()) +
                 ", sslKeystore=" + sslKeystore +
-                 '}';
+                '}';
     }
 
     public Delay dcpChannelsReconnectDelay() {

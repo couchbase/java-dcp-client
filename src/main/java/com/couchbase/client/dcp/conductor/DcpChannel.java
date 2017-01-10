@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
 import rx.Completable;
+import rx.CompletableSubscriber;
 import rx.Single;
 import rx.SingleSubscriber;
 import rx.Subscriber;
@@ -125,35 +126,35 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         }
 
         this.controlSubject
-            .filter(new Func1<ByteBuf, Boolean>() {
-                @Override
-                public Boolean call(ByteBuf buf) {
-                    if (DcpOpenStreamResponse.is(buf)) {
-                        return filterOpenStreamResponse(buf);
-                    } else if (DcpFailoverLogResponse.is(buf)) {
-                        return filterFailoverLogResponse(buf);
-                    } else if (DcpStreamEndMessage.is(buf)) {
-                        return filterDcpStreamEndMessage(buf);
-                    } else if (DcpCloseStreamResponse.is(buf)) {
-                        return filterDcpCloseStreamResponse(buf);
-                    } else if (DcpGetPartitionSeqnosResponse.is(buf)) {
-                        return filterDcpGetPartitionSeqnosResponse(buf);
+                .filter(new Func1<ByteBuf, Boolean>() {
+                    @Override
+                    public Boolean call(ByteBuf buf) {
+                        if (DcpOpenStreamResponse.is(buf)) {
+                            return filterOpenStreamResponse(buf);
+                        } else if (DcpFailoverLogResponse.is(buf)) {
+                            return filterFailoverLogResponse(buf);
+                        } else if (DcpStreamEndMessage.is(buf)) {
+                            return filterDcpStreamEndMessage(buf);
+                        } else if (DcpCloseStreamResponse.is(buf)) {
+                            return filterDcpCloseStreamResponse(buf);
+                        } else if (DcpGetPartitionSeqnosResponse.is(buf)) {
+                            return filterDcpGetPartitionSeqnosResponse(buf);
+                        }
+                        return true;
                     }
-                    return true;
-                }
-            })
-            .subscribe(new Subscriber<ByteBuf>() {
-                @Override
-                public void onCompleted() { /* Ignoring on purpose. */}
+                })
+                .subscribe(new Subscriber<ByteBuf>() {
+                    @Override
+                    public void onCompleted() { /* Ignoring on purpose. */}
 
-                @Override
-                public void onError(Throwable e) { /* Ignoring on purpose. */ }
+                    @Override
+                    public void onError(Throwable e) { /* Ignoring on purpose. */ }
 
-                @Override
-                public void onNext(ByteBuf buf) {
-                    env.controlEventHandler().onEvent(buf);
-                }
-            });
+                    @Override
+                    public void onNext(ByteBuf buf) {
+                        env.controlEventHandler().onEvent(buf);
+                    }
+                });
     }
 
     @SuppressWarnings("unchecked")
@@ -257,23 +258,23 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
     public Completable connect() {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final CompletableSubscriber subscriber) {
                 if (isShutdown || state() != LifecycleState.DISCONNECTED) {
                     subscriber.onCompleted();
                     return;
                 }
 
                 ByteBufAllocator allocator = env.poolBuffers()
-                    ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
+                        ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
                 final Bootstrap bootstrap = new Bootstrap()
-                    .option(ChannelOption.ALLOCATOR, allocator)
-                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int)env.socketConnectTimeout())
-                    .remoteAddress(inetAddress, env.sslEnabled() ? env.dcpSslPort() : env.dcpDirectPort())
-                    .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-                    .handler(new DcpPipeline(env, controlSubject))
-                    .group(env.eventLoopGroup());
+                        .option(ChannelOption.ALLOCATOR, allocator)
+                        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
+                        .remoteAddress(inetAddress, env.sslEnabled() ? env.dcpSslPort() : env.dcpDirectPort())
+                        .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
+                        .handler(new DcpPipeline(env, controlSubject))
+                        .group(env.eventLoopGroup());
 
                 transitionState(LifecycleState.CONNECTING);
                 connectFuture = bootstrap.connect();
@@ -284,9 +285,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             channel = future.channel();
                             if (isShutdown) {
                                 LOGGER.info("Connected Node {}, but got instructed to disconnect in " +
-                                    "the meantime.", inetAddress);
+                                        "the meantime.", inetAddress);
                                 // isShutdown before we could finish the connect :/
-                                disconnect().subscribe(new Completable.CompletableSubscriber() {
+                                disconnect().subscribe(new CompletableSubscriber() {
                                     @Override
                                     public void onCompleted() {
                                         subscriber.onCompleted();
@@ -341,34 +342,34 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         LOGGER.info("Node {} socket closed, initiating reconnect.", inetAddress);
 
         connect()
-            .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32))
-                .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+                .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32))
+                        .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
+                            @Override
+                            public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                                LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", inetAddress);
+                            }
+                        }).build())
+                .subscribe(new CompletableSubscriber() {
                     @Override
-                    public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                        LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", inetAddress);
-                    }
-            }).build())
-            .subscribe(new Completable.CompletableSubscriber() {
-                @Override
-                public void onCompleted() {
-                    LOGGER.debug("Completed Node connect for DCP channel {}", inetAddress);
-                    for (short vbid = 0; vbid < openStreams.length(); vbid++) {
-                        if (openStreams.get(vbid) != 0) {
-                            conductor.maybeMovePartition(vbid);
+                    public void onCompleted() {
+                        LOGGER.debug("Completed Node connect for DCP channel {}", inetAddress);
+                        for (short vbid = 0; vbid < openStreams.length(); vbid++) {
+                            if (openStreams.get(vbid) != 0) {
+                                conductor.maybeMovePartition(vbid);
+                            }
                         }
                     }
-                }
 
-                @Override
-                public void onError(Throwable e) {
-                    LOGGER.warn("Got error during connect (maybe retried) for node {}" + inetAddress, e);
-                }
+                    @Override
+                    public void onError(Throwable e) {
+                        LOGGER.warn("Got error during connect (maybe retried) for node {}" + inetAddress, e);
+                    }
 
-                @Override
-                public void onSubscribe(Subscription d) {
-                    // ignored.
-                }
-            });
+                    @Override
+                    public void onSubscribe(Subscription d) {
+                        // ignored.
+                    }
+                });
     }
 
     public boolean isShutdown() {
@@ -376,9 +377,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
     public Completable disconnect() {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final CompletableSubscriber subscriber) {
                 isShutdown = true;
                 if (channel != null) {
                     transitionState(LifecycleState.DISCONNECTING);
@@ -452,17 +453,17 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     public Completable openStream(final short vbid, final long vbuuid, final long startSeqno, final long endSeqno,
                                   final long snapshotStartSeqno, final long snapshotEndSeqno) {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final CompletableSubscriber subscriber) {
                 if (state() != LifecycleState.CONNECTED) {
                     subscriber.onError(new NotConnectedException());
                     return;
                 }
 
                 LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
-                    "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}",
-                    channel.remoteAddress(), vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
+                                "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}",
+                        channel.remoteAddress(), vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
 
                 int opaque = OPAQUE.incrementAndGet();
                 ChannelPromise promise = channel.newPromise();
@@ -499,9 +500,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
     public Completable closeStream(final short vbid) {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(final Completable.CompletableSubscriber subscriber) {
+            public void call(final CompletableSubscriber subscriber) {
                 if (state() != LifecycleState.CONNECTED) {
                     subscriber.onError(new NotConnectedException());
                     return;
@@ -621,7 +622,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         if (o instanceof InetAddress) {
             return inetAddress.equals(o);
         } else if (o instanceof DcpChannel) {
-            return inetAddress.equals(((DcpChannel)o).inetAddress);
+            return inetAddress.equals(((DcpChannel) o).inetAddress);
         }
         return false;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
         pipeline
             .addLast(new HttpClientCodec())
             .addLast(new StartStreamHandler(bucket, password))
-            .addLast(new ConfigHandler(hostname, configStream));
+            .addLast(new ConfigHandler(hostname, configStream, environment));
     }
 
 }

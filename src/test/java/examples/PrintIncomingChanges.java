@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,12 @@ import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
-import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import rx.Completable;
+import rx.CompletableSubscriber;
 import rx.Subscription;
-import rx.functions.Action1;
 
 import java.util.concurrent.TimeUnit;
 
@@ -64,7 +62,7 @@ public class PrintIncomingChanges {
                 if (RollbackMessage.is(event)) {
                     final short partition = RollbackMessage.vbucket(event);
                     client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
-                            .subscribe(new Completable.CompletableSubscriber() {
+                            .subscribe(new CompletableSubscriber() {
                                 @Override
                                 public void onCompleted() {
                                     System.out.println("Rollback for partition " + partition + " complete!");

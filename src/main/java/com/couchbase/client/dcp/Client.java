@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2016-2017 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,6 @@
  * limitations under the License.
  */
 package com.couchbase.client.dcp;
-
-import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
@@ -47,12 +39,20 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-
 import rx.Completable;
+import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
+
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -89,30 +89,30 @@ public class Client {
      */
     private Client(Builder builder) {
         EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
-            ? new NioEventLoopGroup() : builder.eventLoopGroup;
+                ? new NioEventLoopGroup() : builder.eventLoopGroup;
 
         env = ClientEnvironment.builder()
-            .setClusterAt(builder.clusterAt)
-            .setConnectionNameGenerator(builder.connectionNameGenerator)
-            .setBucket(builder.bucket)
-            .setPassword(builder.password)
-            .setDcpControl(builder.dcpControl)
-            .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
-            .setBufferAckWatermark(builder.bufferAckWatermark)
-            .setBufferPooling(builder.poolBuffers)
-            .setConnectTimeout(builder.connectTimeout)
-            .setBootstrapTimeout(builder.bootstrapTimeout)
-            .setSocketConnectTimeout(builder.socketConnectTimeout)
-            .setConfigProviderReconnectDelay(builder.configProviderReconnectDelay)
-            .setConfigProviderReconnectMaxAttempts(builder.configProviderReconnectMaxAttempts)
-            .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
-            .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
-            .setEventBus(builder.eventBus)
-            .setSslEnabled(builder.sslEnabled)
-            .setSslKeystoreFile(builder.sslKeystoreFile)
-            .setSslKeystorePassword(builder.sslKeystorePassword)
-            .setSslKeystore(builder.sslKeystore)
-            .build();
+                .setClusterAt(builder.clusterAt)
+                .setConnectionNameGenerator(builder.connectionNameGenerator)
+                .setBucket(builder.bucket)
+                .setPassword(builder.password)
+                .setDcpControl(builder.dcpControl)
+                .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
+                .setBufferAckWatermark(builder.bufferAckWatermark)
+                .setBufferPooling(builder.poolBuffers)
+                .setConnectTimeout(builder.connectTimeout)
+                .setBootstrapTimeout(builder.bootstrapTimeout)
+                .setSocketConnectTimeout(builder.socketConnectTimeout)
+                .setConfigProviderReconnectDelay(builder.configProviderReconnectDelay)
+                .setConfigProviderReconnectMaxAttempts(builder.configProviderReconnectMaxAttempts)
+                .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
+                .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
+                .setEventBus(builder.eventBus)
+                .setSslEnabled(builder.sslEnabled)
+                .setSslKeystoreFile(builder.sslKeystoreFile)
+                .setSslKeystorePassword(builder.sslKeystorePassword)
+                .setSslKeystore(builder.sslKeystore)
+                .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
         if (bufferAckEnabled) {
@@ -148,8 +148,8 @@ public class Client {
             public Observable<long[]> call(ByteBuf buf) {
                 int numPairs = buf.readableBytes() / 10; // 2 byte short + 8 byte long
                 List<long[]> pairs = new ArrayList<long[]>(numPairs);
-                for (int i=0; i<numPairs; i++) {
-                    pairs.add(new long[] { buf.getShort(10*i), buf.getLong(10*i+2) });
+                for (int i = 0; i < numPairs; i++) {
+                    pairs.add(new long[]{buf.getShort(10 * i), buf.getLong(10 * i + 2)});
                 }
                 buf.release();
                 return Observable.from(pairs);
@@ -176,11 +176,11 @@ public class Client {
      * client:
      *
      * - {@link RollbackMessage}: If during a connect phase the server responds with rollback
-     *   information, this event is forwarded to the callback. Does not need to be acknowledged.
+     * information, this event is forwarded to the callback. Does not need to be acknowledged.
      *
      * - {@link DcpSnapshotMarkerRequest}: Server transmits data in batches called snapshots
-     *   before sending anything, it send marker message, which contains start and end sequence
-     *   numbers of the data in it. Need to be acknowledged.
+     * before sending anything, it send marker message, which contains start and end sequence
+     * numbers of the data in it. Need to be acknowledged.
      *
      * Keep in mind that the callback is executed on the IO thread (netty's thread pool for the
      * event loops) so further synchronization is needed if the data needs to be used on a different
@@ -209,9 +209,9 @@ public class Client {
                     // even if forwarded to the user, warn in case the user is not
                     // aware of rollback messages.
                     LOGGER.warn(
-                        "Received rollback for vbucket {} to seqno {}",
-                        RollbackMessage.vbucket(event),
-                        RollbackMessage.seqno(event)
+                            "Received rollback for vbucket {} to seqno {}",
+                            RollbackMessage.vbucket(event),
+                            RollbackMessage.seqno(event)
                     );
                 }
 
@@ -239,8 +239,8 @@ public class Client {
         PartitionState ps = sessionState().get(partition);
         for (int i = 0; i < numEntries; i++) {
             ps.addToFailoverLog(
-                DcpFailoverLogResponse.seqnoEntry(event, i),
-                DcpFailoverLogResponse.vbuuidEntry(event, i)
+                    DcpFailoverLogResponse.seqnoEntry(event, i),
+                    DcpFailoverLogResponse.vbuuidEntry(event, i)
             );
         }
         sessionState().set(partition, ps);
@@ -255,11 +255,11 @@ public class Client {
      * The following messages can happen and should be handled depending on the needs of the
      * client:
      *
-     *  - {@link DcpMutationMessage}: A mtation has occurred. Needs to be acknowledged.
-     *  - {@link DcpDeletionMessage}: A deletion has occurred. Needs to be acknowledged.
-     *  - {@link DcpExpirationMessage}: An expiration has occurred. Note that current server versions
-     *    (as of 4.5.0) are not emitting this event, but in any case you should at least release it to
-     *    be forwards compatible. Needs to be acknowledged.
+     * - {@link DcpMutationMessage}: A mtation has occurred. Needs to be acknowledged.
+     * - {@link DcpDeletionMessage}: A deletion has occurred. Needs to be acknowledged.
+     * - {@link DcpExpirationMessage}: An expiration has occurred. Note that current server versions
+     * (as of 4.5.0) are not emitting this event, but in any case you should at least release it to
+     * be forwards compatible. Needs to be acknowledged.
      *
      * Keep in mind that the callback is executed on the IO thread (netty's thread pool for the
      * event loops) so further synchronization is needed if the data needs to be used on a different
@@ -351,32 +351,32 @@ public class Client {
         LOGGER.debug("Stream start against partitions: {}", partitions);
 
         return Observable
-            .from(partitions)
-            .flatMap(new Func1<Short, Observable<?>>() {
-                @Override
-                public Observable<?> call(Short partition) {
-                    PartitionState partitionState = sessionState().get(partition);
-                    return conductor.startStreamForPartition(
-                        partition,
-                        partitionState.getLastUuid(),
-                        partitionState.getStartSeqno(),
-                        partitionState.getEndSeqno(),
-                        partitionState.getSnapshotStartSeqno(),
-                        partitionState.getSnapshotEndSeqno()
-                    ).onErrorResumeNext(new Func1<Throwable, Completable>() {
-                        @Override
-                        public Completable call(Throwable throwable) {
-                            if (throwable instanceof RollbackException) {
-                                // We ignore rollbacks since they are handled out of band by the user.
-                                return Completable.complete();
-                            } else {
-                                return Completable.error(throwable);
+                .from(partitions)
+                .flatMap(new Func1<Short, Observable<?>>() {
+                    @Override
+                    public Observable<?> call(Short partition) {
+                        PartitionState partitionState = sessionState().get(partition);
+                        return conductor.startStreamForPartition(
+                                partition,
+                                partitionState.getLastUuid(),
+                                partitionState.getStartSeqno(),
+                                partitionState.getEndSeqno(),
+                                partitionState.getSnapshotStartSeqno(),
+                                partitionState.getSnapshotEndSeqno()
+                        ).onErrorResumeNext(new Func1<Throwable, Completable>() {
+                            @Override
+                            public Completable call(Throwable throwable) {
+                                if (throwable instanceof RollbackException) {
+                                    // We ignore rollbacks since they are handled out of band by the user.
+                                    return Completable.complete();
+                                } else {
+                                    return Completable.error(throwable);
+                                }
                             }
-                        }
-                    }).toObservable();
-                }
-            })
-            .toCompletable();
+                        }).toObservable();
+                    }
+                })
+                .toCompletable();
     }
 
     /**
@@ -402,7 +402,7 @@ public class Client {
 
         if (clusterPartitions != sessionPartitions.get()) {
             throw new IllegalStateException("Session State has " + sessionPartitions.get()
-                + " partitions while the cluster has " + clusterPartitions + "!");
+                    + " partitions while the cluster has " + clusterPartitions + "!");
         }
     }
 
@@ -423,21 +423,21 @@ public class Client {
         LOGGER.debug("Stream stop against partitions: {}", partitions);
 
         return Observable
-            .from(partitions)
-            .flatMap(new Func1<Short, Observable<?>>() {
-                @Override
-                public Observable<?> call(Short p) {
-                    return conductor.stopStreamForPartition(p).toObservable();
-                }
-            })
-            .toCompletable();
+                .from(partitions)
+                .flatMap(new Func1<Short, Observable<?>>() {
+                    @Override
+                    public Observable<?> call(Short p) {
+                        return conductor.stopStreamForPartition(p).toObservable();
+                    }
+                })
+                .toCompletable();
     }
 
     /**
      * Helper method to turn the array of vbids into a list.
      *
      * @param numPartitions the number of partitions on the cluster as a fallback.
-     * @param vbids the potentially empty array of selected vbids.
+     * @param vbids         the potentially empty array of selected vbids.
      * @return a sorted list of partitions to use.
      */
     private static List<Short> partitionsForVbids(int numPartitions, Short... vbids) {
@@ -468,13 +468,13 @@ public class Client {
         LOGGER.debug("Asking for failover logs on partitions {}", partitions);
 
         return Observable
-            .from(partitions)
-            .flatMap(new Func1<Short, Observable<ByteBuf>>() {
-                @Override
-                public Observable<ByteBuf> call(Short p) {
-                    return conductor.getFailoverLog(p).toObservable();
-                }
-            });
+                .from(partitions)
+                .flatMap(new Func1<Short, Observable<ByteBuf>>() {
+                    @Override
+                    public Observable<ByteBuf> call(Short p) {
+                        return conductor.getFailoverLog(p).toObservable();
+                    }
+                });
     }
 
     /**
@@ -488,18 +488,18 @@ public class Client {
      * Finally, the stream is restarted again.
      *
      * @param partition the partition id
-     * @param seqno the sequence number to rollback to
+     * @param seqno     the sequence number to rollback to
      */
     public Completable rollbackAndRestartStream(final short partition, final long seqno) {
         return stopStreaming(partition)
-            .andThen(Completable.create(new Completable.CompletableOnSubscribe() {
-                @Override
-                public void call(Completable.CompletableSubscriber subscriber) {
-                    sessionState().rollbackToPosition(partition, seqno);
-                    subscriber.onCompleted();
-                }
-            }))
-            .andThen(startStreaming(partition));
+                .andThen(Completable.create(new Completable.OnSubscribe() {
+                    @Override
+                    public void call(CompletableSubscriber subscriber) {
+                        sessionState().rollbackToPosition(partition, seqno);
+                        subscriber.onCompleted();
+                    }
+                }))
+                .andThen(startStreaming(partition));
     }
 
 
@@ -535,7 +535,7 @@ public class Client {
      *
      * This method can always be called even if not enabled, if not enabled on bootstrap it will short-circuit.
      *
-     * @param vbid the partition id.
+     * @param vbid     the partition id.
      * @param numBytes the number of bytes to acknowledge.
      */
     public void acknowledgeBuffer(int vbid, int numBytes) {
@@ -565,16 +565,16 @@ public class Client {
      *
      * The following combinations are supported and make sense:
      *
-     *  - {@link StreamFrom#BEGINNING} to {@link StreamTo#NOW}
-     *  - {@link StreamFrom#BEGINNING} to {@link StreamTo#INFINITY}
-     *  - {@link StreamFrom#NOW} to {@link StreamTo#INFINITY}
+     * - {@link StreamFrom#BEGINNING} to {@link StreamTo#NOW}
+     * - {@link StreamFrom#BEGINNING} to {@link StreamTo#INFINITY}
+     * - {@link StreamFrom#NOW} to {@link StreamTo#INFINITY}
      *
-     *  If you already have state captured and you want to resume from this position, use
-     *  {@link #recoverState(StateFormat, byte[])} or {@link #recoverOrInitializeState(StateFormat, byte[], StreamFrom, StreamTo)}
-     *  instead.
+     * If you already have state captured and you want to resume from this position, use
+     * {@link #recoverState(StateFormat, byte[])} or {@link #recoverOrInitializeState(StateFormat, byte[], StreamFrom, StreamTo)}
+     * instead.
      *
      * @param from where to start streaming from.
-     * @param to when to stop streaming.
+     * @param to   when to stop streaming.
      * @return A {@link Completable} indicating the success or failure of the state init.
      */
     public Completable initializeState(final StreamFrom from, final StreamTo to) {
@@ -599,14 +599,14 @@ public class Client {
      * need to start fresh, take a look at {@link #initializeState(StreamFrom, StreamTo)} as well as
      * {@link #recoverOrInitializeState(StateFormat, byte[], StreamFrom, StreamTo)}.
      *
-     * @param format the format used when persisting.
+     * @param format         the format used when persisting.
      * @param persistedState the opaque byte array representing the persisted state.
      * @return A {@link Completable} indicating the success or failure of the state recovery.
      */
     public Completable recoverState(final StateFormat format, final byte[] persistedState) {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(Completable.CompletableSubscriber subscriber) {
+            public void call(CompletableSubscriber subscriber) {
                 LOGGER.info("Recovering state from format {}", format);
                 LOGGER.debug("PersistedState on recovery is: {}", new String(persistedState, CharsetUtil.UTF_8));
 
@@ -632,14 +632,14 @@ public class Client {
      * it is not empty it recovers from there. This acknowledges the fact that ideally the state is persisted
      * somewhere but if its not there you want to start at a specific point in time.
      *
-     * @param format the persistence format used.
+     * @param format         the persistence format used.
      * @param persistedState the state, may be null or empty.
-     * @param from from where to start streaming if persisted state is null or empty.
-     * @param to to where to stream if persisted state is null or empty.
+     * @param from           from where to start streaming if persisted state is null or empty.
+     * @param to             to where to stream if persisted state is null or empty.
      * @return A {@link Completable} indicating the success or failure of the state recovery or init.
      */
     public Completable recoverOrInitializeState(final StateFormat format, final byte[] persistedState,
-        final StreamFrom from, final StreamTo to) {
+                                                final StreamFrom from, final StreamTo to) {
         if (persistedState == null || persistedState.length == 0) {
             return initializeState(from, to);
         } else {
@@ -652,9 +652,9 @@ public class Client {
      * Initializes the session state from beginning to no end.
      */
     private Completable initFromBeginningToInfinity() {
-        return Completable.create(new Completable.CompletableOnSubscribe() {
+        return Completable.create(new Completable.OnSubscribe() {
             @Override
-            public void call(Completable.CompletableSubscriber subscriber) {
+            public void call(CompletableSubscriber subscriber) {
                 LOGGER.info("Initializing state from beginning to no end.");
 
                 try {
@@ -712,29 +712,29 @@ public class Client {
         sessionState().setToBeginningWithNoEnd(numPartitions());
 
         return getSeqnos()
-            .doOnNext(callback)
-            .reduce(new ArrayList<Short>(), new Func2<ArrayList<Short>, long[], ArrayList<Short>>() {
-                @Override
-                public ArrayList<Short> call(ArrayList<Short> shorts, long[] longs) {
-                    shorts.add((short) longs[0]);
-                    return shorts;
-                }
-            })
-            .flatMap(new Func1<ArrayList<Short>, Observable<ByteBuf>>() {
-                @Override
-                public Observable<ByteBuf> call(ArrayList<Short> shorts) {
-                    return failoverLogs(shorts.toArray(new Short[] {}));
-                }
-            })
-            .map(new Func1<ByteBuf, Short>() {
-                @Override
-                public Short call(ByteBuf buf) {
-                    short partition = DcpFailoverLogResponse.vbucket(buf);
-                    handleFailoverLogResponse(buf);
-                    buf.release();
-                    return partition;
-                }
-            }).last().toCompletable();
+                .doOnNext(callback)
+                .reduce(new ArrayList<Short>(), new Func2<ArrayList<Short>, long[], ArrayList<Short>>() {
+                    @Override
+                    public ArrayList<Short> call(ArrayList<Short> shorts, long[] longs) {
+                        shorts.add((short) longs[0]);
+                        return shorts;
+                    }
+                })
+                .flatMap(new Func1<ArrayList<Short>, Observable<ByteBuf>>() {
+                    @Override
+                    public Observable<ByteBuf> call(ArrayList<Short> shorts) {
+                        return failoverLogs(shorts.toArray(new Short[]{}));
+                    }
+                })
+                .map(new Func1<ByteBuf, Short>() {
+                    @Override
+                    public Short call(ByteBuf buf) {
+                        short partition = DcpFailoverLogResponse.vbucket(buf);
+                        handleFailoverLogResponse(buf);
+                        buf.release();
+                        return partition;
+                    }
+                }).last().toCompletable();
     }
 
     /**
@@ -772,7 +772,7 @@ public class Client {
         public Builder bufferAckWatermark(int watermark) {
             if (watermark > 100 || watermark < 0) {
                 throw new IllegalArgumentException("The bufferAckWatermark is percents, so it needs to be between" +
-                    " 0 and 100");
+                        " 0 and 100");
             }
             this.bufferAckWatermark = watermark;
             return this;
@@ -847,7 +847,7 @@ public class Client {
         /**
          * Set all kinds of DCP control params - check their description for more information.
          *
-         * @param name the name of the param
+         * @param name  the name of the param
          * @param value the value of the param
          * @return this {@link Builder} for nice chainability.
          */
@@ -890,6 +890,7 @@ public class Client {
 
         /**
          * Time to wait for first configuration during bootstrap.
+         *
          * @param bootstrapTimeout time in milliseconds.
          */
         public Builder bootstrapTimeout(long bootstrapTimeout) {
@@ -899,6 +900,7 @@ public class Client {
 
         /**
          * Time to wait configuration provider socket to connect.
+         *
          * @param connectTimeout time in milliseconds.
          */
         public Builder connectTimeout(long connectTimeout) {
@@ -908,9 +910,10 @@ public class Client {
 
         /**
          * Delay between retry attempts for configuration provider
+         *
          * @param configProviderReconnectDelay
          */
-        public Builder configProviderReconnectDelay(Delay configProviderReconnectDelay){
+        public Builder configProviderReconnectDelay(Delay configProviderReconnectDelay) {
             this.configProviderReconnectDelay = configProviderReconnectDelay;
             return this;
         }
@@ -918,27 +921,30 @@ public class Client {
 
         /**
          * The maximum number of reconnect attempts for configuration provider
+         *
          * @param configProviderReconnectMaxAttempts
          */
-        public Builder configProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts){
+        public Builder configProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts) {
             this.configProviderReconnectMaxAttempts = configProviderReconnectMaxAttempts;
             return this;
         }
 
         /**
          * The maximum number of reconnect attempts for DCP channels
+         *
          * @param dcpChannelsReconnectMaxAttempts
          */
-        public Builder dcpChannelsReconnectMaxAttempts(int dcpChannelsReconnectMaxAttempts){
+        public Builder dcpChannelsReconnectMaxAttempts(int dcpChannelsReconnectMaxAttempts) {
             this.dcpChannelsReconnectMaxAttempts = dcpChannelsReconnectMaxAttempts;
             return this;
         }
 
         /**
          * Delay between retry attempts for DCP channels
+         *
          * @param dcpChannelsReconnectDelay
          */
-        public Builder dcpChannelsReconnectDelay(Delay dcpChannelsReconnectDelay){
+        public Builder dcpChannelsReconnectDelay(Delay dcpChannelsReconnectDelay) {
             this.dcpChannelsReconnectDelay = dcpChannelsReconnectDelay;
             return this;
         }
@@ -996,6 +1002,7 @@ public class Client {
             this.sslKeystore = sslKeystore;
             return this;
         }
+
         /**
          * Create the client instance ready to use.
          *

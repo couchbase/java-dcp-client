@@ -12,8 +12,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.6</java-compat.version>
-        <core.version>1.3.5</core.version>
-        <client.version>2.3.5</client.version>
+        <core.version>1.4.1-SNAPSHOT</core.version>
+        <client.version>2.4.1-SNAPSHOT</client.version>
     </properties>
 
     <name>Couchbase Java DCP Client</name>
