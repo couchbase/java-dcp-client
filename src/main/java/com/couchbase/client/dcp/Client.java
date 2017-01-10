@@ -51,8 +51,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -337,15 +335,15 @@ public class Client {
     /**
      * Start DCP streams based on the initialized state for the given partition IDs (vbids).
      *
-     * If no ids are provided, all partitions will be started.
+     * If no ids are provided, all initialized partitions will be started.
      *
      * @param vbids the partition ids (0-indexed) to start streaming for.
      * @return a {@link Completable} indicating that streaming has started or failed.
      */
     public Completable startStreaming(Short... vbids) {
         int numPartitions = numPartitions();
-        sanityCheckSessionState(numPartitions);
         final List<Short> partitions = partitionsForVbids(numPartitions, vbids);
+        sanityCheckSessionState(numPartitions, partitions);
 
         LOGGER.info("Starting to Stream for " + partitions.size() + " partitions");
         LOGGER.debug("Stream start against partitions: {}", partitions);
@@ -383,25 +381,24 @@ public class Client {
      * Helper method to check on stream start that some kind of state is initialized to avoid a common error
      * of starting without initializing.
      */
-    private void sanityCheckSessionState(int clusterPartitions) {
-        final AtomicBoolean initialized = new AtomicBoolean(false);
-        final AtomicInteger sessionPartitions = new AtomicInteger(0);
-        sessionState().foreachPartition(new Action1<PartitionState>() {
-            @Override
-            public void call(PartitionState ps) {
-                sessionPartitions.incrementAndGet();
-                if (ps.getStartSeqno() != 0 || ps.getEndSeqno() != 0) {
-                    initialized.set(true);
-                }
+    private void sanityCheckSessionState(int clusterPartitions, List<Short> partitions) {
+        int initializedPartitions = 0;
+        SessionState state = sessionState();
+
+        for (short partition : partitions) {
+            PartitionState ps = state.get(partition);
+            if (ps != null && (ps.getStartSeqno() != 0 || ps.getEndSeqno() != 0)) {
+                initializedPartitions++;
             }
-        });
-        if (!initialized.get()) {
-            LOGGER.warn("Invalid session state is: {}", sessionState());
+        }
+        if (initializedPartitions < partitions.size()) {
+            LOGGER.warn("{} partitions are not initialized. Invalid session state is: {}",
+                    partitions.size() - initializedPartitions, sessionState());
             throw new IllegalStateException("State needs to be initialized or recovered first before starting");
         }
 
-        if (clusterPartitions != sessionPartitions.get()) {
-            throw new IllegalStateException("Session State has " + sessionPartitions.get()
+        if (initializedPartitions > clusterPartitions) {
+            throw new IllegalStateException("Session State has " + initializedPartitions
                     + " partitions while the cluster has " + clusterPartitions + "!");
         }
     }
