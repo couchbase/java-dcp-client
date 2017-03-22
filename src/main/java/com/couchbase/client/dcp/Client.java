@@ -343,13 +343,18 @@ public class Client {
     public Completable startStreaming(Short... vbids) {
         int numPartitions = numPartitions();
         final List<Short> partitions = partitionsForVbids(numPartitions, vbids);
-        sanityCheckSessionState(numPartitions, partitions);
 
-        LOGGER.info("Starting to Stream for " + partitions.size() + " partitions");
-        LOGGER.debug("Stream start against partitions: {}", partitions);
+        List<Short> initializedPartitions = selectInitializedPartitions(numPartitions, partitions);
+        if (initializedPartitions.isEmpty()) {
+            LOGGER.info("The configured session state does not require any streams to be opened. Completing immediately.");
+            return Completable.complete();
+        }
+
+        LOGGER.info("Starting to Stream for " + initializedPartitions.size() + " partitions");
+        LOGGER.debug("Stream start against partitions: {}", initializedPartitions);
 
         return Observable
-                .from(partitions)
+                .from(initializedPartitions)
                 .flatMap(new Func1<Short, Observable<?>>() {
                     @Override
                     public Observable<?> call(Short partition) {
@@ -381,26 +386,27 @@ public class Client {
      * Helper method to check on stream start that some kind of state is initialized to avoid a common error
      * of starting without initializing.
      */
-    private void sanityCheckSessionState(int clusterPartitions, List<Short> partitions) {
-        int initializedPartitions = 0;
+    private List<Short> selectInitializedPartitions(int clusterPartitions, List<Short> partitions) {
+        ArrayList<Short> initializedPartitions = new ArrayList<Short>();
         SessionState state = sessionState();
 
         for (short partition : partitions) {
             PartitionState ps = state.get(partition);
-            if (ps != null && (ps.getStartSeqno() != 0 || ps.getEndSeqno() != 0)) {
-                initializedPartitions++;
+            if (ps != null) {
+                if (ps.getStartSeqno() >= ps.getEndSeqno()) {
+                    LOGGER.debug("Skipping partition {}, because startSeqno({}) >= endSeqno({})",
+                            partition, ps.getStartSeqno(), ps.getEndSeqno());
+                } else {
+                    initializedPartitions.add(partition);
+                }
             }
         }
-        if (initializedPartitions < partitions.size()) {
-            LOGGER.warn("{} partitions are not initialized. Invalid session state is: {}",
-                    partitions.size() - initializedPartitions, sessionState());
-            throw new IllegalStateException("State needs to be initialized or recovered first before starting");
-        }
 
-        if (initializedPartitions > clusterPartitions) {
+        if (initializedPartitions.size() > clusterPartitions) {
             throw new IllegalStateException("Session State has " + initializedPartitions
                     + " partitions while the cluster has " + clusterPartitions + "!");
         }
+        return initializedPartitions;
     }
 
     /**
