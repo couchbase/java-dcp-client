@@ -69,7 +69,7 @@ public class AirportsInFrance {
                     JsonObject content = JsonObject.fromJson(
                             DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8)
                     );
-                    if (content.getString("type").equals("airport")
+                    if ("airport".equals(content.getString("type"))
                             && content.getString("country").toLowerCase().equals("france")) {
                         numAirports.incrementAndGet();
                     }
