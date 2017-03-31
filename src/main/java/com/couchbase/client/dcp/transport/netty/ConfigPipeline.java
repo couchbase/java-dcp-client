@@ -29,6 +29,8 @@ import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 import rx.subjects.Subject;
 
+import java.net.InetSocketAddress;
+
 /**
  * Configures the pipeline for the HTTP config stream.
  *
@@ -50,7 +52,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
     /**
      * Hostname used to replace $HOST parts in the config when used against localhost.
      */
-    private final String hostname;
+    private final InetSocketAddress hostname;
 
     /**
      * The name of the bucket (used for http auth).
@@ -70,12 +72,11 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
 
     /**
      * Creates a new config pipeline.
-     *
      * @param environment the stateful environment.
      * @param hostname hostname of the remote server.
      * @param configStream config stream where to send the configs.
      */
-    public ConfigPipeline(final ClientEnvironment environment, final String hostname,
+    public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress hostname,
                           final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
         this.hostname = hostname;
         this.bucket = environment.bucket();

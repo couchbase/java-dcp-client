@@ -18,7 +18,6 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_FLUSH_OPCODE;
-import static com.couchbase.client.dcp.message.MessageUtil.DCP_NOOP_OPCODE;
 
 public enum DcpFlushRequest {
     ;

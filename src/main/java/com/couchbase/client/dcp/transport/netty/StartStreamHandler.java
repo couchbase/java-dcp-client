@@ -19,7 +19,13 @@ import com.couchbase.client.core.CouchbaseException;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.handler.codec.base64.Base64;
-import com.couchbase.client.deps.io.netty.handler.codec.http.*;
+import com.couchbase.client.deps.io.netty.handler.codec.http.DefaultFullHttpRequest;
+import com.couchbase.client.deps.io.netty.handler.codec.http.FullHttpRequest;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpHeaders;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpMethod;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpRequest;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpResponse;
+import com.couchbase.client.deps.io.netty.handler.codec.http.HttpVersion;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
 /**

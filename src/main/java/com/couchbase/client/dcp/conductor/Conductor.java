@@ -42,7 +42,7 @@ import rx.functions.Action1;
 import rx.functions.Action4;
 import rx.functions.Func1;
 
-import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -290,7 +290,9 @@ public class Conductor {
         int index = config.nodeIndexForMaster(partition, false);
         NodeInfo node = config.nodeAtIndex(index);
         for (DcpChannel ch : channels) {
-            if (ch.hostname().equals(node.hostname())) {
+            InetSocketAddress address = new InetSocketAddress(node.hostname(),
+                    (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
+            if (ch.address().equals(address)) {
                 return ch;
             }
         }
@@ -299,35 +301,41 @@ public class Conductor {
     }
 
     private void reconfigure(CouchbaseBucketConfig config) {
-        List<InetAddress> toAdd = new ArrayList<InetAddress>();
+        List<InetSocketAddress> toAdd = new ArrayList<InetSocketAddress>();
         List<DcpChannel> toRemove = new ArrayList<DcpChannel>();
 
         for (NodeInfo node : config.nodes()) {
-            InetAddress hostname = node.hostname();
             if (!(node.services().containsKey(ServiceType.BINARY)
                     || node.sslServices().containsKey(ServiceType.BINARY))) {
                 continue; // we only care about kv nodes
             }
+            if (!config.hasPrimaryPartitionsOnNode(node.hostname())) {
+                continue;
+            }
 
-            boolean in = false;
+            InetSocketAddress address = new InetSocketAddress(node.hostname(),
+                    (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
+
+            boolean found = false;
             for (DcpChannel chan : channels) {
-                if (chan.hostname().equals(hostname)) {
-                    in = true;
+                if (chan.address().equals(address)) {
+                    found = true;
                     break;
                 }
             }
 
-            if (!in && config.hasPrimaryPartitionsOnNode(hostname)) {
-                toAdd.add(hostname);
-                LOGGER.debug("Planning to add {}", hostname);
+            if (!found) {
+                toAdd.add(address);
+                LOGGER.debug("Planning to add {}", address);
             }
         }
 
         for (DcpChannel chan : channels) {
             boolean found = false;
             for (NodeInfo node : config.nodes()) {
-                InetAddress hostname = node.hostname();
-                if (hostname.equals(chan.hostname())) {
+                InetSocketAddress address = new InetSocketAddress(node.hostname(),
+                        (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
+                if (address.equals(chan.address())) {
                     found = true;
                     break;
                 }
@@ -338,7 +346,7 @@ public class Conductor {
             }
         }
 
-        for (InetAddress add : toAdd) {
+        for (InetSocketAddress add : toAdd) {
             add(add);
         }
 
@@ -347,7 +355,7 @@ public class Conductor {
         }
     }
 
-    private void add(final InetAddress node) {
+    private void add(final InetSocketAddress node) {
         //noinspection SuspiciousMethodCalls: channel proxies equals/hashcode to its address
         if (channels.contains(node)) {
             return;
@@ -397,14 +405,14 @@ public class Conductor {
             node.disconnect().subscribe(new CompletableSubscriber() {
                 @Override
                 public void onCompleted() {
-                    LOGGER.debug("Channel remove notified as complete for {}", node.hostname());
+                    LOGGER.debug("Channel remove notified as complete for {}", node.address());
                 }
 
                 @Override
                 public void onError(Throwable e) {
-                    LOGGER.warn("Got error during Node removal for node {}" + node.hostname(), e);
+                    LOGGER.warn("Got error during Node removal for node {}" + node.address(), e);
                     if (env.eventBus() != null) {
-                        env.eventBus().publish(new FailedToRemoveNodeEvent(node.hostname(), e));
+                        env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
                     }
                 }
 

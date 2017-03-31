@@ -19,6 +19,7 @@ import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.core.utils.ConnectionString;
 import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
@@ -46,6 +47,7 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
+import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -744,7 +746,7 @@ public class Client {
      * Builder object to customize the {@link Client} creation.
      */
     public static class Builder {
-        private List<String> clusterAt = Arrays.asList("127.0.0.1");
+        private List<InetSocketAddress> clusterAt = Arrays.asList(InetSocketAddress.createUnresolved("127.0.0.1", 0));;
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
         private String password = "";
@@ -788,7 +790,10 @@ public class Client {
          * @return this {@link Builder} for nice chainability.
          */
         public Builder hostnames(final List<String> hostnames) {
-            this.clusterAt = hostnames;
+            this.clusterAt = new ArrayList<InetSocketAddress>(hostnames.size());
+            for (String hostname : hostnames) {
+                this.clusterAt.add(new InetSocketAddress(hostname, 0));
+            }
             return this;
         }
 
@@ -800,6 +805,23 @@ public class Client {
          */
         public Builder hostnames(String... hostnames) {
             return hostnames(Arrays.asList(hostnames));
+        }
+
+        /**
+         * Connection string to bootstrap with.
+         *
+         * Note: it overrides list of hostnames defined by {@link #hostnames(List)}.
+         *
+         * Connection string specification defined in SDK-RFC-11:
+         * https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0011-connection-string.md
+         *
+         * @param connectionString seed nodes.
+         * @return this {@link Builder} for nice chainability.
+         */
+        public Builder connectionString(String connectionString) {
+            ConnectionString cs = ConnectionString.create(connectionString);
+            this.clusterAt = cs.hosts();
+            return this;
         }
 
         /**

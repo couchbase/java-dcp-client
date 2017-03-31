@@ -19,6 +19,7 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.dcp.config.ClientEnvironment;
@@ -41,6 +42,7 @@ import rx.functions.Func1;
 import rx.subjects.BehaviorSubject;
 import rx.subjects.Subject;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -57,16 +59,16 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HttpStreamingConfigProvider.class);
 
-    private final AtomicReference<List<String>> remoteHosts;
+    private final AtomicReference<List<InetSocketAddress>> remoteHosts;
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
     private volatile boolean stopped = false;
     private volatile Channel channel;
     private final ClientEnvironment env;
 
-    public HttpStreamingConfigProvider(ClientEnvironment env) {
+    public HttpStreamingConfigProvider(final ClientEnvironment env) {
         super(LifecycleState.DISCONNECTED);
         this.env = env;
-        this.remoteHosts = new AtomicReference<List<String>>(env.clusterAt());
+        this.remoteHosts = new AtomicReference<List<InetSocketAddress>>(env.clusterAt());
         this.configStream = BehaviorSubject.<CouchbaseBucketConfig>create().toSerialized();
 
         configStream.subscribe(new Subscriber<CouchbaseBucketConfig>() {
@@ -82,9 +84,10 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
             @Override
             public void onNext(CouchbaseBucketConfig config) {
-                List<String> newNodes = new ArrayList<String>();
+                List<InetSocketAddress> newNodes = new ArrayList<InetSocketAddress>();
                 for (NodeInfo node : config.nodes()) {
-                    newNodes.add(node.hostname().getHostAddress());
+                    Integer port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.CONFIG);
+                    newNodes.add(new InetSocketAddress(node.hostname(), port));
                 }
 
                 LOGGER.trace("Updated config stream node list to {}.", newNodes);
@@ -142,10 +145,10 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         }
 
         transitionState(LifecycleState.CONNECTING);
-        List<String> hosts = remoteHosts.get();
+        List<InetSocketAddress> hosts = remoteHosts.get();
         Completable chain = tryConnectHost(hosts.get(0));
         for (int i = 1; i < hosts.size(); i++) {
-            final String h = hosts.get(i);
+            final InetSocketAddress h = hosts.get(i);
             chain = chain.onErrorResumeNext(new Func1<Throwable, Completable>() {
                 @Override
                 public Completable call(Throwable throwable) {
@@ -157,15 +160,15 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         return chain;
     }
 
-    private Completable tryConnectHost(final String hostname) {
+    private Completable tryConnectHost(final InetSocketAddress address) {
         ByteBufAllocator allocator = env.poolBuffers()
                 ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
         final Bootstrap bootstrap = new Bootstrap()
-                .remoteAddress(hostname, env.sslEnabled() ? env.bootstrapHttpSslPort() : env.bootstrapHttpDirectPort())
+                .remoteAddress(address)
                 .option(ChannelOption.ALLOCATOR, allocator)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
                 .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-                .handler(new ConfigPipeline(env, hostname, configStream))
+                .handler(new ConfigPipeline(env, address, configStream))
                 .group(env.eventLoopGroup());
 
         return Completable.create(new Completable.OnSubscribe() {

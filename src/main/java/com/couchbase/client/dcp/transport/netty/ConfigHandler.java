@@ -26,6 +26,8 @@ import com.couchbase.client.deps.io.netty.handler.codec.http.HttpObject;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.subjects.Subject;
 
+import java.net.InetSocketAddress;
+
 /**
  * This handler is responsible to consume chunks of JSON configs via HTTP, aggregate them and once a complete
  * config is received send it into a {@link Subject} for external usage.
@@ -38,7 +40,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     /**
      * Hostname used to replace $HOST parts in the config when used against localhost.
      */
-    private final String hostname;
+    private final InetSocketAddress hostname;
 
     /**
      * The config stream where the configs are emitted into.
@@ -53,12 +55,11 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
 
     /**
      * Creates a new config handler.
-     *
      * @param hostname     hostname of the remote server.
      * @param configStream config stream where to send the configs.
      * @param environment  the environment.
      */
-    ConfigHandler(final String hostname,
+    ConfigHandler(final InetSocketAddress hostname,
                   final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream, ClientEnvironment environment) {
         this.hostname = hostname;
         this.configStream = configStream;
@@ -90,7 +91,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
             String rawConfig = currentChunk
                     .substring(0, separatorIndex)
                     .trim()
-                    .replace("$HOST", hostname);
+                    .replace("$HOST", hostname.getAddress().getHostAddress());
 
             configStream.onNext((CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment));
             responseContent.clear();

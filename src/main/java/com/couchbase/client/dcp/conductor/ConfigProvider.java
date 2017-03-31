@@ -18,7 +18,6 @@ package com.couchbase.client.dcp.conductor;
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.Stateful;
-import com.couchbase.client.deps.com.lmax.disruptor.LifecycleAware;
 import rx.Completable;
 import rx.Observable;
 

@@ -20,17 +20,17 @@ import com.couchbase.client.core.event.CouchbaseEvent;
 import com.couchbase.client.core.event.EventType;
 import com.couchbase.client.core.utils.Events;
 
-import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.Map;
 
 /**
  * Event published when the connector has failed to add new node during failover/rebalance.
  */
 public class FailedToAddNodeEvent implements CouchbaseEvent {
-    private final InetAddress node;
+    private final InetSocketAddress node;
     private final Throwable error;
 
-    public FailedToAddNodeEvent(InetAddress node, Throwable error) {
+    public FailedToAddNodeEvent(InetSocketAddress node, Throwable error) {
         this.node = node;
         this.error = error;
     }
@@ -43,7 +43,7 @@ public class FailedToAddNodeEvent implements CouchbaseEvent {
     /**
      * The address of the node
      */
-    public InetAddress node() {
+    public InetSocketAddress node() {
         return node;
     }
 

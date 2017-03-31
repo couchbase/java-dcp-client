@@ -68,6 +68,7 @@ import rx.subjects.PublishSubject;
 import rx.subjects.Subject;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -88,7 +89,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpChannel.class);
 
     private final ClientEnvironment env;
-    private final InetAddress inetAddress;
+    private final InetSocketAddress inetAddress;
     private final Subject<ByteBuf, ByteBuf> controlSubject;
     private final Map<Integer, Promise<?>> outstandingPromises;
     private final Map<Integer, Short> outstandingVbucketInfos;
@@ -103,7 +104,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     private volatile ChannelFuture connectFuture;
 
 
-    public DcpChannel(InetAddress inetAddress, final ClientEnvironment env, final Conductor conductor) {
+    public DcpChannel(InetSocketAddress inetAddress, final ClientEnvironment env, final Conductor conductor) {
         super(LifecycleState.DISCONNECTED);
         this.inetAddress = inetAddress;
         this.env = env;
@@ -271,7 +272,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 final Bootstrap bootstrap = new Bootstrap()
                         .option(ChannelOption.ALLOCATOR, allocator)
                         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
-                        .remoteAddress(inetAddress, env.sslEnabled() ? env.dcpSslPort() : env.dcpDirectPort())
+                        .remoteAddress(inetAddress)
                         .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
                         .handler(new DcpPipeline(env, controlSubject))
                         .group(env.eventLoopGroup());
@@ -388,7 +389,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
                             transitionState(LifecycleState.DISCONNECTED);
-                            LOGGER.info("Disconnected from Node " + hostname());
+                            LOGGER.info("Disconnected from Node " + address());
                             if (future.isSuccess()) {
                                 subscriber.onCompleted();
                             } else {
@@ -425,7 +426,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     }
 
-    public InetAddress hostname() {
+    public InetSocketAddress address() {
         return inetAddress;
     }
 

@@ -18,19 +18,12 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
-import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
-import com.couchbase.client.deps.io.netty.channel.ChannelOutboundHandler;
-import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
-import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-import com.couchbase.client.deps.io.netty.util.concurrent.Future;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-
-import java.net.SocketAddress;
 
 /**
  * Opens the DCP connection on the channel and once established removes itself.

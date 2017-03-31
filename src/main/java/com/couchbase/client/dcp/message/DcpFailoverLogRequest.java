@@ -16,10 +16,8 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_FAILOVER_LOG_OPCODE;
-import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
 
 public enum DcpFailoverLogRequest {
     ;

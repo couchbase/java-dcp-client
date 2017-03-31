@@ -42,6 +42,7 @@ import rx.Subscription;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
+import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -70,7 +71,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
      */
-    private final List<String> clusterAt;
+    private final List<InetSocketAddress> clusterAt;
 
     /**
      * Stores the generator for each DCP connection name.
@@ -177,7 +178,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
      * @param builder the builder to build the environment.
      */
     private ClientEnvironment(final Builder builder) {
-        clusterAt = builder.clusterAt;
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
         password = builder.password;
@@ -211,6 +211,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         sslKeystoreFile = builder.sslKeystoreFile;
         sslKeystorePassword = builder.sslKeystorePassword;
         sslKeystore = builder.sslKeystore;
+        clusterAt = builder.clusterAt;
     }
 
     /**
@@ -223,7 +224,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     /**
      * Lists the bootstrap nodes.
      */
-    public List<String> clusterAt() {
+    public List<InetSocketAddress> clusterAt() {
         return clusterAt;
     }
 
@@ -418,7 +419,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
     public static class Builder {
-        private List<String> clusterAt;
+        private List<InetSocketAddress> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
         private String bucket;
         private String password;
@@ -445,7 +446,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         private String sslKeystorePassword;
         private KeyStore sslKeystore;
 
-        public Builder setClusterAt(List<String> clusterAt) {
+        public Builder setClusterAt(List<InetSocketAddress> clusterAt) {
             this.clusterAt = clusterAt;
             return this;
         }
@@ -611,6 +612,13 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         }
 
         public ClientEnvironment build() {
+            int defaultConfigPort = sslEnabled ? bootstrapHttpSslPort : bootstrapHttpDirectPort;
+            for (int i = 0; i < clusterAt.size(); i++) {
+                InetSocketAddress node = clusterAt.get(i);
+                if (node.getPort() == 0) {
+                    clusterAt.set(i, new InetSocketAddress(node.getHostName(), defaultConfigPort));
+                }
+            }
             return new ClientEnvironment(this);
         }
 

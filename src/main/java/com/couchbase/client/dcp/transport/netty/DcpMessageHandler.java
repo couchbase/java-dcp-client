@@ -18,9 +18,21 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.DataEventHandler;
-import com.couchbase.client.dcp.message.*;
+import com.couchbase.client.dcp.message.DcpCloseStreamResponse;
+import com.couchbase.client.dcp.message.DcpDeletionMessage;
+import com.couchbase.client.dcp.message.DcpExpirationMessage;
+import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
+import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosResponse;
+import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpNoopRequest;
+import com.couchbase.client.dcp.message.DcpNoopResponse;
+import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.message.DcpStreamEndMessage;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.channel.*;
+import com.couchbase.client.deps.io.netty.channel.ChannelDuplexHandler;
+import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import rx.subjects.Subject;
 
 /**
