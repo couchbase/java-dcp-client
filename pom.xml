@@ -6,14 +6,14 @@
 
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.9.0-SNAPSHOT</version>
+    <version>0.9.0</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.6</java-compat.version>
-        <core.version>1.4.4-SNAPSHOT</core.version>
-        <client.version>2.4.4-SNAPSHOT</client.version>
+        <core.version>1.4.4</core.version>
+        <client.version>2.4.4</client.version>
     </properties>
 
     <name>Couchbase Java DCP Client</name>
