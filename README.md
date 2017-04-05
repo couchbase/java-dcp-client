@@ -26,7 +26,7 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.8.0</version>
+    <version>0.9.0</version>
 </dependency>
 ```
 
@@ -41,7 +41,7 @@ $ mvn install
 ```
 
 This local build will install the `com.couchbase.client:dcp-client` artifact
-with the `0.9.0-SNAPSHOT` version. You can then depend on it in your
+with the `0.10.0-SNAPSHOT` version. You can then depend on it in your
 project.
 
 # Basic Usage
