@@ -1,8 +1,7 @@
 # Couchbase Java DCP Client
 This repository contains a pure java-based implementation for a Couchbase
-DCP (Database Change Protocol) client. It is currently a work in progress
-and intended to be the primary DCP client going forward, eventually
-deprecating the experimental supported inside `core-io`.
+DCP (Database Change Protocol) client. It is currently a work in progress.
+It replaces the previous experimental support inside Couchbase `core-io`.
 
 It supports:
 
@@ -27,7 +26,7 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.0</version>
 </dependency>
 ```
 
@@ -41,8 +40,8 @@ $ cd java-dcp-client
 $ mvn install
 ```
 
-Right now it will install the `com.couchbase.client:dcp-client` artifact
-with the `0.8.0-SNAPSHOT` version. You can then depend on it in your
+This local build will install the `com.couchbase.client:dcp-client` artifact
+with the `0.9.0-SNAPSHOT` version. You can then depend on it in your
 project.
 
 # Basic Usage
@@ -203,12 +202,12 @@ Here we will just post quick start steps:
             .build();
     ```
 
-### System events
+### System Events
 
-Since 0.7.0 release, the client implements notification service, which allows to react on events, which are not tied
-directly to protocol and data transmission, such as connection errors, or notification about stream completion when the
-end sequence number wasn't set to infinity. The following example subscribes handler to system events to find out when
-partition 42 has done with data transmission:
+Since the 0.7.0 release, the client implements a notification service, which allows you to react on events, which are
+not tied directly to protocol and data transmission.  For example, connection errors, or notifications about stream
+completion when the end sequence number wasn't set to infinity. The following example subscribes a handler to system
+events to find out when partition 42 is done with data transmission:
 
 ``` java
 client.systemEventHandler(new SystemEventHandler() {
