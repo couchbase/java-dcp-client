@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 /**
@@ -40,8 +41,11 @@ public interface DataEventHandler {
      *
      * Make sure to release the buffers!!
      *
-     * @param event the data event happening right now.
+     * @param flowController
+     *            the flow controller for the passed event.
+     * @param event
+     *            the data event happening right now.
      */
-    void onEvent(ByteBuf event);
+    void onEvent(ChannelFlowController flowController, ByteBuf event);
 
 }

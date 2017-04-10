@@ -15,6 +15,8 @@
  */
 package examples;
 
+import java.util.concurrent.TimeUnit;
+
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -24,11 +26,11 @@ import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+
 import rx.CompletableSubscriber;
 import rx.Subscription;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * This example starts from the current point in time and prints every change that happens.
@@ -55,9 +57,9 @@ public class PrintIncomingChanges {
         // If we are in a rollback scenario, rollback the partition and restart the stream.
         client.controlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(final ByteBuf event) {
+            public void onEvent(final ChannelFlowController flowController, final ByteBuf event) {
                 if (DcpSnapshotMarkerRequest.is(event)) {
-                    client.acknowledgeBuffer(event);
+                    flowController.ack(event);
                 }
                 if (RollbackMessage.is(event)) {
                     final short partition = RollbackMessage.vbucket(event);
@@ -86,7 +88,7 @@ public class PrintIncomingChanges {
         // Print out Mutations and Deletions
         client.dataEventHandler(new DataEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
                     System.out.println("Mutation: " + DcpMutationMessage.toString(event));
                     // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);

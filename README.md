@@ -65,7 +65,7 @@ final Client client = Client.configure()
 // Don't do anything with control events in this example
 client.controlEventHandler(new ControlEventHandler() {
     @Override
-    public void onEvent(ByteBuf event) {
+    public void onEvent(ChannelFlowController flowController, ByteBuf event) {
         event.release();
     }
 });
@@ -73,7 +73,7 @@ client.controlEventHandler(new ControlEventHandler() {
 // Print out Mutations and Deletions
 client.dataEventHandler(new DataEventHandler() {
     @Override
-    public void onEvent(ByteBuf event) {
+    public void onEvent(ChannelFlowController flowController, ByteBuf event) {
         if (DcpMutationMessage.is(event)) {
             System.out.println("Mutation: " + DcpMutationMessage.toString(event));
             // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
@@ -157,24 +157,21 @@ The following messages need to be acknowledged by the user:
  - `DcpDeletionMessage` (on the `DataEventHandler`)
  - `DcpExpirationMessage` (on the `DataEventHandler`)
 
-Acknowledging works by passing the number of bytes from the event to the
-`Client#acknowledgeBytes` method. Note that the vbucket id also needs to
-be passed since the client needs to know against which connection the
-acknowledge message should be performed.
+Acknowledging works by calling the `ChannelFlowController#ack` method.
 
 A simple way to do this is the following:
 
 ```java
-client.acknowledgeBuffer(event);
+flowController.ack(event);
 ```
 
-This method extracts the vbucket ID and gets the number of readable bytes
-out of it. When you already did consume the bytes and the reader index
+This method extracts the number of readable bytes out of it.
+When you already did consume the bytes and the reader index
 of the buffer is not the number of bytes orginally, you can fall back to
 the lower level API:
 
 ```java
-client.acknowledgeBuffer(vbid, numBytes);
+flowController.ack(numBytes);
 ```
 
 ### SSL (Couchbase Enterprise feature)

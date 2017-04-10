@@ -15,6 +15,8 @@
  */
 package examples;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.couchbase.client.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
@@ -25,11 +27,10 @@ import com.couchbase.client.dcp.SystemEventHandler;
 import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import com.couchbase.client.java.document.json.JsonObject;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A little more involved sample which uses JSON decoding to aggregate the number of airports in france.
@@ -50,9 +51,9 @@ public class AirportsInFrance {
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpSnapshotMarkerRequest.is(event)) {
-                    client.acknowledgeBuffer(event);
+                    flowController.ack(event);
                 }
                 event.release();
             }
@@ -63,7 +64,7 @@ public class AirportsInFrance {
 
         client.dataEventHandler(new DataEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
                     // Using the Java SDKs JsonObject for simple access to the document
                     JsonObject content = JsonObject.fromJson(

@@ -17,10 +17,10 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelInitializer;
 import com.couchbase.client.deps.io.netty.channel.ChannelPipeline;
@@ -28,7 +28,6 @@ import com.couchbase.client.deps.io.netty.handler.codec.LengthFieldBasedFrameDec
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
-import rx.subjects.Subject;
 
 /**
  * Sets up the pipeline for the actual DCP communication channels.
@@ -51,18 +50,20 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     /**
      * The observable where all the control events are fed into for advanced handling up the stack.
      */
-    private final Subject<ByteBuf, ByteBuf> controlEvents;
+    private final DcpChannelControlHandler controlHandler;
     private final SSLEngineFactory sslEngineFactory;
 
     /**
      * Creates the pipeline.
      *
-     * @param environment the stateful environment.
-     * @param controlEvents the control event observable.
+     * @param environment
+     *            the stateful environment.
+     * @param controlEvents
+     *            the control event observable.
      */
-    public DcpPipeline(final ClientEnvironment environment, final Subject<ByteBuf, ByteBuf> controlEvents) {
+    public DcpPipeline(final ClientEnvironment environment, final DcpChannelControlHandler controlHandler) {
         this.environment = environment;
-        this.controlEvents = controlEvents;
+        this.controlHandler = controlHandler;
         if (environment.sslEnabled()) {
             this.sslEngineFactory = new SSLEngineFactory(environment);
         } else {
@@ -81,18 +82,16 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
         if (environment.sslEnabled()) {
             pipeline.addLast(new SslHandler(sslEngineFactory.get()));
         }
-        pipeline.addLast(new LengthFieldBasedFrameDecoder(
-            Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false
-        ));
+        pipeline.addLast(
+                new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false));
 
         if (LOGGER.isTraceEnabled()) {
             pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
         }
 
-        pipeline
-            .addLast(new AuthHandler(environment.bucket(), environment.password()))
-            .addLast(new DcpConnectHandler(environment.connectionNameGenerator()))
-            .addLast(new DcpControlHandler(environment.dcpControl()))
-            .addLast(new DcpMessageHandler(environment.dataEventHandler(), controlEvents));
+        pipeline.addLast(new AuthHandler(environment.bucket(), environment.password()))
+                .addLast(new DcpConnectHandler(environment.connectionNameGenerator()))
+                .addLast(new DcpControlHandler(environment.dcpControl()))
+                .addLast(new DcpMessageHandler(ch, environment, controlHandler));
     }
 }

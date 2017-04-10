@@ -15,6 +15,15 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
+
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
@@ -32,6 +41,7 @@ import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
+
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -41,15 +51,6 @@ import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Action4;
 import rx.functions.Func1;
-
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
 
 public class Conductor {
 
@@ -271,11 +272,6 @@ public class Conductor {
     public boolean streamIsOpen(final short partition) {
         DcpChannel channel = masterChannelByPartition(partition);
         return channel.streamIsOpen(partition);
-    }
-
-    public void acknowledgeBuffer(final short partition, int numBytes) {
-        DcpChannel channel = masterChannelByPartition(partition);
-        channel.acknowledgeBuffer(numBytes);
     }
 
     /**
