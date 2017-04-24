@@ -43,6 +43,7 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
+import com.couchbase.client.dcp.util.MathUtils;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
@@ -396,12 +397,14 @@ public class Client {
         for (short partition : partitions) {
             PartitionState ps = state.get(partition);
             if (ps != null) {
-                if (ps.getStartSeqno() >= ps.getEndSeqno()) {
+                if (MathUtils.lessThanUnsigned(ps.getStartSeqno(), ps.getEndSeqno())) {
+                    initializedPartitions.add(partition);
+                } else {
                     LOGGER.debug("Skipping partition {}, because startSeqno({}) >= endSeqno({})",
                             partition, ps.getStartSeqno(), ps.getEndSeqno());
-                } else {
-                    initializedPartitions.add(partition);
                 }
+            } else {
+                LOGGER.debug("Skipping partition {}, because its state is null", partition);
             }
         }
 
