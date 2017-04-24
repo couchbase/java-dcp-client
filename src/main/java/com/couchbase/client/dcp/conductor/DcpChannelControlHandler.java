@@ -79,7 +79,7 @@ public class DcpChannelControlHandler implements ControlEventHandler {
                     ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
                     MessageUtil.setContent(content, flog);
                     content.release();
-                    controlEventHandler.onEvent(flowController, buf);
+                    controlEventHandler.onEvent(flowController, flog);
                     break;
                 case 0x23:
                     promise.setFailure(new RollbackException());
