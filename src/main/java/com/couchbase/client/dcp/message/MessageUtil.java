@@ -184,12 +184,13 @@ public enum MessageUtil {
         short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
         byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
         int bodyLength = keyLength + extrasLength + content.readableBytes();
+        int contentOffset = HEADER_SIZE + extrasLength + keyLength;
 
         buffer.setInt(BODY_LENGTH_OFFSET, bodyLength);
-        buffer.setBytes(HEADER_SIZE + extrasLength + keyLength, content);
+        buffer.writerIndex(contentOffset);
+        buffer.ensureWritable(content.readableBytes());
+        buffer.writeBytes(content);
         buffer.writerIndex(HEADER_SIZE + bodyLength);
-
-        // todo: what if old body with different size is there?
     }
 
     public static ByteBuf getContent(ByteBuf buffer) {
