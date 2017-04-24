@@ -15,6 +15,13 @@
  */
 package examples;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.io.IOUtils;
+
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -24,13 +31,8 @@ import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.state.StateFormat;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import org.apache.commons.io.IOUtils;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.util.concurrent.TimeUnit;
 
 /**
  * In this example every minute the state is persisted to a file. If on startup the file is found it is used to
@@ -57,9 +59,9 @@ public class StatePersistence {
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpSnapshotMarkerRequest.is(event)) {
-                    client.acknowledgeBuffer(event);
+                    flowController.ack(event);
                 }
                 event.release();
             }
@@ -68,7 +70,7 @@ public class StatePersistence {
         // Print out Mutations and Deletions
         client.dataEventHandler(new DataEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
                     System.out.println("Mutation: " + DcpMutationMessage.toString(event));
                     // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);

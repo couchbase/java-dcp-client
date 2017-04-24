@@ -15,6 +15,8 @@
  */
 package examples;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -22,9 +24,8 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This sample shows how to set flow control and acknowledge bytes as they arrive to keep going.
@@ -49,9 +50,9 @@ public class FlowControl {
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpSnapshotMarkerRequest.is(event)) {
-                    client.acknowledgeBuffer(event);
+                    flowController.ack(event);
                 }
                 event.release();
             }
@@ -61,9 +62,9 @@ public class FlowControl {
         final AtomicLong changes = new AtomicLong(0);
         client.dataEventHandler(new DataEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 // this method will acknowledge the bytes for mutation, deletion and expiration
-                client.acknowledgeBuffer(event);
+                flowController.ack(event);
                 changes.incrementAndGet();
                 event.release();
             }

@@ -15,6 +15,13 @@
  */
 package com.couchbase.client.dcp;
 
+import java.net.InetSocketAddress;
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
@@ -31,28 +38,22 @@ import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
-import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
-
-import java.net.InetSocketAddress;
-import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -191,7 +192,7 @@ public class Client {
     public void controlEventHandler(final ControlEventHandler controlEventHandler) {
         env.setControlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpSnapshotMarkerRequest.is(event)) {
                     // Keep snapshot information in the session state, but also forward event to user
                     short partition = DcpSnapshotMarkerRequest.partition(event);
@@ -216,7 +217,7 @@ public class Client {
                 }
 
                 // Forward event to user.
-                controlEventHandler.onEvent(event);
+                controlEventHandler.onEvent(flowController, event);
             }
         });
     }
@@ -270,7 +271,7 @@ public class Client {
     public void dataEventHandler(final DataEventHandler dataEventHandler) {
         env.setDataEventHandler(new DataEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
                     short partition = DcpMutationMessage.partition(event);
                     PartitionState ps = sessionState().get(partition);
@@ -289,7 +290,7 @@ public class Client {
                 }
 
                 // Forward event to user.
-                dataEventHandler.onEvent(event);
+                dataEventHandler.onEvent(flowController, event);
             }
         });
     }
@@ -529,40 +530,6 @@ public class Client {
      */
     public boolean streamIsOpen(short vbid) {
         return conductor.streamIsOpen(vbid);
-    }
-
-    /**
-     * Acknowledge bytes read if DcpControl.Names.CONNECTION_BUFFER_SIZE is set on bootstrap.
-     *
-     * Note that acknowledgement will be stored but most likely not sent to the server immediately to save network
-     * overhead. Instead, depending on the value set through {@link Builder#bufferAckWatermark(int)} in percent
-     * the client will automatically determine when to send the message (when the watermark is reached).
-     *
-     * This method can always be called even if not enabled, if not enabled on bootstrap it will short-circuit.
-     *
-     * @param vbid     the partition id.
-     * @param numBytes the number of bytes to acknowledge.
-     */
-    public void acknowledgeBuffer(int vbid, int numBytes) {
-        if (!bufferAckEnabled) {
-            return;
-        }
-        conductor.acknowledgeBuffer((short) vbid, numBytes);
-    }
-
-    /**
-     * Acknowledge bytes read if DcpControl.Names.CONNECTION_BUFFER_SIZE is set on bootstrap.
-     *
-     * This method is a convenience method which extracts the partition ID and the number of bytes to
-     * acknowledge from the message. Make sure to only pass in legible buffers, coming from messages that are
-     * ack'able, especially mutations, expirations and deletions.
-     *
-     * This method can always be called even if not enabled, if not enabled on bootstrap it will short-circuit.
-     *
-     * @param buffer the message to acknowledge.
-     */
-    public void acknowledgeBuffer(ByteBuf buffer) {
-        acknowledgeBuffer(MessageUtil.getVbucket(buffer), buffer.readableBytes());
     }
 
     /**

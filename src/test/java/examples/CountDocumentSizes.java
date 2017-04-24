@@ -15,6 +15,8 @@
  */
 package examples;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -22,9 +24,8 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This application streams all data from the bucket up until now and accumulates the total size of the
@@ -52,9 +53,9 @@ public class CountDocumentSizes {
         // Don't do anything with control events in this example
         client.controlEventHandler(new ControlEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpSnapshotMarkerRequest.is(event)) {
-                    client.acknowledgeBuffer(event);
+                    flowController.ack(event);
                 }
                 event.release();
             }
@@ -66,7 +67,7 @@ public class CountDocumentSizes {
 
         client.dataEventHandler(new DataEventHandler() {
             @Override
-            public void onEvent(ByteBuf event) {
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
                 if (DcpMutationMessage.is(event)) {
                     docCount.incrementAndGet();
                     totalSize.addAndGet(DcpMutationMessage.content(event).readableBytes());
