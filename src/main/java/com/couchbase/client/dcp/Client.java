@@ -97,6 +97,7 @@ public class Client {
                 .setClusterAt(builder.clusterAt)
                 .setConnectionNameGenerator(builder.connectionNameGenerator)
                 .setBucket(builder.bucket)
+                .setUsername(builder.username == null ? builder.bucket : builder.username)
                 .setPassword(builder.password)
                 .setDcpControl(builder.dcpControl)
                 .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
@@ -719,6 +720,7 @@ public class Client {
         private List<InetSocketAddress> clusterAt = Arrays.asList(InetSocketAddress.createUnresolved("127.0.0.1", 0));;
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
+        private String username;
         private String password = "";
         private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
         private DcpControl dcpControl = new DcpControl();
@@ -814,6 +816,11 @@ public class Client {
          */
         public Builder bucket(final String bucket) {
             this.bucket = bucket;
+            return this;
+        }
+
+        public Builder username(final String username){
+            this.username = username;
             return this;
         }
 

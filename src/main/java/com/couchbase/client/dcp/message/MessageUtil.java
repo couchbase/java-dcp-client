@@ -33,6 +33,8 @@ public enum MessageUtil {
     public static final short OPAQUE_OFFSET = 12;
     public static final short CAS_OFFSET = 16;
 
+    public static final byte VERSION_OPCODE = 0x0b;
+    public static final byte HELLO_OPCODE = 0x1f;
     public static final byte SASL_LIST_MECHS_OPCODE = 0x20;
     public static final byte SASL_AUTH_OPCODE = 0x21;
     public static final byte SASL_STEP_OPCODE = 0x22;
@@ -52,6 +54,7 @@ public enum MessageUtil {
     public static final byte DCP_NOOP_OPCODE = 0x5c;
     public static final byte DCP_BUFFER_ACK_OPCODE = 0x5d;
     public static final byte DCP_CONTROL_OPCODE = 0x5e;
+    public static final byte SELECT_BUCKET_OPCODE = (byte) 0x89;
 
     public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
 
