@@ -15,6 +15,11 @@
  */
 package com.couchbase.client.dcp.config;
 
+import java.net.InetSocketAddress;
+import java.security.KeyStore;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import com.couchbase.client.core.env.ConfigParserEnvironment;
 import com.couchbase.client.core.env.CoreScheduler;
 import com.couchbase.client.core.env.resources.NoOpShutdownHook;
@@ -33,6 +38,7 @@ import com.couchbase.client.dcp.SystemEventHandler;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -41,11 +47,6 @@ import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Func1;
 import rx.functions.Func2;
-
-import java.net.InetSocketAddress;
-import java.security.KeyStore;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * The {@link ClientEnvironment} is responsible to carry various configuration and
@@ -84,7 +85,12 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private final String bucket;
 
     /**
-     * The password of the bucket.
+     * The connecting username.
+     */
+    private final String username;
+
+    /**
+     * The password of the username.
      */
     private final String password;
 
@@ -180,6 +186,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private ClientEnvironment(final Builder builder) {
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
+        username = builder.username;
         password = builder.password;
         bootstrapTimeout = builder.bootstrapTimeout;
         connectTimeout = builder.connectTimeout;
@@ -257,7 +264,14 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
     /**
-     * Password of the bucket used.
+     * Usrename used.
+     */
+    public String username() {
+        return username;
+    }
+
+    /**
+     * Password of the user.
      */
     public String password() {
         return password;
@@ -422,6 +436,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         private List<InetSocketAddress> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
         private String bucket;
+        private String username;
         private String password;
         private long bootstrapTimeout = DEFAULT_BOOTSTRAP_TIMEOUT;
         private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
@@ -463,6 +478,11 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
 
         public Builder setBucket(String bucket) {
             this.bucket = bucket;
+            return this;
+        }
+
+        public Builder setUsername(String username){
+            this.username = username;
             return this;
         }
 

@@ -15,6 +15,8 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import java.net.InetSocketAddress;
+
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
@@ -27,9 +29,8 @@ import com.couchbase.client.deps.io.netty.handler.codec.http.HttpClientCodec;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
-import rx.subjects.Subject;
 
-import java.net.InetSocketAddress;
+import rx.subjects.Subject;
 
 /**
  * Configures the pipeline for the HTTP config stream.
@@ -55,9 +56,14 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
     private final InetSocketAddress hostname;
 
     /**
-     * The name of the bucket (used for http auth).
+     * The name of the bucket
      */
     private final String bucket;
+
+    /**
+     * The username (used for http auth).
+     */
+    private final String username;
 
     /**
      * THe password of the bucket (used for http auth).
@@ -80,6 +86,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
                           final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
         this.hostname = hostname;
         this.bucket = environment.bucket();
+        this.username = environment.username();
         this.password = environment.password();
         this.configStream = configStream;
         this.environment = environment;
@@ -110,7 +117,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
 
         pipeline
             .addLast(new HttpClientCodec())
-            .addLast(new StartStreamHandler(bucket, password))
+            .addLast(new StartStreamHandler(bucket, username, password))
             .addLast(new ConfigHandler(hostname, configStream, environment));
     }
 
