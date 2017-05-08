@@ -12,7 +12,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.6</java-compat.version>
-        <core.version>1.4.4</core.version>
+        <core.version>1.4.5</core.version>
         <client.version>2.4.4</client.version>
     </properties>
 
