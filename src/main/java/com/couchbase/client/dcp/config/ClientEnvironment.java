@@ -66,8 +66,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     public static final boolean DEFAULT_SSL_ENABLED = false;
     public static final int BOOTSTRAP_HTTP_DIRECT_PORT = 8091;
     public static final int BOOTSTRAP_HTTP_SSL_PORT = 18091;
-    public static final int DCP_DIRECT_PORT = 11210;
-    public static final int DCP_SSL_PORT = 11207;
 
     /**
      * Stores the list of bootstrap nodes (where the cluster is).
@@ -175,8 +173,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private final KeyStore sslKeystore;
     private final int bootstrapHttpDirectPort;
     private final int bootstrapHttpSslPort;
-    private final int dcpDirectPort;
-    private final int dcpSslPort;
 
     /**
      * Creates a new environment based on the builder.
@@ -212,8 +208,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         }
         bootstrapHttpDirectPort = builder.bootstrapHttpDirectPort;
         bootstrapHttpSslPort = builder.bootstrapHttpSslPort;
-        dcpDirectPort = builder.dcpDirectPort;
-        dcpSslPort = builder.dcpSslPort;
         sslEnabled = builder.sslEnabled;
         sslKeystoreFile = builder.sslKeystoreFile;
         sslKeystorePassword = builder.sslKeystorePassword;
@@ -398,14 +392,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         return bootstrapHttpSslPort;
     }
 
-    public int dcpDirectPort() {
-        return dcpDirectPort;
-    }
-
-    public int dcpSslPort() {
-        return dcpSslPort;
-    }
-
     @Override
     public boolean sslEnabled() {
         return sslEnabled;
@@ -451,8 +437,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         private int dcpChannelsReconnectMaxAttempts = DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
         private int bootstrapHttpDirectPort = BOOTSTRAP_HTTP_DIRECT_PORT;
         private int bootstrapHttpSslPort = BOOTSTRAP_HTTP_SSL_PORT;
-        private int dcpDirectPort = DCP_DIRECT_PORT;
-        private int dcpSslPort = DCP_SSL_PORT;
 
         private int bufferAckWatermark;
         private EventBus eventBus;
@@ -567,24 +551,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
          */
         public Builder setBootstrapHttpSslPort(final int bootstrapHttpSslPort) {
             this.bootstrapHttpSslPort = bootstrapHttpSslPort;
-            return this;
-        }
-
-        /**
-         * If SSL not enabled, sets the port to use for DCP interaction
-         * (default value {@value #DCP_DIRECT_PORT}).
-         */
-        public Builder setDcpDirectPort(final int dcpDirectPort) {
-            this.dcpDirectPort = dcpDirectPort;
-            return this;
-        }
-
-        /**
-         * If SSL enabled, sets the port to use for  DCP interaction
-         * (default value {@value #DCP_SSL_PORT}).
-         */
-        public Builder setDcpSslPort(final int dcpSslPort) {
-            this.dcpSslPort = dcpSslPort;
             return this;
         }
 
