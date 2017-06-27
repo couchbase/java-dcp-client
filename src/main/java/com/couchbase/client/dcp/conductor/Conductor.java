@@ -286,7 +286,7 @@ public class Conductor {
         int index = config.nodeIndexForMaster(partition, false);
         NodeInfo node = config.nodeAtIndex(index);
         for (DcpChannel ch : channels) {
-            InetSocketAddress address = new InetSocketAddress(node.hostname(),
+            InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(),
                     (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
             if (ch.address().equals(address)) {
                 return ch;
@@ -309,7 +309,7 @@ public class Conductor {
                 continue;
             }
 
-            InetSocketAddress address = new InetSocketAddress(node.hostname(),
+            InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(),
                     (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
 
             boolean found = false;
@@ -329,7 +329,7 @@ public class Conductor {
         for (DcpChannel chan : channels) {
             boolean found = false;
             for (NodeInfo node : config.nodes()) {
-                InetSocketAddress address = new InetSocketAddress(node.hostname(),
+                InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(),
                         (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
                 if (address.equals(chan.address())) {
                     found = true;

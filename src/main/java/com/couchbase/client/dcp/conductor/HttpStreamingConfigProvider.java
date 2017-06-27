@@ -87,7 +87,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
                 List<InetSocketAddress> newNodes = new ArrayList<InetSocketAddress>();
                 for (NodeInfo node : config.nodes()) {
                     Integer port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.CONFIG);
-                    newNodes.add(new InetSocketAddress(node.hostname(), port));
+                    newNodes.add(new InetSocketAddress(node.hostname().nameOrAddress(), port));
                 }
 
                 LOGGER.trace("Updated config stream node list to {}.", newNodes);
