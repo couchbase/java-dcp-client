@@ -46,8 +46,9 @@ public enum DcpMutationMessage {
     }
 
     public static byte[] contentBytes(final ByteBuf buffer) {
-        byte[] bytes = new byte[buffer.readableBytes()];
-        content(buffer).getBytes(0, bytes);
+        ByteBuf content = content(buffer);
+        byte[] bytes = new byte[content.readableBytes()];
+        content.getBytes(content.readerIndex(), bytes);
         return bytes;
     }
 
