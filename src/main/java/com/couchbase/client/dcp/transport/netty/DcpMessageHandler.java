@@ -36,6 +36,8 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelDuplexHandler;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.deps.io.netty.handler.timeout.IdleState;
+import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateEvent;
 
 /**
  * Handles the "business logic" of incoming DCP mutation and control messages.
@@ -67,14 +69,31 @@ public class DcpMessageHandler extends ChannelDuplexHandler {
      *
      * @param environment
      *            data event callback handler.
-     * @param controlEvents
-     *            control event subject.
+     * @param controlHandler
+     *            control event handler.
      */
     DcpMessageHandler(final Channel channel, final ClientEnvironment environment,
             final DcpChannelControlHandler controlHandler) {
         this.dataEventHandler = environment.dataEventHandler();
         this.controlHandler = controlHandler;
         this.flowController = new ChannelFlowController(channel, environment);
+    }
+
+    /**
+     * Close dead connection in response to idle event from IdleStateHandler.
+     */
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof IdleStateEvent) {
+            IdleStateEvent e = (IdleStateEvent) evt;
+            if (e.state() == IdleState.READER_IDLE) {
+                LOGGER.warn("Closing dead connection.");
+                ctx.close();
+                return;
+            }
+        }
+
+        super.userEventTriggered(ctx, evt);
     }
 
     /**
