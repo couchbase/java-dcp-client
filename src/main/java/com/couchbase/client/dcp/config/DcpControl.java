@@ -28,6 +28,11 @@ import java.util.Map;
 public class DcpControl implements Iterable<Map.Entry<String, String>> {
 
     /**
+     * NOOP interval to use when none is specified.
+     */
+    private static final int DEFAULT_NOOP_INTERVAL_SECONDS = 120;
+
+    /**
      * Stores the params to negotiate in a map.
      */
     private Map<String, String> values;
@@ -47,6 +52,12 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
      * @return the {@link DcpControl} instance for chainability.
      */
     public DcpControl put(final Names name, final String value) {
+        // Provide a default NOOP interval because the client needs
+        // to know the interval in order to detect dead connections.
+        if (name == Names.ENABLE_NOOP && get(Names.SET_NOOP_INTERVAL) == null) {
+            put(Names.SET_NOOP_INTERVAL, Integer.toString(DEFAULT_NOOP_INTERVAL_SECONDS));
+        }
+
         values.put(name.value(), value);
         return this;
     }
@@ -65,8 +76,35 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
      * Shorthand getter to check if buffer acknowledgements are enabled.
      */
     public boolean bufferAckEnabled() {
-        String bufSize = values.get(Names.CONNECTION_BUFFER_SIZE.value());
+        String bufSize = get(Names.CONNECTION_BUFFER_SIZE);
         return bufSize != null && Integer.parseInt(bufSize) > 0;
+    }
+
+    /**
+     * Shorthand getter to check if noops are enabled.
+     */
+    public boolean noopEnabled() {
+        return "true".equals(get(Names.ENABLE_NOOP));
+    }
+
+    /**
+     * Shorthand getter for the NOOP interval.
+     */
+    public int noopIntervalSeconds() {
+        try {
+            return parsePositiveInteger(get(Names.SET_NOOP_INTERVAL));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Bad value for '" + Names.SET_NOOP_INTERVAL.value() + "'; " + e.getMessage());
+        }
+    }
+
+    private static int parsePositiveInteger(String s) {
+        int value = Integer.parseInt(s);
+        if (value < 1) {
+            throw new IllegalArgumentException("Value '" + s + "' is not positive.");
+        }
+        return value;
     }
 
     /**

@@ -19,6 +19,7 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.channel.Channel;
@@ -28,6 +29,7 @@ import com.couchbase.client.deps.io.netty.handler.codec.LengthFieldBasedFrameDec
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
+import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateHandler;
 
 /**
  * Sets up the pipeline for the actual DCP communication channels.
@@ -58,8 +60,8 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
      *
      * @param environment
      *            the stateful environment.
-     * @param controlEvents
-     *            the control event observable.
+     * @param controlHandler
+     *            the control event handler.
      */
     public DcpPipeline(final ClientEnvironment environment, final DcpChannelControlHandler controlHandler) {
         this.environment = environment;
@@ -89,9 +91,16 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
             pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
         }
 
+        DcpControl control = environment.dcpControl();
+
         pipeline.addLast(new AuthHandler(environment.username(), environment.password()))
                 .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket()))
-                .addLast(new DcpControlHandler(environment.dcpControl()))
-                .addLast(new DcpMessageHandler(ch, environment, controlHandler));
+                .addLast(new DcpControlHandler(control));
+
+        if (control.noopEnabled()) {
+            pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
+        }
+
+        pipeline.addLast(new DcpMessageHandler(ch, environment, controlHandler));
     }
 }
