@@ -1,5 +1,5 @@
 # Couchbase Java DCP Client
-This repository contains a pure java-based implementation for a Couchbase
+This repository contains a purely java-based implementation for a Couchbase
 DCP (Database Change Protocol) client. It is currently a work in progress.
 It replaces the previous experimental support inside Couchbase `core-io`.
 
