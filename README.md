@@ -35,7 +35,7 @@ out the project from github and build it on your own. It is a maven-based
 project so simply run
 
 ```
-$ git clone https://github.com/couchbaselabs/java-dcp-client.git
+$ git clone https://github.com/couchbase/java-dcp-client.git
 $ cd java-dcp-client
 $ mvn install
 ```
@@ -50,7 +50,7 @@ all streams available. You always need to attach a callback for both the
 config and the data events - in the simplest case all the messages are
 just discarded. **It's important to release the buffers!**
 
-Please check out the [examples](https://github.com/couchbaselabs/java-dcp-client/tree/master/src/test/java/examples)!
+Please check out the [examples](https://github.com/couchbase/java-dcp-client/tree/master/src/test/java/examples)!
 
 The following example connects to the `travel-sample` bucket and prints
 out all subsequent mutations and deletions that occur.
