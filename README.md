@@ -9,7 +9,7 @@ It supports:
  - [x] Async from top to bottom
  - [x] Stream specific vbuckets
  - [x] Manual Start/Stop of streams
- - [x] Noop Acknowledgements
+ - [x] Noop Acknowledgements and Dead Connection Detection
  - [x] Flow Control
  - [x] Session Management for restartability
  - [x] Rebalance Support
