@@ -99,6 +99,7 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.5</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- Compilation dependency to mark exception to enforced JDK 6 API -->
