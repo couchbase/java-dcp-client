@@ -14,6 +14,12 @@
         <java-compat.version>1.6</java-compat.version>
         <core.version>1.4.7</core.version>
         <client.version>2.4.7</client.version>
+
+        <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
+        <gpg.skip>true</gpg.skip>
+
+        <!-- When deploying, don't promote artifacts from staging repository unless 'release' profile is active -->
+        <autoReleaseAfterClose>false</autoReleaseAfterClose>
     </properties>
 
     <name>Couchbase Java DCP Client</name>
@@ -138,8 +144,8 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <!-- add the following sources in addition to the unit tests -->
-                                <source>${test-source-directory}</source>
+                                <!-- add the following sources in addition to the standard location -->
+                                <source>src/integration/java</source>
                             </sources>
                         </configuration>
                     </execution>
@@ -195,31 +201,59 @@
                     <additionalparam>-Xdoclint:none</additionalparam>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>2.20</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.7</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                    <autoReleaseAfterClose>${autoReleaseAfterClose}</autoReleaseAfterClose>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
     <profiles>
         <profile>
-            <id>default</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
+            <id>release</id>
             <properties>
-                <!-- by default, add also the int tests -->
-                <test-source-directory>src/integration/java</test-source-directory>
+                <gpg.skip>false</gpg.skip>
+                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </properties>
         </profile>
         <profile>
-            <id>unit</id>
-            <activation>
-                <property>
-                    <name>unit</name>
-                    <value>true</value>
-                </property>
-            </activation>
+            <id>stage</id>
             <properties>
-                <!-- just adding the unit tests again, noop. -->
-                <test-source-directory>src/test/java</test-source-directory>
+                <gpg.skip>false</gpg.skip>
             </properties>
         </profile>
     </profiles>
