@@ -51,6 +51,7 @@ import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
+import rx.Single;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
@@ -356,9 +357,9 @@ public class Client {
 
         return Observable
                 .from(initializedPartitions)
-                .flatMap(new Func1<Short, Observable<?>>() {
+                .flatMapCompletable(new Func1<Short, Completable>() {
                     @Override
-                    public Observable<?> call(Short partition) {
+                    public Completable call(Short partition) {
                         PartitionState partitionState = sessionState().get(partition);
                         return conductor.startStreamForPartition(
                                 partition,
@@ -377,7 +378,7 @@ public class Client {
                                     return Completable.error(throwable);
                                 }
                             }
-                        }).toObservable();
+                        });
                     }
                 })
                 .toCompletable();
@@ -430,10 +431,10 @@ public class Client {
 
         return Observable
                 .from(partitions)
-                .flatMap(new Func1<Short, Observable<?>>() {
+                .flatMapCompletable(new Func1<Short, Completable>() {
                     @Override
-                    public Observable<?> call(Short p) {
-                        return conductor.stopStreamForPartition(p).toObservable();
+                    public Completable call(Short p) {
+                        return conductor.stopStreamForPartition(p);
                     }
                 })
                 .toCompletable();
@@ -475,10 +476,10 @@ public class Client {
 
         return Observable
                 .from(partitions)
-                .flatMap(new Func1<Short, Observable<ByteBuf>>() {
+                .flatMapSingle(new Func1<Short, Single<ByteBuf>>() {
                     @Override
-                    public Observable<ByteBuf> call(Short p) {
-                        return conductor.getFailoverLog(p).toObservable();
+                    public Single<ByteBuf> call(Short p) {
+                        return conductor.getFailoverLog(p);
                     }
                 });
     }

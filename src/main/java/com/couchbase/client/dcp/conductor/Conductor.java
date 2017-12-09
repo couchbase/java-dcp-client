@@ -134,10 +134,10 @@ public class Conductor {
         stopped = true;
         Completable channelShutdown = Observable
                 .from(channels)
-                .flatMap(new Func1<DcpChannel, Observable<?>>() {
+                .flatMapCompletable(new Func1<DcpChannel, Completable>() {
                     @Override
-                    public Observable<?> call(DcpChannel dcpChannel) {
-                        return dcpChannel.disconnect().toObservable();
+                    public Completable call(DcpChannel dcpChannel) {
+                        return dcpChannel.disconnect();
                     }
                 })
                 .toCompletable();
@@ -177,10 +177,10 @@ public class Conductor {
     private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
         return Observable
                 .just(channel)
-                .flatMap(new Func1<DcpChannel, Observable<ByteBuf>>() {
+                .flatMapSingle(new Func1<DcpChannel, Single<ByteBuf>>() {
                     @Override
-                    public Observable<ByteBuf> call(DcpChannel channel) {
-                        return channel.getSeqnos().toObservable();
+                    public Single<ByteBuf> call(DcpChannel channel) {
+                        return channel.getSeqnos();
                     }
                 })
                 .retryWhen(anyOf(NotConnectedException.class)
@@ -207,10 +207,10 @@ public class Conductor {
                         return masterChannelByPartition(partition);
                     }
                 })
-                .flatMap(new Func1<DcpChannel, Observable<ByteBuf>>() {
+                .flatMapSingle(new Func1<DcpChannel, Single<ByteBuf>>() {
                     @Override
-                    public Observable<ByteBuf> call(DcpChannel channel) {
-                        return channel.getFailoverLog(partition).toObservable();
+                    public Single<ByteBuf> call(DcpChannel channel) {
+                        return channel.getFailoverLog(partition);
                     }
                 })
                 .retryWhen(anyOf(NotConnectedException.class)
@@ -238,11 +238,10 @@ public class Conductor {
                         return masterChannelByPartition(partition);
                     }
                 })
-                .flatMap(new Func1<DcpChannel, Observable<?>>() {
+                .flatMapCompletable(new Func1<DcpChannel, Completable>() {
                     @Override
-                    public Observable<?> call(DcpChannel channel) {
-                        return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno)
-                                .toObservable();
+                    public Completable call(DcpChannel channel) {
+                        return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
                     }
                 })
                 .retryWhen(anyOf(NotConnectedException.class)
@@ -442,9 +441,9 @@ public class Conductor {
                         return !desiredSeqnoReached;
                     }
                 })
-                .flatMap(new Func1<Long, Observable<?>>() {
+                .flatMapCompletable(new Func1<Long, Completable>() {
                     @Override
-                    public Observable<?> call(Long aLong) {
+                    public Completable call(Long aLong) {
                         PartitionState ps = sessionState.get(partition);
                         return startStreamForPartition(
                                 partition,
@@ -456,7 +455,7 @@ public class Conductor {
                         ).retryWhen(anyOf(NotMyVbucketException.class)
                                 .max(Integer.MAX_VALUE)
                                 .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-                                .build()).toObservable();
+                                .build());
                     }
                 }).toCompletable().subscribe(new CompletableSubscriber() {
             @Override
