@@ -19,7 +19,6 @@ import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import com.couchbase.client.core.event.EventBus;
@@ -140,19 +139,16 @@ public class Client {
     /**
      * Get the current sequence numbers from all partitions.
      *
-     * Each element emitted into the observable has two elements. The first element is the partition and
-     * the second element is its sequence number.
-     *
-     * @return an {@link Observable} of sequence number arrays.
+     * @return an {@link Observable} of partition and sequence number.
      */
-    private Observable<long[]> getSeqnos() {
-        return conductor.getSeqnos().flatMap(new Func1<ByteBuf, Observable<long[]>>() {
+    private Observable<PartitionAndSeqno> getSeqnos() {
+        return conductor.getSeqnos().flatMap(new Func1<ByteBuf, Observable<PartitionAndSeqno>>() {
             @Override
-            public Observable<long[]> call(ByteBuf buf) {
+            public Observable<PartitionAndSeqno> call(ByteBuf buf) {
                 int numPairs = buf.readableBytes() / 10; // 2 byte short + 8 byte long
-                List<long[]> pairs = new ArrayList<long[]>(numPairs);
+                List<PartitionAndSeqno> pairs = new ArrayList<PartitionAndSeqno>(numPairs);
                 for (int i = 0; i < numPairs; i++) {
-                    pairs.add(new long[]{buf.getShort(10 * i), buf.getLong(10 * i + 2)});
+                    pairs.add(new PartitionAndSeqno(buf.getShort(10 * i), buf.getLong(10 * i + 2)));
                 }
                 buf.release();
                 return Observable.from(pairs);
@@ -392,7 +388,7 @@ public class Client {
      * of starting without initializing.
      */
     private List<Short> selectInitializedPartitions(int clusterPartitions, List<Short> partitions) {
-        ArrayList<Short> initializedPartitions = new ArrayList<Short>();
+        List<Short> initializedPartitions = new ArrayList<Short>();
         SessionState state = sessionState();
 
         for (short partition : partitions) {
@@ -451,15 +447,15 @@ public class Client {
      * @return a sorted list of partitions to use.
      */
     private static List<Short> partitionsForVbids(int numPartitions, Short... vbids) {
-        List<Short> partitions = new ArrayList<Short>();
         if (vbids.length > 0) {
-            partitions = Arrays.asList(vbids);
-        } else {
-            for (short i = 0; i < numPartitions; i++) {
-                partitions.add(i);
-            }
+            Arrays.sort(vbids);
+            return Arrays.asList(vbids);
         }
-        Collections.sort(partitions);
+
+        List<Short> partitions = new ArrayList<Short>(vbids.length);
+        for (short i = 0; i < numPartitions; i++) {
+            partitions.add(i);
+        }
         return partitions;
     }
 
@@ -648,11 +644,11 @@ public class Client {
      * Initializes the session state from now to no end.
      */
     private Completable initFromNowToInfinity() {
-        return initWithCallback(new Action1<long[]>() {
+        return initWithCallback(new Action1<PartitionAndSeqno>() {
             @Override
-            public void call(long[] longs) {
-                short partition = (short) longs[0];
-                long seqno = longs[1];
+            public void call(PartitionAndSeqno partitionAndSeqno) {
+                short partition = partitionAndSeqno.partition();
+                long seqno = partitionAndSeqno.seqno();
                 PartitionState partitionState = sessionState().get(partition);
                 partitionState.setStartSeqno(seqno);
                 partitionState.setSnapshotStartSeqno(seqno);
@@ -666,11 +662,11 @@ public class Client {
      * Initializes the session state from beginning to now.
      */
     private Completable initFromBeginningToNow() {
-        return initWithCallback(new Action1<long[]>() {
+        return initWithCallback(new Action1<PartitionAndSeqno>() {
             @Override
-            public void call(long[] longs) {
-                short partition = (short) longs[0];
-                long seqno = longs[1];
+            public void call(PartitionAndSeqno partitionAndSeqno) {
+                short partition = partitionAndSeqno.partition();
+                long seqno = partitionAndSeqno.seqno();
                 PartitionState partitionState = sessionState().get(partition);
                 partitionState.setEndSeqno(seqno);
                 sessionState().set(partition, partitionState);
@@ -684,22 +680,22 @@ public class Client {
      * This method grabs the sequence numbers and then calls a callback for customization. Once that is done it
      * grabs the failover logs and populates the session state with the failover log information.
      */
-    private Completable initWithCallback(Action1<long[]> callback) {
+    private Completable initWithCallback(Action1<PartitionAndSeqno> callback) {
         sessionState().setToBeginningWithNoEnd(numPartitions());
 
         return getSeqnos()
                 .doOnNext(callback)
-                .reduce(new ArrayList<Short>(), new Func2<ArrayList<Short>, long[], ArrayList<Short>>() {
+                .reduce(new ArrayList<Short>(), new Func2<List<Short>, PartitionAndSeqno, List<Short>>() {
                     @Override
-                    public ArrayList<Short> call(ArrayList<Short> shorts, long[] longs) {
-                        shorts.add((short) longs[0]);
-                        return shorts;
+                    public List<Short> call(List<Short> partitions, PartitionAndSeqno partitionAndSeqno) {
+                        partitions.add(partitionAndSeqno.partition());
+                        return partitions;
                     }
                 })
-                .flatMap(new Func1<ArrayList<Short>, Observable<ByteBuf>>() {
+                .flatMap(new Func1<List<Short>, Observable<ByteBuf>>() {
                     @Override
-                    public Observable<ByteBuf> call(ArrayList<Short> shorts) {
-                        return failoverLogs(shorts.toArray(new Short[]{}));
+                    public Observable<ByteBuf> call(List<Short> partitions) {
+                        return failoverLogs(partitions.toArray(new Short[]{}));
                     }
                 })
                 .map(new Func1<ByteBuf, Short>() {
@@ -711,6 +707,27 @@ public class Client {
                         return partition;
                     }
                 }).last().toCompletable();
+    }
+
+    /**
+     * An immutable pair consisting of a partition and an associated sequence number.
+     */
+    private static class PartitionAndSeqno {
+        private final short partition;
+        private final long seqno;
+
+        public PartitionAndSeqno(short partition, long seqno) {
+            this.partition = partition;
+            this.seqno = seqno;
+        }
+
+        public short partition() {
+            return partition;
+        }
+
+        public long seqno() {
+            return seqno;
+        }
     }
 
     /**
