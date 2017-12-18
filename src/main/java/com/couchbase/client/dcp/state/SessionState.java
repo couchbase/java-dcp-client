@@ -22,7 +22,9 @@ import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonD
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import rx.functions.Action1;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -164,14 +166,18 @@ public class SessionState {
         ps.setStartSeqno(seqno);
         ps.setSnapshotStartSeqno(seqno);
         ps.setSnapshotEndSeqno(seqno);
-        Iterator<FailoverLogEntry> flog = ps.getFailoverLog().iterator();
-        while (flog.hasNext()) {
-            FailoverLogEntry entry = flog.next();
+        List<FailoverLogEntry> failoverLog = ps.getFailoverLog();
+        Iterator<FailoverLogEntry> flogIterator = failoverLog.iterator();
+        List<FailoverLogEntry> entriesToRemove = new ArrayList<FailoverLogEntry>();
+        while (flogIterator.hasNext()) {
+            FailoverLogEntry entry = flogIterator.next();
             // check if this entry is has a higher seqno than we need to roll back to
             if (entry.getSeqno() > seqno) {
-                flog.remove();
+                entriesToRemove.add(entry);
             }
         }
+        failoverLog.removeAll(entriesToRemove);
+
         partitionStates.set(partition, ps);
     }
 
