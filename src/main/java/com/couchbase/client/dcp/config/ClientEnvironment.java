@@ -25,7 +25,6 @@ import com.couchbase.client.core.env.CoreScheduler;
 import com.couchbase.client.core.env.resources.NoOpShutdownHook;
 import com.couchbase.client.core.env.resources.ShutdownHook;
 import com.couchbase.client.core.event.CouchbaseEvent;
-import com.couchbase.client.core.event.DefaultEventBus;
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.event.EventType;
 import com.couchbase.client.core.node.DefaultMemcachedHashingStrategy;
@@ -35,6 +34,7 @@ import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.SystemEventHandler;
+import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
@@ -204,7 +204,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
             CoreScheduler scheduler = new CoreScheduler(3);
             this.scheduler = scheduler;
             this.schedulerShutdownHook = scheduler;
-            eventBus = new DefaultEventBus(scheduler);
+            eventBus = new DefaultDcpEventBus(scheduler);
         }
         bootstrapHttpDirectPort = builder.bootstrapHttpDirectPort;
         bootstrapHttpSslPort = builder.bootstrapHttpSslPort;
