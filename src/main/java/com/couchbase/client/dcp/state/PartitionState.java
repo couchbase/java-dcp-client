@@ -148,6 +148,14 @@ public class PartitionState {
     }
 
     /**
+     * Check if the current partition has reached or passed the end (start greater than end seqno).
+     */
+    @JsonIgnore
+    public boolean hasPassedEnd() {
+        return startSeqno >= endSeqno;
+    }
+
+    /**
      * Convenience method to get the last UUID returned on the failover log.
      *
      * Note that if the failover log is empty, 0 is sent out to indicate the start.
