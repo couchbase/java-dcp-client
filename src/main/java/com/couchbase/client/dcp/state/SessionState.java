@@ -153,6 +153,25 @@ public class SessionState {
     }
 
     /**
+     * Check if the current sequence numbers for all partitions are greater or equal
+     * to the ones set as end.
+     *
+     * @return true if all has passed the end, false otherwise.
+     */
+    public boolean hasPassedEnd() {
+        final AtomicBoolean passedEnd = new AtomicBoolean(true);
+        foreachPartition(new Action1<PartitionState>() {
+            @Override
+            public void call(PartitionState ps) {
+                if (!ps.hasPassedEnd()) {
+                    passedEnd.set(false);
+                }
+            }
+        });
+        return passedEnd.get();
+    }
+
+    /**
      * Helper method to rollback the given partition to the given sequence number.
      * <p>
      * This will set the seqno AND REMOVE ALL ENTRIES from the failover log that are higher
