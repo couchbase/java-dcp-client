@@ -185,17 +185,16 @@ public class SessionState {
         ps.setStartSeqno(seqno);
         ps.setSnapshotStartSeqno(seqno);
         ps.setSnapshotEndSeqno(seqno);
-        List<FailoverLogEntry> failoverLog = ps.getFailoverLog();
-        Iterator<FailoverLogEntry> flogIterator = failoverLog.iterator();
-        List<FailoverLogEntry> entriesToRemove = new ArrayList<FailoverLogEntry>();
-        while (flogIterator.hasNext()) {
-            FailoverLogEntry entry = flogIterator.next();
+
+        List<FailoverLogEntry> flog = ps.getFailoverLog();
+        for (int i = 0; i < flog.size(); i ++) {
+            FailoverLogEntry entry = flog.get(i);
             // check if this entry is has a higher seqno than we need to roll back to
             if (entry.getSeqno() > seqno) {
-                entriesToRemove.add(entry);
+                flog.remove(i);
             }
         }
-        failoverLog.removeAll(entriesToRemove);
+
         partitionStates.set(partition, ps);
     }
 
