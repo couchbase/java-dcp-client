@@ -438,6 +438,10 @@ public class Conductor {
                         if (desiredSeqnoReached) {
                             LOGGER.debug("Reached desired high seqno {} for vbucket {}, not reopening stream.",
                                     ps.getEndSeqno(), partition);
+                        } else if(ps.hasPassedEnd()) {
+                            LOGGER.debug("Desired high seqno {} passed endSeqno {}, not reopening stream.",
+                                    ps.getStartSeqno(), ps.getEndSeqno());
+                            return false;
                         }
                         return !desiredSeqnoReached;
                     }
