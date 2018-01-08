@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import static com.couchbase.client.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
 
 import java.net.InetSocketAddress;
@@ -381,7 +382,7 @@ public class Conductor {
 
             @Override
             public void onError(Throwable e) {
-                LOGGER.warn("Got error during connect (maybe retried) for node {}" + node, e);
+                LOGGER.warn("Got error during connect (maybe retried) for node {}", system(node), e);
                 if (env.eventBus() != null) {
                     env.eventBus().publish(new FailedToAddNodeEvent(node, e));
                 }
@@ -405,7 +406,7 @@ public class Conductor {
 
                 @Override
                 public void onError(Throwable e) {
-                    LOGGER.warn("Got error during Node removal for node {}" + node.address(), e);
+                    LOGGER.warn("Got error during Node removal for node {}", system(node.address()), e);
                     if (env.eventBus() != null) {
                         env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
                     }

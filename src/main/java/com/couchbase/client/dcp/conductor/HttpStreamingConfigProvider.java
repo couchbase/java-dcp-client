@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.couchbase.client.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 
 /**
@@ -210,7 +211,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
                                 @Override
                                 public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
                                     LOGGER.info("No host usable to fetch a config from, waiting and retrying (remote hosts: {}).",
-                                            remoteHosts.get());
+                                            system(remoteHosts.get()));
                                 }
                             })
                             .build()

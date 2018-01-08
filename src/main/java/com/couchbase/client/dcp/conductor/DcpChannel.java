@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import static com.couchbase.client.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 
 import java.net.InetAddress;
@@ -126,7 +127,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             channel = future.channel();
                             if (isShutdown) {
                                 LOGGER.info("Connected Node {}, but got instructed to disconnect in " +
-                                        "the meantime.", inetAddress);
+                                        "the meantime.", system(inetAddress));
                                 // isShutdown before we could finish the connect :/
                                 disconnect().subscribe(new CompletableSubscriber() {
                                     @Override
@@ -146,7 +147,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                                 });
                             } else {
                                 transitionState(LifecycleState.CONNECTED);
-                                LOGGER.info("Connected to Node {}", inetAddress);
+                                LOGGER.info("Connected to Node {}", system(inetAddress));
 
                                 // attach callback which listens on future close and dispatches a
                                 // reconnect if needed.
@@ -165,7 +166,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                                 subscriber.onCompleted();
                             }
                         } else {
-                            LOGGER.info("Connect attempt to {} failed.", inetAddress, future.cause());
+                            LOGGER.info("Connect attempt to {} failed.", system(inetAddress), future.cause());
                             transitionState(LifecycleState.DISCONNECTED);
                             subscriber.onError(future.cause());
                         }
@@ -180,7 +181,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             LOGGER.debug("Ignoring reconnect on {} because already shutdown.", inetAddress);
             return;
         }
-        LOGGER.info("Node {} socket closed, initiating reconnect.", inetAddress);
+        LOGGER.info("Node {} socket closed, initiating reconnect.", system(inetAddress));
 
         connect()
                 .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32))
@@ -203,7 +204,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
                     @Override
                     public void onError(Throwable e) {
-                        LOGGER.warn("Got error during connect (maybe retried) for node {}" + inetAddress, e);
+                        LOGGER.warn("Got error during connect (maybe retried) for node {}", system(inetAddress), e);
                     }
 
                     @Override
@@ -228,7 +229,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
                             transitionState(LifecycleState.DISCONNECTED);
-                            LOGGER.info("Disconnected from Node " + address());
+                            LOGGER.info("Disconnected from Node {}", system(address()));
                             if (future.isSuccess()) {
                                 subscriber.onCompleted();
                             } else {

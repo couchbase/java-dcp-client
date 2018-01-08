@@ -15,12 +15,6 @@
  */
 package com.couchbase.client.dcp;
 
-import java.net.InetSocketAddress;
-import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
@@ -47,7 +41,6 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -55,6 +48,15 @@ import rx.Single;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
+
+import java.net.InetSocketAddress;
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static com.couchbase.client.core.logging.RedactableArgument.meta;
+import static com.couchbase.client.core.logging.RedactableArgument.system;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -125,7 +127,7 @@ public class Client {
         }
 
         conductor = new Conductor(env, builder.configProvider);
-        LOGGER.info("Environment Configuration Used: {}", env);
+        LOGGER.info("Environment Configuration Used: {}", system(env));
     }
 
     /**
@@ -312,7 +314,7 @@ public class Client {
         if (env.controlEventHandler() == null) {
             throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
         }
-        LOGGER.info("Connecting to seed nodes and bootstrapping bucket {}.", env.bucket());
+        LOGGER.info("Connecting to seed nodes and bootstrapping bucket {}.", meta(env.bucket()));
         return conductor.connect().onErrorResumeNext(new Func1<Throwable, Completable>() {
             @Override
             public Completable call(Throwable throwable) {
