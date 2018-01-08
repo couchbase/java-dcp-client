@@ -515,7 +515,7 @@ public class Client {
     /**
      * Returns the number of partitions on the remote cluster.
      *
-     * Note that you must be connected, since the information is loaded form the server configuration.
+     * Note that you must be connected, since the information is loaded from the server configuration.
      * On all OS'es other than OSX it will be 1024, on OSX it is 64. Treat this as an opaque value anyways.
      *
      * @return the number of partitions (vbuckets).

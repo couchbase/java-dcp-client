@@ -140,11 +140,11 @@ public class PartitionState {
     }
 
     /**
-     * Check if the current partition is at the end (start equals end seqno).
+     * Check if the current partition is at the end (start >= end seqno).
      */
     @JsonIgnore
     public boolean isAtEnd() {
-        return startSeqno == endSeqno;
+        return startSeqno >= endSeqno;
     }
 
     /**
