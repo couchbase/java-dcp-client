@@ -69,6 +69,13 @@ public enum DcpAddStreamRequest {
         return StreamFlags.ACTIVE_VB_ONLY.isSet(flags(buffer));
     }
 
+    /**
+     * Check if {@link StreamFlags#STRICT_VB_UUID} flag requested for the stream.
+     */
+    public static boolean strictVbucketUuid(final ByteBuf buffer) {
+        return StreamFlags.STRICT_VB_UUID.isSet(flags(buffer));
+    }
+
     public static void init(final ByteBuf buffer) {
         MessageUtil.initRequest(DCP_ADD_STREAM_OPCODE, buffer);
         flags(buffer, 0);

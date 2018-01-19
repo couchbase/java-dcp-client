@@ -47,7 +47,14 @@ public enum StreamFlags {
      * Indicate the server to add stream only if the VBucket is active.
      * If the VBucket is not active, the stream request fails with ERR_NOT_MY_VBUCKET (0x07)
      */
-    ACTIVE_VB_ONLY(0x16);
+    ACTIVE_VB_ONLY(0x10),
+    /**
+     * Indicate the server to check for vb_uuid match even at start_seqno 0 before
+     * adding the stream successfully.
+     * If the flag is set and there is a vb_uuid mismatch at start_seqno 0, then
+     * the server returns ENGINE_ROLLBACK error.
+     */
+    STRICT_VB_UUID(0x20);
 
     private final int value;
 

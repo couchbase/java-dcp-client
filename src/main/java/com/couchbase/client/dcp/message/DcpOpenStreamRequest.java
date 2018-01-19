@@ -121,4 +121,10 @@ public enum DcpOpenStreamRequest {
     public static void activeVbucketOnly(final ByteBuf buffer) {
         flags(buffer, flags(buffer) | StreamFlags.ACTIVE_VB_ONLY.value());
     }
+    /**
+     * Set {@link StreamFlags#STRICT_VB_UUID} flag for the stream.
+     */
+    public static void strictVbucketUuid(final ByteBuf buffer) {
+        flags(buffer, flags(buffer) | StreamFlags.STRICT_VB_UUID.value());
+    }
 }
