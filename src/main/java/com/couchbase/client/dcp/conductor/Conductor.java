@@ -285,9 +285,9 @@ public class Conductor {
         CouchbaseBucketConfig config = currentConfig.get();
         int index = config.nodeIndexForMaster(partition, false);
         NodeInfo node = config.nodeAtIndex(index);
+        int port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY);
+        InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(), port);
         for (DcpChannel ch : channels) {
-            InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(),
-                    (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
             if (ch.address().equals(address)) {
                 return ch;
             }
