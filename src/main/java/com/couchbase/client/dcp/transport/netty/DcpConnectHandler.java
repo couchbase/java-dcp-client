@@ -170,7 +170,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
     private void hello(ChannelHandlerContext ctx, ByteBuf msg) {
         connectionName = connectionNameGenerator.name();
-        String response = MessageUtil.getContent(msg).toString(CharsetUtil.UTF_8);
+        String response = MessageUtil.getContentAsString(msg);
         int majorVersion;
         try {
             majorVersion = Integer.parseInt(response.substring(0, 1));

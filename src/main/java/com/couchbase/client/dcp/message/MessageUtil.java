@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
 public enum MessageUtil {
     ;
@@ -151,7 +152,7 @@ public enum MessageUtil {
     }
 
     public static short getVbucket(ByteBuf buffer) {
-       return buffer.getShort(VBUCKET_OFFSET);
+        return buffer.getShort(VBUCKET_OFFSET);
     }
 
     /**
@@ -201,6 +202,10 @@ public enum MessageUtil {
         byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
         int contentLength = buffer.getInt(BODY_LENGTH_OFFSET) - keyLength - extrasLength;
         return buffer.slice(HEADER_SIZE + keyLength + extrasLength, contentLength);
+    }
+
+    public static String getContentAsString(ByteBuf buffer) {
+        return getContent(buffer).toString(CharsetUtil.UTF_8);
     }
 
     public static short getStatus(ByteBuf buffer) {

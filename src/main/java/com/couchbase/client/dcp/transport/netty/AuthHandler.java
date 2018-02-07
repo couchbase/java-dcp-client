@@ -176,7 +176,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
     }
 
     /**
-     * Check if the authenication process suceeded or failed based on the response status.
+     * Check if the authentication process succeeded or failed based on the response status.
      */
     private void checkIsAuthed(final ChannelHandlerContext ctx, final short status) {
         switch (status) {
@@ -200,7 +200,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
     private void handleListMechsResponse(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
         String remote = ctx.channel().remoteAddress().toString();
         String[] supportedMechanisms = SaslListMechsResponse.supportedMechs(msg);
-        if (supportedMechanisms == null || supportedMechanisms.length == 0) {
+        if (supportedMechanisms.length == 0) {
             throw new AuthenticationException("Received empty SASL mechanisms list from server: " + remote);
         }
 
