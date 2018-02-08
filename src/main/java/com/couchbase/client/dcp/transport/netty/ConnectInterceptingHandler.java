@@ -94,7 +94,7 @@ abstract class ConnectInterceptingHandler<T>
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        ctx.read();
+        ctx.write(msg, promise);
     }
 
     @Override
