@@ -34,6 +34,6 @@ public enum HelloRequest {
     public static void init(ByteBuf buffer, ByteBuf connectionName) {
         MessageUtil.initRequest(MessageUtil.HELLO_OPCODE, buffer);
         MessageUtil.setKey(connectionName, buffer);
-        MessageUtil.setContent(VALUES, buffer);
+        MessageUtil.setContent(VALUES.slice(), buffer);
     }
 }
