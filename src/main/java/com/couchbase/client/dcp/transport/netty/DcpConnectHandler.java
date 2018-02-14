@@ -20,6 +20,7 @@ import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.config.DecompressionMode;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.dcp.message.HelloRequest;
@@ -32,9 +33,6 @@ import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.util.AttributeKey;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-
-import static com.couchbase.client.dcp.config.CompressionMode.DISABLED;
-import static com.couchbase.client.dcp.config.DecompressionMode.MANUAL;
 
 /**
  * Opens the DCP connection on the channel and once established removes itself.
@@ -225,7 +223,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
         }
 
         final CompressionMode compressionMode = dcpControl.compression(serverVersion);
-        if (compressionMode == DISABLED || dcpControl.decompression() == MANUAL) {
+        if (compressionMode == CompressionMode.DISABLED || dcpControl.decompression() == DecompressionMode.DISABLED) {
             ctx.pipeline().remove(SnappyDecoder.class);
         }
 

@@ -27,6 +27,8 @@ import static com.couchbase.client.dcp.message.HelloRequest.SNAPPY;
 public enum CompressionMode {
     /**
      * Couchbase Server will never send compressed values.
+     * <p>
+     * This is the default mode.
      */
     DISABLED {
         @Override
@@ -49,12 +51,14 @@ public enum CompressionMode {
     },
 
     /**
-     * Couchbase Server will always send compressed values regardless
+     * Couchbase Server will always send compressed values, regardless
      * of how the values are stored on the server, unless the compressed
-     * format is larger than the uncompressed format.
+     * form is larger than the uncompressed form.
      * <p>
-     * Available since Couchbase Server 4.5. When connecting to
-     * earlier versions, this mode will be downgraded to DISABLED.
+     * When connecting to a server older than version 4.5, this mode will be
+     * downgraded to DISABLED.
+     *
+     * @since Couchbase Server 4.5 (Watson)
      */
     FORCED {
         @Override
@@ -78,19 +82,19 @@ public enum CompressionMode {
     },
 
     /**
-     * Couchbase Server will send a value in compressed format
-     * if it is already stored in compressed format. If the value is stored
-     * uncompressed, the server will send it uncompressed.
+     * Couchbase Server may send compressed values at its discretion.
+     * Values stored in compressed form will be sent compressed.
+     * Values stored in uncompressed form will be sent uncompressed.
      * <p>
-     * Available since Couchbase Server 5.5. When connecting to
-     * earlier versions, this mode will be downgraded to DISABLED.
-     * <p>
-     * This is the default mode.
+     * When connecting to a server older than version 5.5, this mode will has
+     * the same effect as {@link #FORCED}.
+     *
+     * @since Couchbase Server 5.5 (Vulcan)
      */
-    DISCRETIONARY {
+    ENABLED {
         @Override
         public CompressionMode effectiveMode(Version serverVersion) {
-            return serverVersion.isAtLeast(VULCAN) ? this : DISABLED;
+            return serverVersion.isAtLeast(VULCAN) ? this : FORCED.effectiveMode(serverVersion);
         }
 
         @Override
@@ -110,12 +114,12 @@ public enum CompressionMode {
     private static final Version WATSON = new Version(4, 5, 0);
 
     /**
-     * Vulcan supports {@link #DISABLED}, {@link #FORCED}, and {@link #DISCRETIONARY}.
+     * Vulcan supports {@link #DISABLED}, {@link #FORCED}, and {@link #ENABLED}.
      * <p>
      * If compression is to be used with Vulcan, the client must advertise the
      * DATATYPE and SNAPPY features when issuing the HELLO request.
      * <p>
-     * To enable {@link #DISCRETIONARY} mode for Vulcan, all you need to do is HELLO with the
+     * To activate {@link #ENABLED} mode for Vulcan, all you need to do is HELLO with the
      * the aforementioned feature flags.
      * <p>
      * To enable {@link #FORCED} mode for Vulcan, HELLO with the aforementioned feature flags,

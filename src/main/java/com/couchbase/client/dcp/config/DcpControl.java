@@ -47,12 +47,12 @@ public class DcpControl {
     /**
      * The requested compression mode.
      */
-    private CompressionMode compressionMode = CompressionMode.DISCRETIONARY;
+    private CompressionMode compressionMode = CompressionMode.DISABLED;
 
     /**
      * The requested decompression mode.
      */
-    private DecompressionMode decompressionMode = DecompressionMode.TRANSPARENT;
+    private DecompressionMode decompressionMode = DecompressionMode.ENABLED;
 
     /**
      * Creates a new {@link DcpControl} instance with no params set upfront.
@@ -63,7 +63,7 @@ public class DcpControl {
 
     /**
      * Set the compression mode to use.
-     * If not specified, defaults to {@link CompressionMode#DISCRETIONARY}.
+     * If not specified, defaults to {@link CompressionMode#DISABLED}.
      */
     public void compression(CompressionMode compressionMode) {
         this.compressionMode = requireNonNull(compressionMode);
@@ -79,7 +79,7 @@ public class DcpControl {
 
     /**
      * Set the decompression mode to use.
-     * If not specified, defaults to {@link DecompressionMode#TRANSPARENT}.
+     * If not specified, defaults to {@link DecompressionMode#ENABLED}.
      */
     public void decompression(DecompressionMode decompressionMode) {
         this.decompressionMode = requireNonNull(decompressionMode);
@@ -107,7 +107,7 @@ public class DcpControl {
             compression(enabled ? CompressionMode.FORCED : CompressionMode.DISABLED);
             if (enabled) {
                 // Anyone using the ENABLE_VALUE_COMPRESSION control has been doing their own decompression.
-                decompression(DecompressionMode.MANUAL);
+                decompression(DecompressionMode.DISABLED);
             }
             return this;
         }

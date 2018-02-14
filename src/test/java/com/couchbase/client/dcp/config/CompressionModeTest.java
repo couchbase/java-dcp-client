@@ -21,7 +21,7 @@ import com.couchbase.client.dcp.util.Version;
 import org.junit.Test;
 
 import static com.couchbase.client.dcp.config.CompressionMode.DISABLED;
-import static com.couchbase.client.dcp.config.CompressionMode.DISCRETIONARY;
+import static com.couchbase.client.dcp.config.CompressionMode.ENABLED;
 import static com.couchbase.client.dcp.config.CompressionMode.FORCED;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
@@ -43,9 +43,9 @@ public class CompressionModeTest {
         assertEquals(FORCED, FORCED.effectiveMode(WATSON));
         assertEquals(FORCED, FORCED.effectiveMode(VULCAN));
 
-        assertEquals(DISABLED, DISCRETIONARY.effectiveMode(OLDER));
-        assertEquals(DISABLED, DISCRETIONARY.effectiveMode(WATSON));
-        assertEquals(DISCRETIONARY, DISCRETIONARY.effectiveMode(VULCAN));
+        assertEquals(DISABLED, ENABLED.effectiveMode(OLDER));
+        assertEquals(FORCED, ENABLED.effectiveMode(WATSON));
+        assertEquals(ENABLED, ENABLED.effectiveMode(VULCAN));
     }
 
     @Test
@@ -62,8 +62,8 @@ public class CompressionModeTest {
 
     @Test
     public void vulcanDiscretionary() throws Exception {
-        assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, DISCRETIONARY.getHelloFeatures(VULCAN));
-        assertEquals(emptyMap(), DISCRETIONARY.getDcpControls(VULCAN));
+        assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, ENABLED.getHelloFeatures(VULCAN));
+        assertEquals(emptyMap(), ENABLED.getDcpControls(VULCAN));
     }
 
     @Test

@@ -21,13 +21,13 @@ public enum DecompressionMode {
      * Compressed message values are sent to event handlers verbatim.
      * Handlers are responsible for decompressing the values if desired.
      */
-    MANUAL,
+    DISABLED,
 
     /**
+     * The default mode.
+     * <p>
      * Compressed message values are automatically decompressed before
      * being sent to event handlers.
-     * <p>
-     * This is the default mode.
      */
-    TRANSPARENT
+    ENABLED
 }
