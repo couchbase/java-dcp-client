@@ -29,11 +29,33 @@ public enum HelloRequest {
     public static final short XATTR = 0x06;
     public static final short XERROR = 0x07;
     public static final short SELECT = 0x08;
-    private static final ByteBuf VALUES = Unpooled.copyShort(XERROR, SELECT);
 
-    public static void init(ByteBuf buffer, ByteBuf connectionName) {
+    /**
+     * Enable snappy-based compression support.
+     *
+     * @since Couchbase Server 5.5 (Vulcan)
+     */
+    public static final short SNAPPY = 0x0a;
+
+    private static final short[] standardFeatures = new short[]{XERROR, SELECT};
+
+    public static void init(ByteBuf buffer, ByteBuf connectionName, short... extraFeatures) {
         MessageUtil.initRequest(MessageUtil.HELLO_OPCODE, buffer);
         MessageUtil.setKey(connectionName, buffer);
-        MessageUtil.setContent(VALUES.slice(), buffer);
+
+        ByteBuf features = Unpooled.buffer((standardFeatures.length + extraFeatures.length) * 2);
+        try {
+            for (short feature : standardFeatures) {
+                features.writeShort(feature);
+            }
+            for (short feature : extraFeatures) {
+                features.writeShort(feature);
+            }
+
+            MessageUtil.setContent(features, buffer);
+
+        } finally {
+            features.release();
+        }
     }
 }

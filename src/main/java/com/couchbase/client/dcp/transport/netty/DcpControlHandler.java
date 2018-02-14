@@ -28,6 +28,8 @@ import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import java.util.Iterator;
 import java.util.Map;
 
+import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServerVersion;
+
 /**
  * Negotiates DCP control flags once connected and removes itself afterwards.
  *
@@ -49,7 +51,13 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
     /**
      * Stores an iterator over the control settings that need to be negotiated.
      */
-    private final Iterator<Map.Entry<String, String>> controlSettings;
+    private Iterator<Map.Entry<String, String>> controlSettings;
+
+    /**
+     * The control settings provider. Will tell us the appropriate control settings
+     * once we discover the the Couchbase Server version.
+     */
+    private final DcpControl dcpControl;
 
     /**
      * Create a new dcp control handler.
@@ -57,7 +65,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
      * @param dcpControl the options set by the caller which should be negotiated.
      */
     DcpControlHandler(final DcpControl dcpControl) {
-        controlSettings = dcpControl.iterator();
+        this.dcpControl = dcpControl;
     }
 
     /**
@@ -88,6 +96,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
      */
     @Override
     public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        controlSettings = dcpControl.getControls(getServerVersion(ctx.channel())).entrySet().iterator();
         negotiate(ctx);
     }
 

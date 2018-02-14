@@ -23,7 +23,9 @@ import com.couchbase.client.core.utils.ConnectionString;
 import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.config.DecompressionMode;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
@@ -875,6 +877,24 @@ public class Client {
          */
         public Builder controlParam(final DcpControl.Names name, Object value) {
             this.dcpControl.put(name, value.toString());
+            return this;
+        }
+
+        /**
+         * Set the compression mode. If not specified, defaults to
+         * {@link CompressionMode#DISCRETIONARY}.
+         */
+        public Builder compression(CompressionMode compressionMode) {
+            this.dcpControl.compression(compressionMode);
+            return this;
+        }
+
+        /**
+         * Set the decompression mode. If not specified, defaults to
+         * {@link DecompressionMode#TRANSPARENT}.
+         */
+        public Builder decompression(DecompressionMode decompressionMode) {
+            this.dcpControl.decompression(decompressionMode);
             return this;
         }
 

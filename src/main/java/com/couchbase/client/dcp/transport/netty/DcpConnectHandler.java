@@ -18,15 +18,23 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
+import com.couchbase.client.dcp.config.CompressionMode;
+import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.dcp.message.HelloRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.VersionRequest;
+import com.couchbase.client.dcp.util.Version;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
+import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.deps.io.netty.util.AttributeKey;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+
+import static com.couchbase.client.dcp.config.CompressionMode.DISABLED;
+import static com.couchbase.client.dcp.config.DecompressionMode.MANUAL;
 
 /**
  * Opens the DCP connection on the channel and once established removes itself.
@@ -56,6 +64,11 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpConnectHandler.class);
 
     /**
+     * The version reported by the server.
+     */
+    private static final AttributeKey<Version> SERVER_VERSION = AttributeKey.valueOf("serverVersion");
+
+    /**
      * Generates the connection name for the dcp connection.
      */
     private final ConnectionNameGenerator connectionNameGenerator;
@@ -71,9 +84,29 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     private final String bucket;
 
     /**
+     * Tells us what features to advertise with the HELLO request.
+     */
+    private final DcpControl dcpControl;
+
+    /**
      * The current connection step
      */
     private byte step = VERSION;
+
+    /**
+     * Returns the Couchbase Server version associated with the given channel.
+     *
+     * @throws IllegalStateException if {@link DcpConnectHandler} has not yet issued
+     *                               a Version request and processed the result.
+     */
+    public static Version getServerVersion(Channel channel) {
+        Version version = channel.attr(SERVER_VERSION).get();
+        if (version == null) {
+            throw new IllegalStateException("Server version attribute not yet set by "
+                    + DcpConnectHandler.class.getSimpleName());
+        }
+        return version;
+    }
 
     /**
      * Creates a new connect handler.
@@ -81,9 +114,10 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
      * @param connectionNameGenerator
      *            the generator of the connection names.
      */
-    DcpConnectHandler(final ConnectionNameGenerator connectionNameGenerator, final String bucket) {
+    DcpConnectHandler(final ConnectionNameGenerator connectionNameGenerator, final String bucket, final DcpControl dcpControl) {
         this.connectionNameGenerator = connectionNameGenerator;
         this.bucket = bucket;
+        this.dcpControl = dcpControl;
     }
 
     /**
@@ -170,24 +204,35 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
     private void hello(ChannelHandlerContext ctx, ByteBuf msg) {
         connectionName = connectionNameGenerator.name();
-        String response = MessageUtil.getContentAsString(msg);
-        int majorVersion;
+        final String versionString = MessageUtil.getContentAsString(msg);
+        final Version serverVersion;
         try {
-            majorVersion = Integer.parseInt(response.substring(0, 1));
-        } catch (NumberFormatException e) {
+            serverVersion = Version.parseVersion(versionString);
+            ctx.channel().attr(SERVER_VERSION).set(serverVersion);
+
+        } catch (IllegalArgumentException e) {
             originalPromise().setFailure(
-                    new IllegalStateException("Version returned by the server couldn't be parsed " + response, e));
+                    new IllegalStateException("Version returned by the server couldn't be parsed " + versionString, e));
             ctx.close(ctx.voidPromise());
             return;
         }
-        if (majorVersion < 5) {
+
+        if (serverVersion.major() < 5) {
+            // Skip HELLO and SELECT
             step = OPEN;
             open(ctx);
-        } else {
-            ByteBuf request = ctx.alloc().buffer();
-            HelloRequest.init(request, Unpooled.copiedBuffer(connectionName, CharsetUtil.UTF_8));
-            ctx.writeAndFlush(request);
+            return;
         }
+
+        final CompressionMode compressionMode = dcpControl.compression(serverVersion);
+        if (compressionMode == DISABLED || dcpControl.decompression() == MANUAL) {
+            ctx.pipeline().remove(SnappyDecoder.class);
+        }
+
+        short[] extraFeatures = compressionMode.getHelloFeatures(serverVersion);
+        ByteBuf request = ctx.alloc().buffer();
+        HelloRequest.init(request, Unpooled.copiedBuffer(connectionName, CharsetUtil.UTF_8), extraFeatures);
+        ctx.writeAndFlush(request);
     }
 
 }

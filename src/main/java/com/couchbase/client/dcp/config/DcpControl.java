@@ -15,9 +15,15 @@
  */
 package com.couchbase.client.dcp.config;
 
+import com.couchbase.client.core.logging.CouchbaseLogger;
+import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.util.Version;
+
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
+
+import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.lang.Boolean.parseBoolean;
 
 /**
  * This class is used during bootstrap to configure all the possible DCP negotiation parameters.
@@ -25,7 +31,8 @@ import java.util.Map;
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-public class DcpControl implements Iterable<Map.Entry<String, String>> {
+public class DcpControl {
+    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpControl.class);
 
     /**
      * NOOP interval to use when none is specified.
@@ -38,10 +45,51 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
     private Map<String, String> values;
 
     /**
+     * The requested compression mode.
+     */
+    private CompressionMode compressionMode = CompressionMode.DISCRETIONARY;
+
+    /**
+     * The requested decompression mode.
+     */
+    private DecompressionMode decompressionMode = DecompressionMode.TRANSPARENT;
+
+    /**
      * Creates a new {@link DcpControl} instance with no params set upfront.
      */
     public DcpControl() {
         this.values = new HashMap<String, String>();
+    }
+
+    /**
+     * Set the compression mode to use.
+     * If not specified, defaults to {@link CompressionMode#DISCRETIONARY}.
+     */
+    public void compression(CompressionMode compressionMode) {
+        this.compressionMode = requireNonNull(compressionMode);
+    }
+
+    /**
+     * Returns the requested compression mode, or the fallback mode if the
+     * server does not support the requested mode.
+     */
+    public CompressionMode compression(Version version) {
+        return compressionMode.effectiveMode(version);
+    }
+
+    /**
+     * Set the decompression mode to use.
+     * If not specified, defaults to {@link DecompressionMode#TRANSPARENT}.
+     */
+    public void decompression(DecompressionMode decompressionMode) {
+        this.decompressionMode = requireNonNull(decompressionMode);
+    }
+
+    /**
+     * Returns the requested decompression mode.
+     */
+    public DecompressionMode decompression() {
+        return decompressionMode;
     }
 
     /**
@@ -52,6 +100,18 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
      * @return the {@link DcpControl} instance for chainability.
      */
     public DcpControl put(final Names name, final String value) {
+        // Intercept the deprecated compression control. The name of the control
+        // for this feature has changed between server versions.
+        if (name == DcpControl.Names.ENABLE_VALUE_COMPRESSION) {
+            final boolean enabled = parseBoolean(value);
+            compression(enabled ? CompressionMode.FORCED : CompressionMode.DISABLED);
+            if (enabled) {
+                // Anyone using the ENABLE_VALUE_COMPRESSION control has been doing their own decompression.
+                decompression(DecompressionMode.MANUAL);
+            }
+            return this;
+        }
+
         // Provide a default NOOP interval because the client needs
         // to know the interval in order to detect dead connections.
         if (name == Names.ENABLE_NOOP && get(Names.SET_NOOP_INTERVAL) == null) {
@@ -108,11 +168,21 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
     }
 
     /**
-     * Provides an iterator over the stored values in the map.
+     * Returns the control settings, adjusted for the actual Couchbase Server version.
      */
-    @Override
-    public Iterator<Map.Entry<String, String>> iterator() {
-        return values.entrySet().iterator();
+    public Map<String, String> getControls(Version serverVersion) {
+        final CompressionMode effectiveMode = compression(serverVersion);
+
+        if (compressionMode != effectiveMode) {
+            LOGGER.info("Couchbase Server version {} does not support {} compression mode; falling back to {}.",
+                    serverVersion, compressionMode, effectiveMode);
+        } else {
+            LOGGER.debug("Compression mode: {}", compressionMode);
+        }
+
+        final Map<String, String> result = new HashMap<String, String>(values);
+        result.putAll(effectiveMode.getDcpControls(serverVersion));
+        return result;
     }
 
     /**
@@ -162,7 +232,11 @@ public class DcpControl implements Iterable<Map.Entry<String, String>> {
         /**
          * Compresses values using snappy compression before sending them. This parameter
          * is available starting in Couchbase 4.5.
+         *
+         * @deprecated in favor of specifying compression settings by calling
+         * {@link #compression(CompressionMode)}. Scheduled for removal in next major version.
          */
+        @Deprecated
         ENABLE_VALUE_COMPRESSION("enable_value_compression"),
         /**
          * Tells the server that the client can tolerate the server dropping the connection.

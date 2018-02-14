@@ -94,13 +94,14 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
         DcpControl control = environment.dcpControl();
 
         pipeline.addLast(new AuthHandler(environment.username(), environment.password()))
-                .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket()))
+                .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket(), control))
                 .addLast(new DcpControlHandler(control));
 
         if (control.noopEnabled()) {
             pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
         }
 
+        pipeline.addLast(new SnappyDecoder());
         pipeline.addLast(new DcpMessageHandler(ch, environment, controlHandler));
     }
 }

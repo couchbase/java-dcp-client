@@ -29,6 +29,7 @@ public enum MessageUtil {
 
     public static final short KEY_LENGTH_OFFSET = 2;
     public static final short EXTRAS_LENGTH_OFFSET = 4;
+    public static final short DATA_TYPE_OFFSET = 5;
     public static final short VBUCKET_OFFSET = 6;
     public static final short BODY_LENGTH_OFFSET = 8;
     public static final short OPAQUE_OFFSET = 12;
@@ -210,6 +211,14 @@ public enum MessageUtil {
 
     public static short getStatus(ByteBuf buffer) {
         return buffer.getShort(VBUCKET_OFFSET);
+    }
+
+    public static byte getDataType(ByteBuf buffer) {
+        return buffer.getByte(DATA_TYPE_OFFSET);
+    }
+
+    public static void setDataType(byte dataType, ByteBuf buffer) {
+        buffer.setByte(DATA_TYPE_OFFSET, dataType);
     }
 
     public static void setOpaque(int opaque, ByteBuf buffer) {
