@@ -16,16 +16,18 @@
 
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.endpoint.util.Snappy;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.ChannelInboundHandlerAdapter;
+import com.couchbase.client.deps.io.netty.util.ReferenceCountUtil;
 
 import static com.couchbase.client.dcp.message.MessageUtil.BODY_LENGTH_OFFSET;
 import static com.couchbase.client.dcp.message.MessageUtil.EXTRAS_LENGTH_OFFSET;
 import static com.couchbase.client.dcp.message.MessageUtil.HEADER_SIZE;
 import static com.couchbase.client.dcp.message.MessageUtil.KEY_LENGTH_OFFSET;
+import static com.couchbase.client.dcp.util.PatchedNettySnappyDecoder.readPreamble;
 
 /**
  * Decompresses snappy-encoded values of incoming messages.
@@ -34,7 +36,7 @@ public class SnappyDecoder extends ChannelInboundHandlerAdapter {
     // Data type bitmask indicating the value of a message is compressed with Snappy.
     private static final byte DATA_TYPE_SNAPPY = 0x02;
 
-    private final Snappy snappy = new Snappy();
+    private final PatchedNettySnappyDecoder snappy = new PatchedNettySnappyDecoder();
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
@@ -47,18 +49,28 @@ public class SnappyDecoder extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        final int estimatedDecompressedLength = origBuffer.readableBytes() * 2;
-        final ByteBuf decompressed = ctx.alloc().buffer(estimatedDecompressedLength);
+        ByteBuf decompressed = null;
 
         try {
             final int keyLength = origBuffer.getUnsignedShort(KEY_LENGTH_OFFSET);
             final short extrasLength = origBuffer.getUnsignedByte(EXTRAS_LENGTH_OFFSET);
             final int lengthWithoutValue = HEADER_SIZE + keyLength + extrasLength;
 
+            // Skip ahead to start of the snappy-compressed value,
+            // read the uncompressed value length, then rewind back to beginning.
+            origBuffer.readerIndex(lengthWithoutValue);
+            final int uncompressedValueLengthFromSnappyHeader = readPreamble(origBuffer);
+            origBuffer.readerIndex(0);
+
+            // How many bytes to allocate for decompressed version of packet?
+            final int decompressedInitialCapacity = lengthWithoutValue + uncompressedValueLengthFromSnappyHeader;
+            decompressed = ctx.alloc().buffer(decompressedInitialCapacity);
+
             // Copy verbatim the header, extras, and key.
             decompressed.writeBytes(origBuffer, lengthWithoutValue);
 
             // Copy the value, decompressing on-the-fly.
+            snappy.reset();
             snappy.decode(origBuffer, decompressed);
 
             // Patch the data type and body length fields.
@@ -68,12 +80,11 @@ public class SnappyDecoder extends ChannelInboundHandlerAdapter {
             decompressed.setInt(BODY_LENGTH_OFFSET, decompressedTotalBodyLength);
 
         } catch (Exception ex) {
-            decompressed.release();
+            ReferenceCountUtil.release(decompressed);
             throw new RuntimeException("Could not decode snappy-compressed value.", ex);
 
         } finally {
             origBuffer.release();
-            snappy.reset();
         }
 
         ctx.fireChannelRead(decompressed);
