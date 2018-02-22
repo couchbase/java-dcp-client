@@ -137,7 +137,7 @@ public class DcpChannelControlHandler implements ControlEventHandler {
             if (eventBus != null) {
                 eventBus.publish(new StreamEndEvent(vbid, reason));
             }
-            dcpChannel.openStreams.set(vbid, 0);
+            dcpChannel.streamIsOpen.set(vbid, false);
             dcpChannel.conductor.maybeMovePartition(vbid);
             flowController.ack(buf);
         } finally {

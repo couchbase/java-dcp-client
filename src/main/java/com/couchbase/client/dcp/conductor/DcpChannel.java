@@ -15,17 +15,6 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import static com.couchbase.client.core.logging.RedactableArgument.system;
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
-
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicIntegerArray;
-
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
@@ -41,6 +30,7 @@ import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
 import com.couchbase.client.dcp.message.VbucketState;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
+import com.couchbase.client.dcp.util.AtomicBooleanArray;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.ByteBufAllocator;
@@ -56,7 +46,6 @@ import com.couchbase.client.deps.io.netty.util.concurrent.DefaultPromise;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
-
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Single;
@@ -64,9 +53,19 @@ import rx.SingleSubscriber;
 import rx.Subscription;
 import rx.functions.Action4;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
+
 /**
  * Logical representation of a DCP cluster connection.
- *
+ * <p>
  * The equals and hashcode are based on the {@link InetAddress}.
  */
 public class DcpChannel extends AbstractStateMachine<LifecycleState> {
@@ -84,7 +83,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     final InetSocketAddress inetAddress;
     final Map<Integer, Promise<?>> outstandingPromises;
     final Map<Integer, Short> outstandingVbucketInfos;
-    final AtomicIntegerArray openStreams;
+    final AtomicBooleanArray streamIsOpen = new AtomicBooleanArray(1024);
     final Conductor conductor;
 
     public DcpChannel(InetSocketAddress inetAddress, final ClientEnvironment env, final Conductor conductor) {
@@ -95,7 +94,6 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         this.outstandingPromises = new ConcurrentHashMap<Integer, Promise<?>>();
         this.outstandingVbucketInfos = new ConcurrentHashMap<Integer, Short>();
         this.controlHandler = new DcpChannelControlHandler(this);
-        this.openStreams = new AtomicIntegerArray(1024);
         this.isShutdown = false;
     }
 
@@ -195,8 +193,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     @Override
                     public void onCompleted() {
                         LOGGER.debug("Completed Node connect for DCP channel {}", inetAddress);
-                        for (short vbid = 0; vbid < openStreams.length(); vbid++) {
-                            if (openStreams.get(vbid) != 0) {
+                        for (short vbid = 0; vbid < streamIsOpen.length(); vbid++) {
+                            if (streamIsOpen.get(vbid)) {
                                 conductor.maybeMovePartition(vbid);
                             }
                         }
@@ -305,11 +303,11 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             LOGGER.debug("Opened Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
-                            openStreams.set(vbid, 1);
+                            streamIsOpen.set(vbid, true);
                             subscriber.onCompleted();
                         } else {
                             LOGGER.debug("Failed open Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
-                            openStreams.set(vbid, 0);
+                            streamIsOpen.set(vbid, false);
                             subscriber.onError(future.cause());
                         }
                     }
@@ -343,7 +341,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 promise.addListener(new GenericFutureListener<ChannelFuture>() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
-                        openStreams.set(vbid, 0);
+                        streamIsOpen.set(vbid, false);
                         if (future.isSuccess()) {
                             LOGGER.debug("Closed Stream against {} with vbid: {}", channel.remoteAddress(), vbid);
                             subscriber.onCompleted();
@@ -433,7 +431,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
     public boolean streamIsOpen(short vbid) {
-        return openStreams.get(vbid) == 1;
+        return streamIsOpen.get(vbid);
     }
 
     @Override
