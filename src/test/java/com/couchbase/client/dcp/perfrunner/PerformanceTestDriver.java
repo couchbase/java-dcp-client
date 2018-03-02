@@ -1,0 +1,154 @@
+/*
+ * Copyright 2018 Couchbase, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.couchbase.client.dcp.perfrunner;
+
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.config.CompressionMode;
+import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
+import com.couchbase.client.deps.com.fasterxml.jackson.databind.ObjectMapper;
+import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+
+/**
+ * Command line driver for performance testing. See perf/README.md for more info.
+ */
+class PerformanceTestDriver {
+
+    private static class Args {
+        private String connectionString;
+        private int dcpMessageCount;
+        private Properties settings;
+    }
+
+    public static void main(String[] commandLineArguments) throws Exception {
+        Args args = parseArgs(commandLineArguments);
+        Client client = buildClient(args);
+        runTest(client, args);
+        generateReport();
+    }
+
+    private static void generateReport() throws IOException {
+        File reportDir = new File("target/perf");
+        if (!reportDir.exists() && !reportDir.mkdir()) {
+            throw new IOException("Failed to create report directory: " + reportDir.getAbsolutePath());
+        }
+
+        OutputStream os = new FileOutputStream(new File(reportDir, "metrics.json"));
+        try {
+            new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(os, "Coming soon");
+        } finally {
+            os.close();
+        }
+    }
+
+    private static Args parseArgs(String[] args) throws IOException {
+        Iterator<String> i = Arrays.asList(args).iterator();
+        Args result = new Args();
+        result.connectionString = i.next();
+        result.dcpMessageCount = Integer.parseInt(i.next());
+        File configFile = new File(i.next());
+        Properties props = new Properties();
+        props.load(new FileInputStream(configFile));
+        result.settings = props;
+
+        System.out.println("Configuration properties read from " + configFile.getAbsolutePath());
+        props.list(System.out);
+        System.out.println();
+
+        return result;
+    }
+
+    private static void runTest(final Client client, Args args) throws InterruptedException {
+        // Don't do anything with control events in this example
+        client.controlEventHandler(new ControlEventHandler() {
+            @Override
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+                if (DcpSnapshotMarkerRequest.is(event)) {
+                    flowController.ack(event);
+                }
+                event.release();
+            }
+        });
+
+        final CountDownLatch latch = new CountDownLatch(args.dcpMessageCount);
+
+        client.dataEventHandler(new DataEventHandler() {
+            @Override
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+                latch.countDown();
+                event.release();
+            }
+        });
+
+        long startNanos = System.nanoTime();
+        client.connect().await();
+        client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).await();
+        client.startStreaming().await();
+
+        latch.await();
+        System.out.println("Received at least " + args.dcpMessageCount + " messages. Done!");
+        long elapsedNanos = System.nanoTime() - startNanos;
+
+        client.disconnect().await();
+
+        System.out.println("Shutdown complete. Receiving " + args.dcpMessageCount + " DCP events took " +
+                TimeUnit.NANOSECONDS.toMillis(elapsedNanos) + " ms");
+    }
+
+    private static Client buildClient(Args args) throws IOException {
+        CompressionMode compressionMode = CompressionMode.valueOf(
+                args.settings.getProperty("compression", CompressionMode.DISABLED.name()));
+
+        PerformanceTestConnectionString connectionString = new PerformanceTestConnectionString(args.connectionString);
+
+        List<String> hostnames = new ArrayList<String>();
+        for (InetSocketAddress host : connectionString.hosts()) {
+            if (host.getPort() != 0) {
+                throw new IllegalArgumentException("Connection string must not specify port");
+            }
+            hostnames.add(host.getHostName());
+        }
+
+        return Client.configure()
+                .username(requireNonNull(connectionString.username(), "Connection string is missing username"))
+                .password(requireNonNull(connectionString.password(), "Connection string is missing password"))
+                .hostnames(hostnames)
+                .bucket(requireNonNull(connectionString.bucket(), "Connection string is missing bucket name"))
+                .compression(compressionMode)
+                .build();
+    }
+}
