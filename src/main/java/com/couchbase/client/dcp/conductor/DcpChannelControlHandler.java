@@ -19,20 +19,11 @@ import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ControlEventHandler;
-import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.StreamEndEvent;
-import com.couchbase.client.dcp.message.DcpCloseStreamResponse;
-import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
-import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosResponse;
-import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
 import com.couchbase.client.dcp.message.DcpStreamEndMessage;
-import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
 
 public class DcpChannelControlHandler implements ControlEventHandler {
 
@@ -49,83 +40,10 @@ public class DcpChannelControlHandler implements ControlEventHandler {
 
     @Override
     public void onEvent(ChannelFlowController flowController, ByteBuf buf) {
-        if (DcpOpenStreamResponse.is(buf)) {
-            filterOpenStreamResponse(flowController, buf);
-        } else if (DcpFailoverLogResponse.is(buf)) {
-            filterFailoverLogResponse(buf);
-        } else if (DcpStreamEndMessage.is(buf)) {
+        if (DcpStreamEndMessage.is(buf)) {
             filterDcpStreamEndMessage(flowController, buf);
-        } else if (DcpCloseStreamResponse.is(buf)) {
-            filterDcpCloseStreamResponse(flowController, buf);
-        } else if (DcpGetPartitionSeqnosResponse.is(buf)) {
-            filterDcpGetPartitionSeqnosResponse(buf);
         } else {
             controlEventHandler.onEvent(flowController, buf);
-        }
-    }
-
-    private boolean filterOpenStreamResponse(ChannelFlowController flowController, ByteBuf buf) {
-        try {
-            Promise<?> promise = dcpChannel.outstandingPromises.remove(MessageUtil.getOpaque(buf));
-            short vbid = dcpChannel.outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
-            short status = MessageUtil.getStatus(buf);
-            switch (status) {
-                case 0x00:
-                    promise.setSuccess(null);
-                    // create a failover log message and emit
-                    ByteBuf flog = Unpooled.buffer();
-                    DcpFailoverLogResponse.init(flog);
-                    DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
-                    ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
-                    MessageUtil.setContent(content, flog);
-                    content.release();
-                    controlEventHandler.onEvent(flowController, flog);
-                    break;
-                case 0x23:
-                    promise.setFailure(new RollbackException());
-                    // create a rollback message and emit
-                    ByteBuf rb = Unpooled.buffer();
-                    RollbackMessage.init(rb, vbid, DcpOpenStreamResponse.rollbackSeqno(buf));
-                    controlEventHandler.onEvent(flowController, rb);
-                    break;
-                case 0x07:
-                    promise.setFailure(new NotMyVbucketException());
-                    break;
-                default:
-                    promise.setFailure(new IllegalStateException("Unhandled Status: " + status));
-            }
-            return false;
-        } finally {
-            buf.release();
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void filterDcpGetPartitionSeqnosResponse(ByteBuf buf) {
-        try {
-            Promise<ByteBuf> promise =
-                    (Promise<ByteBuf>) dcpChannel.outstandingPromises.remove(MessageUtil.getOpaque(buf));
-            promise.setSuccess(MessageUtil.getContent(buf).copy());
-        } finally {
-            buf.release();
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void filterFailoverLogResponse(ByteBuf buf) {
-        try {
-            Promise<ByteBuf> promise =
-                    (Promise<ByteBuf>) dcpChannel.outstandingPromises.remove(MessageUtil.getOpaque(buf));
-            short vbid = dcpChannel.outstandingVbucketInfos.remove(MessageUtil.getOpaque(buf));
-            ByteBuf flog = Unpooled.buffer();
-            DcpFailoverLogResponse.init(flog);
-            DcpFailoverLogResponse.vbucket(flog, DcpFailoverLogResponse.vbucket(buf));
-            ByteBuf copiedBuf = MessageUtil.getContent(buf).copy().writeShort(vbid);
-            MessageUtil.setContent(copiedBuf, flog);
-            copiedBuf.release();
-            promise.setSuccess(flog);
-        } finally {
-            buf.release();
         }
     }
 
@@ -140,15 +58,6 @@ public class DcpChannelControlHandler implements ControlEventHandler {
             dcpChannel.streamIsOpen.set(vbid, false);
             dcpChannel.conductor.maybeMovePartition(vbid);
             flowController.ack(buf);
-        } finally {
-            buf.release();
-        }
-    }
-
-    private void filterDcpCloseStreamResponse(ChannelFlowController flowController, ByteBuf buf) {
-        try {
-            Promise<?> promise = dcpChannel.outstandingPromises.remove(MessageUtil.getOpaque(buf));
-            promise.setSuccess(null);
         } finally {
             buf.release();
         }
