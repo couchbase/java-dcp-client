@@ -20,12 +20,11 @@ import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpBufferAckRequest;
-import com.couchbase.client.dcp.message.DcpCloseStreamResponse;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSetVbucketStateMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
-import com.couchbase.client.dcp.message.DcpStateVbucketStateMessage;
 import com.couchbase.client.dcp.message.DcpStreamEndMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
@@ -75,14 +74,11 @@ public class ChannelFlowController {
      *
      * This method can always be called even if not enabled, if not enabled on bootstrap it will short-circuit.
      *
-     * @param vbid
-     *            the partition id.
-     * @param numBytes
-     *            the number of bytes to acknowledge.
+     * @param message the buffer to acknowledge.
      */
     public void ack(ByteBuf message) {
-        if (needsBufferAck && (DcpStateVbucketStateMessage.is(message) || DcpSnapshotMarkerRequest.is(message)
-                || DcpStreamEndMessage.is(message) || DcpCloseStreamResponse.is(message)
+        if (needsBufferAck && (DcpSetVbucketStateMessage.is(message) || DcpSnapshotMarkerRequest.is(message)
+                || DcpStreamEndMessage.is(message)
                 || DcpMutationMessage.is(message) || DcpDeletionMessage.is(message)
                 || DcpExpirationMessage.is(message))) {
             ack(message.readableBytes());

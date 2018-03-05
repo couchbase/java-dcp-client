@@ -149,7 +149,6 @@ public class DcpChannelControlHandler implements ControlEventHandler {
         try {
             Promise<?> promise = dcpChannel.outstandingPromises.remove(MessageUtil.getOpaque(buf));
             promise.setSuccess(null);
-            flowController.ack(buf);
         } finally {
             buf.release();
         }

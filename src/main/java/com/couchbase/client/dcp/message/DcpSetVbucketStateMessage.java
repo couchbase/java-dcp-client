@@ -23,7 +23,7 @@ import static com.couchbase.client.dcp.message.MessageUtil.DCP_SET_VBUCKET_STATE
 /**
  * This message is used during the VBucket takeover process to hand off ownership of a VBucket between two nodes.
  */
-public enum DcpStateVbucketStateMessage {
+public enum DcpSetVbucketStateMessage {
     ;
 
     public static boolean is(final ByteBuf buffer) {
