@@ -32,6 +32,7 @@ import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
+import com.couchbase.client.dcp.nextgen.ResponseStatus;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -63,6 +64,8 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.nextgen.ResponseStatus.NOT_MY_VBUCKET;
+import static com.couchbase.client.dcp.nextgen.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
 
@@ -312,43 +315,39 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
                         ByteBuf buf = future.getNow().buffer();
                         try {
-                            short status = MessageUtil.getStatus(buf);
+                            final ResponseStatus status = MessageUtil.getResponseStatus(buf);
 
-                            if (status != 0x00) {
+                            if (!status.isSuccess()) {
                                 LOGGER.debug("Failed open Stream against {} with vbid: {}", inetAddress, vbid);
                                 streamIsOpen.set(vbid, false);
                             }
 
-                            switch (status) {
-                                case 0x00:
-                                    LOGGER.debug("Opened Stream against {} with vbid: {}", inetAddress, vbid);
-                                    streamIsOpen.set(vbid, true);
-                                    subscriber.onCompleted();
+                            if (status.isSuccess()) {
+                                LOGGER.debug("Opened Stream against {} with vbid: {}", inetAddress, vbid);
+                                streamIsOpen.set(vbid, true);
+                                subscriber.onCompleted();
 
-                                    ByteBuf flog = Unpooled.buffer();
-                                    DcpFailoverLogResponse.init(flog);
-                                    DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
-                                    ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
-                                    MessageUtil.setContent(content, flog);
-                                    content.release();
-                                    env.controlEventHandler().onEvent(null, flog);
-                                    break;
+                                ByteBuf flog = Unpooled.buffer();
+                                DcpFailoverLogResponse.init(flog);
+                                DcpFailoverLogResponse.vbucket(flog, DcpOpenStreamResponse.vbucket(buf));
+                                ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
+                                MessageUtil.setContent(content, flog);
+                                content.release();
+                                env.controlEventHandler().onEvent(null, flog);
 
-                                case 0x23:
-                                    subscriber.onError(new RollbackException());
+                            } else if (status == ROLLBACK_REQUIRED) {
+                                subscriber.onError(new RollbackException());
 
-                                    // create a rollback message and emit
-                                    ByteBuf rb = Unpooled.buffer();
-                                    RollbackMessage.init(rb, vbid, DcpOpenStreamResponse.rollbackSeqno(buf));
-                                    env.controlEventHandler().onEvent(null, rb);
-                                    break;
+                                // create a rollback message and emit
+                                ByteBuf rb = Unpooled.buffer();
+                                RollbackMessage.init(rb, vbid, DcpOpenStreamResponse.rollbackSeqno(buf));
+                                env.controlEventHandler().onEvent(null, rb);
 
-                                case 0x07:
-                                    subscriber.onError(new NotMyVbucketException());
-                                    break;
+                            } else if (status == NOT_MY_VBUCKET) {
+                                subscriber.onError(new NotMyVbucketException());
 
-                                default:
-                                    subscriber.onError(new IllegalStateException("Unhandled Status: " + status));
+                            } else {
+                                subscriber.onError(new IllegalStateException("Unhandled Status: " + status));
                             }
                         } finally {
                             buf.release();

@@ -15,10 +15,12 @@
  */
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.dcp.nextgen.ResponseStatus;
 import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+
+import static com.couchbase.client.deps.io.netty.util.CharsetUtil.UTF_8;
 
 public enum MessageUtil {
     ;
@@ -75,7 +77,7 @@ public enum MessageUtil {
 
     /**
      * Dumps the given ByteBuf in the "wire format".
-     *
+     * <p>
      * Note that the response is undefined if a buffer with a different
      * content than the KV protocol is passed in.
      *
@@ -89,12 +91,16 @@ public enum MessageUtil {
         int bodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
 
         sb.append("Field          (offset) (value)\n-----------------------------------\n");
-        sb.append(String.format("Magic          (0)      0x%02x\n", buffer.getByte(0)));
+        sb.append(String.format("Magic          (0)      %s\n", formatMagic(buffer.getByte(0))));
         sb.append(String.format("Opcode         (1)      0x%02x\n", buffer.getByte(1)));
         sb.append(String.format("Key Length     (2,3)    0x%04x\n", keyLength));
         sb.append(String.format("Extras Length  (4)      0x%02x\n", extrasLength));
         sb.append(String.format("Data Type      (5)      0x%02x\n", buffer.getByte(5)));
-        sb.append(String.format("VBucket        (6,7)    0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
+        if (buffer.getByte(0) == MAGIC_REQ) {
+            sb.append(String.format("VBucket        (6,7)    0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
+        } else {
+            sb.append(String.format("Status         (6,7)    %s\n", getResponseStatus(buffer)));
+        }
         sb.append(String.format("Total Body     (8-11)   0x%08x\n", bodyLength));
         sb.append(String.format("Opaque         (12-15)  0x%08x\n", buffer.getInt(OPAQUE_OFFSET)));
         sb.append(String.format("CAS            (16-23)  0x%016x\n", buffer.getLong(CAS_OFFSET)));
@@ -187,7 +193,7 @@ public enum MessageUtil {
     public static String getKeyAsString(ByteBuf buffer) {
         byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
         short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
-        return buffer.toString(HEADER_SIZE + extrasLength, keyLength, CharsetUtil.UTF_8);
+        return buffer.toString(HEADER_SIZE + extrasLength, keyLength, UTF_8);
     }
 
     /**
@@ -243,7 +249,7 @@ public enum MessageUtil {
     }
 
     public static String getContentAsString(ByteBuf buffer) {
-        return getContent(buffer).toString(CharsetUtil.UTF_8);
+        return getContent(buffer).toString(UTF_8);
     }
 
     public static byte[] getContentAsByteArray(ByteBuf buffer) {
@@ -268,8 +274,24 @@ public enum MessageUtil {
         return bytes;
     }
 
+    /**
+     * @deprecated in favor of {@link #getResponseStatus(ByteBuf)}
+     */
+    @Deprecated
     public static short getStatus(ByteBuf buffer) {
         return buffer.getShort(VBUCKET_OFFSET);
+    }
+
+    public static ResponseStatus getResponseStatus(ByteBuf buffer) {
+        return ResponseStatus.valueOf(buffer.getShort(VBUCKET_OFFSET));
+    }
+
+    public static byte getDataType(ByteBuf buffer) {
+        return buffer.getByte(DATA_TYPE_OFFSET);
+    }
+
+    public static void setDataType(byte dataType, ByteBuf buffer) {
+        buffer.setByte(DATA_TYPE_OFFSET, dataType);
     }
 
     public static void setOpaque(int opaque, ByteBuf buffer) {
@@ -284,4 +306,10 @@ public enum MessageUtil {
         return buffer.getLong(CAS_OFFSET);
     }
 
+    private static String formatMagic(byte magic) {
+        String name = magic == MAGIC_REQ
+                ? "REQUEST"
+                : (magic == MAGIC_RES) ? "RESPONSE" : "?";
+        return String.format("0x%02x (%s)", magic, name);
+    }
 }

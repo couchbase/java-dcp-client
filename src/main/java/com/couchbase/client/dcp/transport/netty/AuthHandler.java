@@ -26,6 +26,7 @@ import com.couchbase.client.dcp.message.SaslListMechsRequest;
 import com.couchbase.client.dcp.message.SaslListMechsResponse;
 import com.couchbase.client.dcp.message.SaslStepRequest;
 import com.couchbase.client.dcp.message.SaslStepResponse;
+import com.couchbase.client.dcp.nextgen.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
@@ -42,6 +43,8 @@ import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.sasl.SaslClient;
 import java.io.IOException;
 
+import static com.couchbase.client.dcp.nextgen.ResponseStatus.AUTH_ERROR;
+
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
  *
@@ -49,16 +52,6 @@ import java.io.IOException;
  * @since 1.0.0
  */
 class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements CallbackHandler {
-
-    /**
-     * Indicates a successful SASL auth.
-     */
-    private static final byte AUTH_SUCCESS = 0x00;
-
-    /**
-     * Indicates a failed SASL auth.
-     */
-    private static final byte AUTH_ERROR = 0x20;
 
     /**
      * The logger used for the auth handler.
@@ -118,7 +111,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
         } else if (SaslAuthResponse.is(msg)) {
             handleAuthResponse(ctx, msg);
         } else if (SaslStepResponse.is(msg)) {
-            checkIsAuthed(ctx, MessageUtil.getStatus(msg));
+            checkIsAuthed(ctx, MessageUtil.getResponseStatus(msg));
         } else {
             throw new IllegalStateException("Received unexpected SASL response! " + MessageUtil.humanize(msg));
         }
@@ -129,7 +122,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
      */
     private void handleAuthResponse(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
         if (saslClient.isComplete()) {
-            checkIsAuthed(ctx, MessageUtil.getStatus(msg));
+            checkIsAuthed(ctx, MessageUtil.getResponseStatus(msg));
             return;
         }
 
@@ -178,19 +171,18 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
     /**
      * Check if the authentication process succeeded or failed based on the response status.
      */
-    private void checkIsAuthed(final ChannelHandlerContext ctx, final short status) {
-        switch (status) {
-            case AUTH_SUCCESS:
-                LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
-                ctx.pipeline().remove(this);
-                originalPromise().setSuccess();
-                ctx.fireChannelActive();
-                break;
-            case AUTH_ERROR:
-                originalPromise().setFailure(new AuthenticationException("SASL Authentication Failure"));
-                break;
-            default:
-                originalPromise().setFailure(new AuthenticationException("Unhandled SASL auth status: " + status));
+    private void checkIsAuthed(final ChannelHandlerContext ctx, final ResponseStatus status) {
+        if (status.isSuccess()) {
+            LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
+            ctx.pipeline().remove(this);
+            originalPromise().setSuccess();
+            ctx.fireChannelActive();
+
+        } else if (status == AUTH_ERROR) {
+            originalPromise().setFailure(new AuthenticationException("SASL Authentication Failure"));
+
+        } else {
+            originalPromise().setFailure(new AuthenticationException("Unhandled SASL auth status: " + status));
         }
     }
 

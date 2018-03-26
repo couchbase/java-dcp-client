@@ -20,6 +20,7 @@ import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpControlRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.nextgen.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -37,11 +38,6 @@ import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServ
  * @since 1.0.0
  */
 public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
-
-    /**
-     * Status indicating a successful negotiation of one control param.
-     */
-    private static final byte CONTROL_SUCCESS = 0x00;
 
     /**
      * The logger used.
@@ -106,8 +102,8 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
      */
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
-        short status = MessageUtil.getStatus(msg);
-        if (status == CONTROL_SUCCESS) {
+        ResponseStatus status = MessageUtil.getResponseStatus(msg);
+        if (status.isSuccess()) {
             negotiate(ctx);
         } else {
             originalPromise().setFailure(new IllegalStateException("Could not configure DCP Controls: " + status));

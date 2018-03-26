@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_REQUEST_OPCODE;
+import static com.couchbase.client.dcp.nextgen.ResponseStatus.ROLLBACK_REQUIRED;
 
 public enum DcpOpenStreamResponse {
     ;
@@ -31,7 +32,7 @@ public enum DcpOpenStreamResponse {
     }
 
     public static long rollbackSeqno(ByteBuf buffer) {
-        if (MessageUtil.getStatus(buffer) == 0x23) {
+        if (MessageUtil.getResponseStatus(buffer) == ROLLBACK_REQUIRED) {
             return MessageUtil.getContent(buffer).getLong(0);
         } else {
             throw new IllegalStateException("Rollback sequence number accessible only for ROLLBACK (0x23) status code");

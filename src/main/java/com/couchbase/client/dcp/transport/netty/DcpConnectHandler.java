@@ -25,6 +25,7 @@ import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.dcp.message.HelloRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.VersionRequest;
+import com.couchbase.client.dcp.nextgen.ResponseStatus;
 import com.couchbase.client.dcp.util.Version;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
@@ -133,8 +134,8 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
      */
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
-        short status = MessageUtil.getStatus(msg);
-        if (status == SUCCESS) {
+        ResponseStatus status = MessageUtil.getResponseStatus(msg);
+        if (status.isSuccess()) {
             step++;
             switch (step) {
                 case HELLO:
