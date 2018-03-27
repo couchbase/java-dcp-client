@@ -45,7 +45,8 @@ public interface ConfigProvider extends Stateful<LifecycleState> {
 
     /**
      * Returns an {@link Observable} which emits a new config every time it arrives from
-     * the server side.
+     * the server side. The revision number of each emitted config is guaranteed to be greater
+     * than the revision number of the previously emitted config.
      */
     Observable<CouchbaseBucketConfig> configs();
 

@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.core.logging.RedactableArgument;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.handler.codec.base64.Base64;
@@ -71,6 +72,10 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
             switch (statusCode) {
                 case 401:
                     exception = new CouchbaseException("Unauthorized (bucket/password invalid) - please check credentials!");
+                    break;
+                case 404:
+                    exception = new CouchbaseException("Got HTTP status code 404 (Not Found)." +
+                            " Does bucket '" + RedactableArgument.meta(bucket) + "' exist?");
                     break;
                 default:
                     exception = new CouchbaseException("Unknown error code during connect: " + msg.getStatus());

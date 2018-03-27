@@ -46,6 +46,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
@@ -62,6 +63,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
     private final AtomicReference<List<InetSocketAddress>> remoteHosts;
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+    private final AtomicLong currentBucketConfigRev = new AtomicLong(-1);
     private volatile boolean stopped = false;
     private volatile Channel channel;
     private final ClientEnvironment env;
@@ -169,7 +171,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
                 .option(ChannelOption.ALLOCATOR, allocator)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
                 .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-                .handler(new ConfigPipeline(env, address, configStream))
+                .handler(new ConfigPipeline(env, address, configStream, currentBucketConfigRev))
                 .group(env.eventLoopGroup());
 
         return Completable.create(new Completable.OnSubscribe() {

@@ -15,16 +15,6 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import static com.couchbase.client.core.logging.RedactableArgument.system;
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
-
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
@@ -42,7 +32,6 @@ import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
-
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -53,39 +42,40 @@ import rx.functions.Action1;
 import rx.functions.Action4;
 import rx.functions.Func1;
 
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
+
 public class Conductor {
 
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Conductor.class);
 
     private final ConfigProvider configProvider;
-    private final Set<DcpChannel> channels;
-    private volatile long configRev = -1;
+    private final Set<DcpChannel> channels = new ConcurrentSet<DcpChannel>();
     private volatile boolean stopped = true;
     private final ClientEnvironment env;
-    private final AtomicReference<CouchbaseBucketConfig> currentConfig;
+    private final AtomicReference<CouchbaseBucketConfig> currentConfig = new AtomicReference<CouchbaseBucketConfig>();
     private final boolean ownsConfigProvider;
-    private final SessionState sessionState;
+    private final SessionState sessionState = new SessionState();
 
     public Conductor(final ClientEnvironment env, ConfigProvider cp) {
         this.env = env;
-        this.currentConfig = new AtomicReference<CouchbaseBucketConfig>();
-        sessionState = new SessionState();
         configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
         ownsConfigProvider = cp == null;
         configProvider.configs().forEach(new Action1<CouchbaseBucketConfig>() {
             @Override
             public void call(CouchbaseBucketConfig config) {
-                if (config.rev() > configRev) {
-                    configRev = config.rev();
-                    LOGGER.trace("Applying new configuration, rev is now {}.", configRev);
-                    currentConfig.set(config);
-                    reconfigure(config);
-                } else {
-                    LOGGER.trace("Ignoring config, since rev has not changed.");
-                }
+                LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
+                currentConfig.set(config);
+                reconfigure(config);
             }
         });
-        channels = new ConcurrentSet<DcpChannel>();
     }
 
     public SessionState sessionState() {
@@ -111,6 +101,10 @@ public class Conductor {
                     }
                 })
                 .concatWith(atLeastOneConfig);
+    }
+
+    ConfigProvider configProvider() {
+        return configProvider;
     }
 
     /**
@@ -277,7 +271,7 @@ public class Conductor {
     /**
      * Returns the dcp channel responsible for a given vbucket id according to the current
      * configuration.
-     *
+     * <p>
      * Note that this doesn't mean that the partition is enabled there, it just checks the current
      * mapping.
      */
@@ -297,20 +291,18 @@ public class Conductor {
     }
 
     private void reconfigure(CouchbaseBucketConfig config) {
-        List<InetSocketAddress> toAdd = new ArrayList<InetSocketAddress>();
-        List<DcpChannel> toRemove = new ArrayList<DcpChannel>();
+        final List<InetSocketAddress> toAdd = new ArrayList<InetSocketAddress>();
+        final List<DcpChannel> toRemove = new ArrayList<DcpChannel>();
 
         for (NodeInfo node : config.nodes()) {
-            if (!(node.services().containsKey(ServiceType.BINARY)
-                    || node.sslServices().containsKey(ServiceType.BINARY))) {
+            if (!hasBinaryService(node)) {
                 continue; // we only care about kv nodes
             }
             if (!config.hasPrimaryPartitionsOnNode(node.hostname())) {
                 continue;
             }
 
-            InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(),
-                    (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
+            final InetSocketAddress address = getAddress(node);
 
             boolean found = false;
             for (DcpChannel chan : channels) {
@@ -329,8 +321,7 @@ public class Conductor {
         for (DcpChannel chan : channels) {
             boolean found = false;
             for (NodeInfo node : config.nodes()) {
-                InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(),
-                        (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
+                InetSocketAddress address = getAddress(node);
                 if (address.equals(chan.address())) {
                     found = true;
                     break;
@@ -349,6 +340,16 @@ public class Conductor {
         for (DcpChannel remove : toRemove) {
             remove(remove);
         }
+    }
+
+    private static boolean hasBinaryService(NodeInfo node) {
+        return (node.services().containsKey(ServiceType.BINARY)
+                || node.sslServices().containsKey(ServiceType.BINARY));
+    }
+
+    private InetSocketAddress getAddress(NodeInfo node) {
+        return new InetSocketAddress(node.hostname().nameOrAddress(),
+                (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
     }
 
     private void add(final InetSocketAddress node) {

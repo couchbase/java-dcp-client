@@ -17,6 +17,8 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
+import com.couchbase.client.core.logging.CouchbaseLogger;
+import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -27,6 +29,7 @@ import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This handler is responsible to consume chunks of JSON configs via HTTP, aggregate them and once a complete
@@ -36,6 +39,7 @@ import java.net.InetSocketAddress;
  * @since 1.0.0
  */
 class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
+    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigHandler.class);
 
     /**
      * Hostname used to replace $HOST parts in the config when used against localhost.
@@ -46,6 +50,13 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
      * The config stream where the configs are emitted into.
      */
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+
+    /**
+     * The revision of the last config emitted. Only emit a config
+     * if it is newer than this revision.
+     */
+    private final AtomicLong currentBucketConfigRev;
+
     private final ClientEnvironment environment;
 
     /**
@@ -55,14 +66,19 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
 
     /**
      * Creates a new config handler.
-     * @param hostname     hostname of the remote server.
+     *
+     * @param hostname hostname of the remote server.
      * @param configStream config stream where to send the configs.
-     * @param environment  the environment.
+     * @param currentBucketConfigRev revision of last received config.
+     * @param environment the environment.
      */
     ConfigHandler(final InetSocketAddress hostname,
-                  final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream, ClientEnvironment environment) {
+                  final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
+                  final AtomicLong currentBucketConfigRev,
+                  final ClientEnvironment environment) {
         this.hostname = hostname;
         this.configStream = configStream;
+        this.currentBucketConfigRev = currentBucketConfigRev;
         this.environment = environment;
     }
 
@@ -93,7 +109,16 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
                     .trim()
                     .replace("$HOST", hostname.getAddress().getHostAddress());
 
-            configStream.onNext((CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment));
+            CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment);
+            synchronized (currentBucketConfigRev) {
+                if (config.rev() > currentBucketConfigRev.get()) {
+                    currentBucketConfigRev.set(config.rev());
+                    configStream.onNext(config);
+                } else {
+                    LOGGER.trace("Ignoring config, since rev has not changed.");
+                }
+            }
+
             responseContent.clear();
             responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(CharsetUtil.UTF_8));
         }

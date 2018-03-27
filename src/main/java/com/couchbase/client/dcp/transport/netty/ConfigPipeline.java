@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.logging.CouchbaseLogger;
@@ -74,6 +75,13 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
      * The config stream where the configs are emitted into.
      */
     private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+
+    /**
+     * The revision of the last config emitted. Only emit a config
+     * if it is newer than this revision.
+     */
+    private final AtomicLong currentBucketConfigRev;
+
     private final SSLEngineFactory sslEngineFactory;
 
     /**
@@ -83,12 +91,14 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
      * @param configStream config stream where to send the configs.
      */
     public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress hostname,
-                          final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream) {
+                          final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
+                          final AtomicLong currentBucketConfigRev) {
         this.hostname = hostname;
         this.bucket = environment.bucket();
         this.username = environment.username();
         this.password = environment.password();
         this.configStream = configStream;
+        this.currentBucketConfigRev = currentBucketConfigRev;
         this.environment = environment;
         if (environment.sslEnabled()) {
             this.sslEngineFactory = new SSLEngineFactory(environment);
@@ -118,7 +128,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
         pipeline
             .addLast(new HttpClientCodec())
             .addLast(new StartStreamHandler(bucket, username, password))
-            .addLast(new ConfigHandler(hostname, configStream, environment));
+            .addLast(new ConfigHandler(hostname, configStream, currentBucketConfigRev, environment));
     }
 
 }
