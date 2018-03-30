@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.couchbase.client.dcp.nextgen;
+package com.couchbase.client.dcp.message;
 
 /**
  * Response status codes and messages, as defined in the

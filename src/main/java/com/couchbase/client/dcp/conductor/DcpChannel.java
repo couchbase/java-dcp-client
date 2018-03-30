@@ -32,7 +32,7 @@ import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
-import com.couchbase.client.dcp.nextgen.ResponseStatus;
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -64,8 +64,8 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
-import static com.couchbase.client.dcp.nextgen.ResponseStatus.NOT_MY_VBUCKET;
-import static com.couchbase.client.dcp.nextgen.ResponseStatus.ROLLBACK_REQUIRED;
+import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
+import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
 

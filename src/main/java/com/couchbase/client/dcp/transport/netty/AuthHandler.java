@@ -26,7 +26,7 @@ import com.couchbase.client.dcp.message.SaslListMechsRequest;
 import com.couchbase.client.dcp.message.SaslListMechsResponse;
 import com.couchbase.client.dcp.message.SaslStepRequest;
 import com.couchbase.client.dcp.message.SaslStepResponse;
-import com.couchbase.client.dcp.nextgen.ResponseStatus;
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
@@ -43,7 +43,7 @@ import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.sasl.SaslClient;
 import java.io.IOException;
 
-import static com.couchbase.client.dcp.nextgen.ResponseStatus.AUTH_ERROR;
+import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_ERROR;
 
 /**
  * Performs SASL authentication against the socket and once complete removes itself.

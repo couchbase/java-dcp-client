@@ -20,7 +20,7 @@ import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpControlRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.nextgen.ResponseStatus;
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;

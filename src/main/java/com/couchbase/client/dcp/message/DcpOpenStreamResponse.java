@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_REQUEST_OPCODE;
-import static com.couchbase.client.dcp.nextgen.ResponseStatus.ROLLBACK_REQUIRED;
+import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 
 public enum DcpOpenStreamResponse {
     ;

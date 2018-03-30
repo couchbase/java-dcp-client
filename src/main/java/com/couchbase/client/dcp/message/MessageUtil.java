@@ -15,7 +15,6 @@
  */
 package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.dcp.nextgen.ResponseStatus;
 import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;

@@ -25,7 +25,7 @@ import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.dcp.message.HelloRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.VersionRequest;
-import com.couchbase.client.dcp.nextgen.ResponseStatus;
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.util.Version;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
