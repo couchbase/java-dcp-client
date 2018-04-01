@@ -49,17 +49,29 @@ public class DcpChannelControlHandler implements ControlEventHandler {
 
     private void filterDcpStreamEndMessage(ChannelFlowController flowController, ByteBuf buf) {
         try {
-            short vbid = DcpStreamEndMessage.vbucket(buf);
-            StreamEndReason reason = DcpStreamEndMessage.reason(buf);
+            final short vbid = DcpStreamEndMessage.vbucket(buf);
+            final StreamEndReason reason = DcpStreamEndMessage.reason(buf);
             LOGGER.debug("Server closed Stream on vbid {} with reason {}", vbid, reason);
-            if (eventBus != null) {
-                eventBus.publish(new StreamEndEvent(vbid, reason));
+
+            final StreamEndEvent event = new StreamEndEvent(vbid, reason);
+
+            if (dcpChannel.env.persistencePollingEnabled()) {
+                // stream event buffer will publish event at appropriate time
+                dcpChannel.env.streamEventBuffer().onStreamEnd(event);
+            } else {
+                eventBus.publish(event);
             }
+
             dcpChannel.streamIsOpen.set(vbid, false);
-            dcpChannel.conductor.maybeMovePartition(vbid);
-            flowController.ack(buf);
+            if (reason != StreamEndReason.OK) {
+                dcpChannel.conductor.maybeMovePartition(vbid);
+            }
         } finally {
-            buf.release();
+            try {
+                flowController.ack(buf);
+            } finally {
+                buf.release();
+            }
         }
     }
 }

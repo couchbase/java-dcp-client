@@ -60,6 +60,7 @@ public enum MessageUtil {
     public static final byte DCP_BUFFER_ACK_OPCODE = 0x5d;
     public static final byte DCP_CONTROL_OPCODE = 0x5e;
     public static final byte SELECT_BUCKET_OPCODE = (byte) 0x89;
+    public static final byte OBSERVE_SEQNO_OPCODE = (byte) 0x91;
 
     public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
 

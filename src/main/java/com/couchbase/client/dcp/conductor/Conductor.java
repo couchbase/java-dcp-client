@@ -23,6 +23,7 @@ import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.buffer.BucketConfigHelper;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
@@ -293,16 +294,15 @@ public class Conductor {
     private void reconfigure(CouchbaseBucketConfig config) {
         final List<InetSocketAddress> toAdd = new ArrayList<InetSocketAddress>();
         final List<DcpChannel> toRemove = new ArrayList<DcpChannel>();
+        final BucketConfigHelper configHelper = new BucketConfigHelper(config, env.sslEnabled());
+        final boolean onlyConnectToPrimaryPartition = !env.persistencePollingEnabled();
 
-        for (NodeInfo node : config.nodes()) {
-            if (!hasBinaryService(node)) {
-                continue; // we only care about kv nodes
-            }
-            if (!config.hasPrimaryPartitionsOnNode(node.hostname())) {
+        for (NodeInfo node : configHelper.getDataNodes()) {
+            if (onlyConnectToPrimaryPartition && !config.hasPrimaryPartitionsOnNode(node.hostname())) {
                 continue;
             }
 
-            final InetSocketAddress address = getAddress(node);
+            final InetSocketAddress address = configHelper.getAddress(node);
 
             boolean found = false;
             for (DcpChannel chan : channels) {
@@ -321,7 +321,7 @@ public class Conductor {
         for (DcpChannel chan : channels) {
             boolean found = false;
             for (NodeInfo node : config.nodes()) {
-                InetSocketAddress address = getAddress(node);
+                final InetSocketAddress address = configHelper.getAddress(node);
                 if (address.equals(chan.address())) {
                     found = true;
                     break;
@@ -340,16 +340,6 @@ public class Conductor {
         for (DcpChannel remove : toRemove) {
             remove(remove);
         }
-    }
-
-    private static boolean hasBinaryService(NodeInfo node) {
-        return (node.services().containsKey(ServiceType.BINARY)
-                || node.sslServices().containsKey(ServiceType.BINARY));
-    }
-
-    private InetSocketAddress getAddress(NodeInfo node) {
-        return new InetSocketAddress(node.hostname().nameOrAddress(),
-                (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY));
     }
 
     private void add(final InetSocketAddress node) {

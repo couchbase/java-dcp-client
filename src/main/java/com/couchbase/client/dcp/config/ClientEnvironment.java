@@ -15,11 +15,6 @@
  */
 package com.couchbase.client.dcp.config;
 
-import java.net.InetSocketAddress;
-import java.security.KeyStore;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import com.couchbase.client.core.env.ConfigParserEnvironment;
 import com.couchbase.client.core.env.CoreScheduler;
 import com.couchbase.client.core.env.resources.NoOpShutdownHook;
@@ -34,11 +29,12 @@ import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.SystemEventHandler;
+import com.couchbase.client.dcp.buffer.PersistedSeqnos;
+import com.couchbase.client.dcp.buffer.StreamEventBuffer;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -47,6 +43,11 @@ import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Func1;
 import rx.functions.Func2;
+
+import java.net.InetSocketAddress;
+import java.security.KeyStore;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The {@link ClientEnvironment} is responsible to carry various configuration and
@@ -133,6 +134,12 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private final long socketConnectTimeout;
 
     /**
+     * How long to wait between each call to observeSeqnos.
+     * Values <= 0 disable persistence polling.
+     */
+    private final long persistencePollingIntervalMillis;
+
+    /**
      * User-attached data event handler.
      */
     private volatile DataEventHandler dataEventHandler;
@@ -141,6 +148,11 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
      * User-attached control event handler.
      */
     private volatile ControlEventHandler controlEventHandler;
+
+    /**
+     * Bookkeeper for observed seqno persistence.
+     */
+    private final PersistedSeqnos persistedSeqnos = PersistedSeqnos.uninitialized();
 
     /**
      * Delay strategy for configuration provider reconnection.
@@ -165,7 +177,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private final EventBus eventBus;
     private final Scheduler scheduler;
     private final ShutdownHook schedulerShutdownHook;
-    private SystemEventHandler systemEventHandler;
     private Subscription systemEventSubscription;
     private final boolean sslEnabled;
     private final String sslKeystoreFile;
@@ -213,6 +224,17 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         sslKeystorePassword = builder.sslKeystorePassword;
         sslKeystore = builder.sslKeystore;
         clusterAt = builder.clusterAt;
+        persistencePollingIntervalMillis = builder.persistencePollingIntervalMillis;
+
+        if (persistencePollingIntervalMillis > 0) {
+            if (bufferAckWatermark == 0) {
+                throw new IllegalArgumentException("Rollback mitigation requires flow control.");
+            }
+
+            final StreamEventBuffer buffer = new StreamEventBuffer(eventBus);
+            dataEventHandler = buffer;
+            controlEventHandler = buffer;
+        }
     }
 
     /**
@@ -234,6 +256,41 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
      */
     public DataEventHandler dataEventHandler() {
         return dataEventHandler;
+    }
+
+    /**
+     * Returns the stream event buffer used for rollback mitigation.
+     *
+     * @throws IllegalStateException if persistence polling / rollback mitigation is disabled
+     */
+    public StreamEventBuffer streamEventBuffer() {
+        try {
+            return (StreamEventBuffer) dataEventHandler;
+        } catch (ClassCastException e) {
+            throw new IllegalStateException("Stream event buffer not configured");
+        }
+    }
+
+    /**
+     * Returns the bookkeeper for observed seqno persistence.
+     */
+    public PersistedSeqnos persistedSeqnos() {
+        return persistedSeqnos;
+    }
+
+    /**
+     * Returns the interval between observeSeqno requests.
+     * Values <= 0 disable persistence polling.
+     */
+    public long persistencePollingIntervalMillis() {
+        return persistencePollingIntervalMillis;
+    }
+
+    /**
+     * Returns true if and only if rollback mitigation / persistence polling is enabled.
+     */
+    public boolean persistencePollingEnabled() {
+        return persistencePollingIntervalMillis > 0;
     }
 
     /**
@@ -310,14 +367,22 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
      * Set/Override the data event handler.
      */
     public void setDataEventHandler(DataEventHandler dataEventHandler) {
-        this.dataEventHandler = dataEventHandler;
+        if (persistencePollingEnabled()) {
+            streamEventBuffer().setDataEventHandler(dataEventHandler);
+        } else {
+            this.dataEventHandler = dataEventHandler;
+        }
     }
 
     /**
      * Set/Override the control event handler.
      */
     public void setControlEventHandler(ControlEventHandler controlEventHandler) {
-        this.controlEventHandler = controlEventHandler;
+        if (persistencePollingEnabled()) {
+            streamEventBuffer().setControlEventHandler(controlEventHandler);
+        } else {
+            this.controlEventHandler = controlEventHandler;
+        }
     }
 
     /**
@@ -444,6 +509,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         private String sslKeystoreFile;
         private String sslKeystorePassword;
         private KeyStore sslKeystore;
+        private long persistencePollingIntervalMillis;
 
         public Builder setClusterAt(List<InetSocketAddress> clusterAt) {
             this.clusterAt = clusterAt;
@@ -597,6 +663,14 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
             return this;
         }
 
+        /**
+         * Sets the interval for persistence polling to mitigate rollbacks. Values <= 0 disable polling.
+         */
+        public Builder setPersistencePollingIntervalMillis(long persistencePollingIntervalMillis) {
+            this.persistencePollingIntervalMillis = persistencePollingIntervalMillis;
+            return this;
+        }
+
         public ClientEnvironment build() {
             int defaultConfigPort = sslEnabled ? bootstrapHttpSslPort : bootstrapHttpDirectPort;
             for (int i = 0; i < clusterAt.size(); i++) {
@@ -607,7 +681,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
             }
             return new ClientEnvironment(this);
         }
-
     }
 
     /**

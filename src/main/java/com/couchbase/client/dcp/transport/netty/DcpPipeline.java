@@ -17,6 +17,8 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
+import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
@@ -30,6 +32,8 @@ import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateHandler;
+
+import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
 
 /**
  * Sets up the pipeline for the actual DCP communication channels.
@@ -54,6 +58,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
      */
     private final DcpChannelControlHandler controlHandler;
     private final SSLEngineFactory sslEngineFactory;
+    private final ConfigProvider configProvider;
 
     /**
      * Creates the pipeline.
@@ -63,9 +68,10 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
      * @param controlHandler
      *            the control event handler.
      */
-    public DcpPipeline(final ClientEnvironment environment, final DcpChannelControlHandler controlHandler) {
-        this.environment = environment;
-        this.controlHandler = controlHandler;
+    public DcpPipeline(final ClientEnvironment environment, final DcpChannelControlHandler controlHandler, ConfigProvider configProvider) {
+        this.configProvider = requireNonNull(configProvider);
+        this.environment = requireNonNull(environment);
+        this.controlHandler = requireNonNull(controlHandler);
         if (environment.sslEnabled()) {
             this.sslEngineFactory = new SSLEngineFactory(environment);
         } else {
@@ -101,6 +107,11 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
             pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
         }
 
-        pipeline.addLast(new DcpMessageHandler(ch, environment, controlHandler));
+        DcpMessageHandler messageHandler = new DcpMessageHandler(ch, environment, controlHandler);
+        pipeline.addLast(messageHandler);
+
+        if (environment.persistencePollingEnabled()) {
+            pipeline.addLast(new PersistencePollingHandler(environment, configProvider, messageHandler));
+        }
     }
 }

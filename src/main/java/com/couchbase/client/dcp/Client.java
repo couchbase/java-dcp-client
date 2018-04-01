@@ -56,6 +56,7 @@ import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.core.logging.RedactableArgument.system;
@@ -119,6 +120,7 @@ public class Client {
                 .setSslKeystoreFile(builder.sslKeystoreFile)
                 .setSslKeystorePassword(builder.sslKeystorePassword)
                 .setSslKeystore(builder.sslKeystore)
+                .setPersistencePollingIntervalMillis(builder.persistencePollingIntervalMillis)
                 .build();
 
         bufferAckEnabled = env.dcpControl().bufferAckEnabled();
@@ -127,6 +129,30 @@ public class Client {
                 throw new IllegalArgumentException("The bufferAckWatermark needs to be set if bufferAck is enabled.");
             }
         }
+
+        // Provide minimal default event handlers
+        controlEventHandler(new ControlEventHandler() {
+            @Override
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+                try {
+                    if (DcpSnapshotMarkerRequest.is(event)) {
+                        flowController.ack(event);
+                    }
+                } finally {
+                    event.release();
+                }
+            }
+        });
+        dataEventHandler(new DataEventHandler() {
+            @Override
+            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+                try {
+                    flowController.ack(event);
+                } finally {
+                    event.release();
+                }
+            }
+        });
 
         conductor = new Conductor(env, builder.configProvider);
         LOGGER.info("Environment Configuration Used: {}", system(env));
@@ -739,7 +765,7 @@ public class Client {
      * Builder object to customize the {@link Client} creation.
      */
     public static class Builder {
-        private List<InetSocketAddress> clusterAt = Arrays.asList(InetSocketAddress.createUnresolved("127.0.0.1", 0));;
+        private List<InetSocketAddress> clusterAt = Arrays.asList(InetSocketAddress.createUnresolved("127.0.0.1", 0));
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
         private String username;
@@ -761,6 +787,7 @@ public class Client {
         private String sslKeystoreFile;
         private String sslKeystorePassword;
         private KeyStore sslKeystore;
+        private long persistencePollingIntervalMillis;
 
         /**
          * The buffer acknowledge watermark in percent.
@@ -841,7 +868,7 @@ public class Client {
             return this;
         }
 
-        public Builder username(final String username){
+        public Builder username(final String username) {
             this.username = username;
             return this;
         }
@@ -1038,6 +1065,42 @@ public class Client {
          */
         public Builder sslKeystore(final KeyStore sslKeystore) {
             this.sslKeystore = sslKeystore;
+            return this;
+        }
+
+        /**
+         * Enables rollback mitigation with the specified persistence polling interval.
+         * Must be accompanied by a call to {@link #flowControl(int)}.
+         * <p>
+         * When rollback mitigation is enabled, stream events will not be propagated to the
+         * {@link DataEventHandler} or {@link ControlEventHandler} until the event has been
+         * persisted to disk on the active and all replica nodes.
+         * <p>
+         * To observe persistence, the client will poll each node at the given interval.
+         * </p>
+         * If a partition instance becomes unavailable, event propagation will pause until
+         * the cluster stabilizes. Because recovery may take a long time, flow control
+         * is required so the client need not buffer an indeterminately large number of events.
+         */
+        public Builder mitigateRollbacks(long persistencePollingInterval, TimeUnit unit) {
+            this.persistencePollingIntervalMillis = unit.toMillis(persistencePollingInterval);
+            return this;
+        }
+
+        /**
+         * Enables <a href="https://github.com/couchbaselabs/dcp-documentation/blob/master/documentation/flow-control.md">
+         * flow control</a> with the specified buffer size (in bytes) and a reasonable
+         * default buffer ACK threshold. To specify a custom threshold, chain this method with
+         * {@link #bufferAckWatermark(int)}.
+         *
+         * @param bufferSizeInBytes The amount of data the server will send before requiring an ACK
+         * @see ChannelFlowController
+         */
+        public Builder flowControl(int bufferSizeInBytes) {
+            controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, bufferSizeInBytes);
+            if (bufferAckWatermark == 0) {
+                bufferAckWatermark = 80;
+            }
             return this;
         }
 

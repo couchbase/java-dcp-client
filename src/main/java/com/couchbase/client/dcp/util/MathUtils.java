@@ -27,4 +27,18 @@ public class MathUtils {
     public static boolean lessThanUnsigned(long x, long y) {
         return (x < y) ^ ((x < 0) != (y < 0));
     }
+
+    /**
+     * Backport of {@code Long.compare} from Java 7.
+     */
+    public static int compareLong(long x, long y) {
+        return (x < y) ? -1 : ((x == y) ? 0 : 1);
+    }
+
+    /**
+     * Backport of {@code Long.compareUnsigned} from Java 8.
+     */
+    public static int compareUnsignedLong(long x, long y) {
+        return compareLong(x + Long.MIN_VALUE, y + Long.MIN_VALUE);
+    }
 }

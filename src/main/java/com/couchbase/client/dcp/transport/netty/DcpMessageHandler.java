@@ -19,6 +19,7 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.buffer.DcpRequestDispatcher;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
@@ -52,7 +53,7 @@ import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRel
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-public class DcpMessageHandler extends ChannelInboundHandlerAdapter {
+public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements DcpRequestDispatcher {
 
     // IMPLEMENTATION NOTES
     //
@@ -95,7 +96,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter {
      * <p>
      * Must only be accessed/modified by the event loop thread.
      */
-    private int nextOpaque;
+    private int nextOpaque = Integer.MIN_VALUE;
 
     private static class OutstandingRequest {
         private final int opaque;
@@ -143,9 +144,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-        super.channelActive(ctx);
         this.volatileContext = ctx;
-        this.nextOpaque = Integer.MIN_VALUE;
+        super.channelActive(ctx);
     }
 
     /**
@@ -173,30 +173,6 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter {
         super.channelInactive(ctx);
     }
 
-    /**
-     * Assigns a value to the request's {@code opaque} field and writes
-     * the message to the channel. Returns a Future that is completed
-     * when the response is received or the channel is closed.
-     * <p>
-     * If the response is received, the Future is always considered
-     * successful regardless of the status code returned by the server;
-     * the caller is responsible for inspecting the status code.
-     * <p>
-     * If the channel is not currently active, or if the channel is closed
-     * before the response is received, the Future fails with
-     * {@link NotConnectedException} as the cause.
-     * <p>
-     * Callers are responsible for releasing the ByteBuf from successful
-     * Futures. This is true even if a call to {@code Future.get} or
-     * {@code Future.await} times out, in which case the caller should add
-     * a listener to release the buffer when the Future eventually completes.
-     * <p>
-     * Listeners are invoked by the channel's event loop thread, so they
-     * should return quickly.
-     * <p>
-     * Callers may wish to use the type alias {@link DcpResponseListener}
-     * when adding listeners.
-     */
     public Future<DcpResponse> sendRequest(final ByteBuf request) {
         // Since this method might be called from outside the event loop thread,
         // it's possible for `channelInactive` to run concurrently and set

@@ -30,9 +30,9 @@ import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosRequest;
 import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
 import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
-import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -126,7 +126,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
                         .remoteAddress(inetAddress)
                         .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-                        .handler(new DcpPipeline(env, controlHandler))
+                        .handler(new DcpPipeline(env, controlHandler, conductor.configProvider()))
                         .group(env.eventLoopGroup());
 
                 transitionState(LifecycleState.CONNECTING);
