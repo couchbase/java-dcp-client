@@ -184,6 +184,12 @@ public enum MessageUtil {
         return buffer.slice(HEADER_SIZE + extrasLength, keyLength);
     }
 
+    public static String getKeyAsString(ByteBuf buffer) {
+        byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
+        short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+        return buffer.toString(HEADER_SIZE + extrasLength, keyLength, CharsetUtil.UTF_8);
+    }
+
     /**
      * Sets the content payload of the buffer, updating the content length as well.
      */
@@ -238,6 +244,28 @@ public enum MessageUtil {
 
     public static String getContentAsString(ByteBuf buffer) {
         return getContent(buffer).toString(CharsetUtil.UTF_8);
+    }
+
+    public static byte[] getContentAsByteArray(ByteBuf buffer) {
+        final ByteBuf content = getContent(buffer);
+
+        if (isSnappyCompressed(buffer)) {
+            // Avoid a memory copy by stealing the decompressed buffer's backing array.
+
+            if (!(content.alloc() instanceof UnpooledByteBufAllocator)) {
+                throw new RuntimeException("Expected decompressed content buffer to be unpooled.");
+            }
+
+            if (content.array().length != content.readableBytes()) {
+                throw new RuntimeException("Expected decompressed content buffer to be backed by array of exact size.");
+            }
+
+            return content.array();
+        }
+
+        byte[] bytes = new byte[content.readableBytes()];
+        content.getBytes(0, bytes);
+        return bytes;
     }
 
     public static short getStatus(ByteBuf buffer) {
