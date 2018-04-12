@@ -20,7 +20,6 @@ import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.config.DecompressionMode;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import com.couchbase.client.dcp.message.HelloRequest;
@@ -223,10 +222,6 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
         }
 
         final CompressionMode compressionMode = dcpControl.compression(serverVersion);
-        if (compressionMode == CompressionMode.DISABLED || dcpControl.decompression() == DecompressionMode.DISABLED) {
-            ctx.pipeline().remove(SnappyDecoder.class);
-        }
-
         short[] extraFeatures = compressionMode.getHelloFeatures(serverVersion);
         ByteBuf request = ctx.alloc().buffer();
         HelloRequest.init(request, Unpooled.copiedBuffer(connectionName, CharsetUtil.UTF_8), extraFeatures);

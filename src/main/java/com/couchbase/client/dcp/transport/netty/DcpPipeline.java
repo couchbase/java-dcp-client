@@ -101,7 +101,6 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
             pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
         }
 
-        pipeline.addLast(new SnappyDecoder());
         pipeline.addLast(new DcpMessageHandler(ch, environment, controlHandler));
     }
 }

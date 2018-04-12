@@ -26,7 +26,6 @@ import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.config.DecompressionMode;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
@@ -892,15 +891,6 @@ public class Client {
         @InterfaceStability.Uncommitted
         public Builder compression(CompressionMode compressionMode) {
             this.dcpControl.compression(compressionMode);
-            return this;
-        }
-
-        /**
-         * Sets the decompression mode for message values received from Couchbase Server.
-         * If not specified, defaults to {@link DecompressionMode#ENABLED}.
-         */
-        public Builder decompression(DecompressionMode decompressionMode) {
-            this.dcpControl.decompression(decompressionMode);
             return this;
         }
 

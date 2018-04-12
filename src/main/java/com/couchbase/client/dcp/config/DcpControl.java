@@ -50,11 +50,6 @@ public class DcpControl {
     private CompressionMode compressionMode = CompressionMode.DISABLED;
 
     /**
-     * The requested decompression mode.
-     */
-    private DecompressionMode decompressionMode = DecompressionMode.ENABLED;
-
-    /**
      * Creates a new {@link DcpControl} instance with no params set upfront.
      */
     public DcpControl() {
@@ -78,21 +73,6 @@ public class DcpControl {
     }
 
     /**
-     * Set the decompression mode to use.
-     * If not specified, defaults to {@link DecompressionMode#ENABLED}.
-     */
-    public void decompression(DecompressionMode decompressionMode) {
-        this.decompressionMode = requireNonNull(decompressionMode);
-    }
-
-    /**
-     * Returns the requested decompression mode.
-     */
-    public DecompressionMode decompression() {
-        return decompressionMode;
-    }
-
-    /**
      * Store/Override a control parameter.
      *
      * @param name the name of the control parameter.
@@ -105,10 +85,6 @@ public class DcpControl {
         if (name == DcpControl.Names.ENABLE_VALUE_COMPRESSION) {
             final boolean enabled = parseBoolean(value);
             compression(enabled ? CompressionMode.FORCED : CompressionMode.DISABLED);
-            if (enabled) {
-                // Anyone using the ENABLE_VALUE_COMPRESSION control has been doing their own decompression.
-                decompression(DecompressionMode.DISABLED);
-            }
             return this;
         }
 

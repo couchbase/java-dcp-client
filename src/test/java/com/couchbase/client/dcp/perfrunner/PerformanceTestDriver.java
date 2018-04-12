@@ -23,6 +23,7 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.ObjectMapper;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -32,16 +33,22 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Collections.singletonMap;
 
 /**
  * Command line driver for performance testing. See perf/README.md for more info.
@@ -53,6 +60,11 @@ class PerformanceTestDriver {
         private int dcpMessageCount;
         private Properties settings;
     }
+
+    private static final AtomicLong totalCompressedBytes = new AtomicLong();
+    private static final AtomicLong totalDecompressedBytes = new AtomicLong();
+    private static final AtomicLong totalMessageCount = new AtomicLong();
+    private static final AtomicLong compressedMessageCount = new AtomicLong();
 
     public static void main(String[] commandLineArguments) throws Exception {
         Args args = parseArgs(commandLineArguments);
@@ -69,7 +81,20 @@ class PerformanceTestDriver {
 
         OutputStream os = new FileOutputStream(new File(reportDir, "metrics.json"));
         try {
-            new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(os, "Coming soon");
+            Map<String, Object> compressionMetrics = new LinkedHashMap<String, Object>();
+            compressionMetrics.put("totalMessageCount", totalMessageCount);
+            compressionMetrics.put("compressedMessageCount", compressedMessageCount);
+            compressionMetrics.put("totalCompressedBytes", totalCompressedBytes);
+            compressionMetrics.put("totalDecompressedBytes", totalDecompressedBytes);
+            compressionMetrics.put("avgCompressionRatio",
+                    new BigDecimal(totalDecompressedBytes.doubleValue() / totalCompressedBytes.doubleValue())
+                            .setScale(2, RoundingMode.HALF_UP));
+
+            System.out.println("Compression metrics: " + compressionMetrics);
+
+            new ObjectMapper().writerWithDefaultPrettyPrinter()
+                    .writeValue(os, singletonMap("compression", compressionMetrics));
+
         } finally {
             os.close();
         }
@@ -109,6 +134,16 @@ class PerformanceTestDriver {
         client.dataEventHandler(new DataEventHandler() {
             @Override
             public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+                totalMessageCount.incrementAndGet();
+
+                if (MessageUtil.isSnappyCompressed(event)) {
+                    compressedMessageCount.incrementAndGet();
+                    totalCompressedBytes.addAndGet(MessageUtil.getRawContent(event).readableBytes());
+
+                    // getContent() triggers decompression, so it's important for perf test to call it.
+                    totalDecompressedBytes.addAndGet(MessageUtil.getContent(event).readableBytes());
+                }
+
                 latch.countDown();
                 event.release();
             }

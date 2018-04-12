@@ -15,7 +15,9 @@
  */
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
 public enum MessageUtil {
@@ -198,11 +200,40 @@ public enum MessageUtil {
         buffer.writerIndex(HEADER_SIZE + bodyLength);
     }
 
-    public static ByteBuf getContent(ByteBuf buffer) {
+    public static ByteBuf getRawContent(ByteBuf buffer) {
         short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
         byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
         int contentLength = buffer.getInt(BODY_LENGTH_OFFSET) - keyLength - extrasLength;
         return buffer.slice(HEADER_SIZE + keyLength + extrasLength, contentLength);
+    }
+
+    /**
+     * Allocator without leak detection, since callers of {@link #getContent(ByteBuf)}
+     * are not required to release the buffer. The buffers aren't pooled, so there won't
+     * really be any leaks.
+     */
+    private static final UnpooledByteBufAllocator decompressedContentAllocator = new UnpooledByteBufAllocator(false, true);
+
+    public static ByteBuf getContent(ByteBuf buffer) {
+        final ByteBuf rawContent = getRawContent(buffer);
+
+        if (!isSnappyCompressed(buffer)) {
+            return rawContent;
+        }
+
+        final int decompressedLength = PatchedNettySnappyDecoder.readPreamble(rawContent);
+        rawContent.readerIndex(0);
+
+        final ByteBuf decompressedContent = decompressedContentAllocator.heapBuffer(decompressedLength, decompressedLength);
+
+        new PatchedNettySnappyDecoder().decode(rawContent, decompressedContent);
+        return decompressedContent;
+    }
+
+    public static boolean isSnappyCompressed(ByteBuf buffer) {
+        final byte DATA_TYPE_SNAPPY = 0x02;
+        final byte dataType = buffer.getByte(DATA_TYPE_OFFSET);
+        return (dataType & DATA_TYPE_SNAPPY) == DATA_TYPE_SNAPPY;
     }
 
     public static String getContentAsString(ByteBuf buffer) {
@@ -211,14 +242,6 @@ public enum MessageUtil {
 
     public static short getStatus(ByteBuf buffer) {
         return buffer.getShort(VBUCKET_OFFSET);
-    }
-
-    public static byte getDataType(ByteBuf buffer) {
-        return buffer.getByte(DATA_TYPE_OFFSET);
-    }
-
-    public static void setDataType(byte dataType, ByteBuf buffer) {
-        buffer.setByte(DATA_TYPE_OFFSET, dataType);
     }
 
     public static void setOpaque(int opaque, ByteBuf buffer) {
