@@ -16,15 +16,16 @@
 
 package com.couchbase.client.dcp.test;
 
+import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
+
+import java.net.MalformedURLException;
+import java.util.concurrent.TimeUnit;
+
 import com.couchbase.client.dcp.test.agent.BucketService;
 import com.couchbase.client.dcp.test.agent.DocumentService;
 import com.couchbase.client.dcp.test.agent.StreamerService;
 import com.github.therapi.jsonrpc.client.JdkHttpClient;
 import com.github.therapi.jsonrpc.client.ServiceFactory;
-
-import java.net.MalformedURLException;
-
-import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
 
 /**
  * Client for the JSON-RPC API exposed by the test agent.
@@ -40,8 +41,9 @@ public class RemoteAgent {
 
     public RemoteAgent(String jsonRpcEndpoint) {
         try {
-            ServiceFactory serviceFactory = new ServiceFactory(
-                    newLenientObjectMapper(), new JdkHttpClient(jsonRpcEndpoint));
+            JdkHttpClient client = new JdkHttpClient(jsonRpcEndpoint);
+            client.setReadTimeout(120, TimeUnit.SECONDS);
+            ServiceFactory serviceFactory = new ServiceFactory(newLenientObjectMapper(), client);
 
             this.bucketService = serviceFactory.createService(BucketService.class);
             this.documentService = serviceFactory.createService(DocumentService.class);

@@ -118,7 +118,7 @@ public class BasicStreamingIntegrationTest {
         assertEquals(singleton("beer-sample"), agent.bucket().list());
 
         final String streamerId = agent.streamer().start("beer-sample", Collections.emptyList(), StreamFrom.BEGINNING, StreamTo.NOW);
-        final DcpStreamer.Status status = agent.streamer().await(streamerId, 30, TimeUnit.SECONDS);
+        final DcpStreamer.Status status = agent.streamer().awaitStreamEnd(streamerId, 30, TimeUnit.SECONDS);
 
         assertEquals(0, status.getDeletions());
         assertEquals(0, status.getExpirations());

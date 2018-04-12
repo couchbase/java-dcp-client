@@ -16,6 +16,17 @@
 
 package com.couchbase.client.dcp.test.agent;
 
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
@@ -25,16 +36,6 @@ import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.state.SessionState;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DcpStreamer {
     private static final Logger LOGGER = LoggerFactory.getLogger(DcpStreamer.class);
@@ -118,7 +119,7 @@ public class DcpStreamer {
         }
     }
 
-    public Status await(long timeout, TimeUnit unit) throws TimeoutException {
+    public Status awaitStreamEnd(long timeout, TimeUnit unit) throws TimeoutException {
         if (this.streamTo == StreamTo.INFINITY) {
             throw new IllegalStateException("Streaming to infinity; can't wait for that!");
         }
@@ -136,6 +137,26 @@ public class DcpStreamer {
                 throw new RuntimeException(e);
             }
         }
+        return status();
+    }
+
+    public Status awaitMutationCount(int mutationCount, long timeout, TimeUnit unit) {
+        final long deadline = System.nanoTime() + unit.toNanos(timeout);
+        while (mutations.get() < mutationCount) {
+            try {
+                MILLISECONDS.sleep(100);
+                if (System.nanoTime() > deadline) {
+                    break;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+        return status();
+    }
+
+    public Status status() {
         return new Status(mutations.get(), expirations.get(), deletions.get());
     }
 

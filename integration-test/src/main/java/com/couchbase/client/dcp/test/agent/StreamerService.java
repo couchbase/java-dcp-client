@@ -16,21 +16,24 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.dcp.StreamFrom;
-import com.couchbase.client.dcp.StreamTo;
-import com.github.therapi.core.annotation.Default;
-import com.github.therapi.core.annotation.Remotable;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.test.agent.DcpStreamer.Status;
+import com.github.therapi.core.annotation.Default;
+import com.github.therapi.core.annotation.Remotable;
+
 @Remotable("streamer")
 public interface StreamerService {
     /**
-     * @param bucket Name of the bucket to stream from.
-     * @param vbuckets List of vBuckets to stream from, or empty list for all vBuckets.
+     * @param bucket
+     *            Name of the bucket to stream from.
+     * @param vbuckets
+     *            List of vBuckets to stream from, or empty list for all vBuckets.
      * @return ID of the new streamer.
      */
     String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to);
@@ -38,7 +41,8 @@ public interface StreamerService {
     /**
      * Immediately disconnects the streamer.
      *
-     * @param streamerId ID of the streamer to stop.
+     * @param streamerId
+     *            ID of the streamer to stop.
      */
     void stop(String streamerId);
 
@@ -48,7 +52,8 @@ public interface StreamerService {
     Set<String> list();
 
     /**
-     * @param streamerId ID of the streamer to examine.
+     * @param streamerId
+     *            ID of the streamer to examine.
      * @return The streamer's session state as a JSON string.
      */
     String get(String streamerId);
@@ -57,8 +62,26 @@ public interface StreamerService {
      * Waits for the stream to reach the "stream to" value, then returns the streamer status
      * and stops the streamer.
      *
-     * @throws TimeoutException      if stream end is not reached before deadline
-     * @throws IllegalStateException if "stream to" condition is "infinity"
+     * @throws TimeoutException
+     *             if stream end is not reached before deadline
+     * @throws IllegalStateException
+     *             if "stream to" condition is "infinity"
      */
-    DcpStreamer.Status await(String streamerId, long timeout, TimeUnit unit) throws TimeoutException;
+    DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException;
+
+    /**
+     * Waits for the stream to reach the mutation count, then returns the streamer
+     * status.
+     *
+     * @throws TimeoutException
+     *             if stream end is not reached before deadline
+     */
+    Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit);
+
+    /**
+     * Get the status of a streamer
+     *
+     * @return the status
+     */
+    Status status(String streamerId);
 }

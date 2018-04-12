@@ -16,19 +16,20 @@
 
 package com.couchbase.client.dcp.test;
 
-import com.couchbase.client.dcp.test.ExecUtils.ExecResultWithExitCode;
-import com.couchbase.client.dcp.util.Version;
+import static com.couchbase.client.dcp.test.ExecUtils.exec;
+import static com.couchbase.client.dcp.test.ExecUtils.execOrDie;
+import static java.util.Objects.requireNonNull;
+
+import java.io.IOException;
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.shaded.com.google.common.base.Stopwatch;
 
-import java.io.IOException;
-import java.util.Optional;
-
-import static com.couchbase.client.dcp.test.ExecUtils.exec;
-import static com.couchbase.client.dcp.test.ExecUtils.execOrDie;
-import static java.util.Objects.requireNonNull;
+import com.couchbase.client.dcp.test.ExecUtils.ExecResultWithExitCode;
+import com.couchbase.client.dcp.util.Version;
 
 public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     private static final Logger log = LoggerFactory.getLogger(CouchbaseContainer.class);
@@ -147,6 +148,25 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
         final String imageName = getDockerImageName();
         final int tagDelimiterIndex = imageName.indexOf(':');
         return tagDelimiterIndex == -1 ? Optional.empty() : tryParseVersion(imageName.substring(tagDelimiterIndex + 1));
+    }
+
+    public CouchbaseContainer addServer(CouchbaseContainer newNode) throws IOException, InterruptedException {
+        execOrDie(this, "couchbase-cli server-add" +
+                        " --cluster " + getHostname() +
+                        " --user=" + username +
+                        " --password=" + password +
+                        " --server-add=" + newNode.hostname +
+                        " --server-add-username=" + username +
+                        " --server-add-password=" + password);
+        return this;
+    }
+
+    public CouchbaseContainer rebalance() throws IOException, InterruptedException {
+        execOrDie(this, "couchbase-cli rebalance" +
+                        " -c " + hostname +
+                        " -u " + username +
+                        " -p " + password);
+        return this;
     }
 
     private String getHostname() {

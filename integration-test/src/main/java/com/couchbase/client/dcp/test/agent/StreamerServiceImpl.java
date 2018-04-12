@@ -16,19 +16,8 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.StreamFrom;
-import com.couchbase.client.dcp.StreamTo;
-import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.state.SessionState;
-import com.couchbase.client.dcp.state.StateFormat;
-import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
-import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
-import com.github.therapi.core.annotation.Default;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import javax.annotation.PreDestroy;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,7 +26,21 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import javax.annotation.PreDestroy;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.state.SessionState;
+import com.couchbase.client.dcp.state.StateFormat;
+import com.couchbase.client.dcp.test.agent.DcpStreamer.Status;
+import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
+import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
+import com.github.therapi.core.annotation.Default;
 
 @Service
 public class StreamerServiceImpl implements StreamerService {
@@ -99,9 +102,15 @@ public class StreamerServiceImpl implements StreamerService {
     }
 
     @Override
-    public DcpStreamer.Status await(String streamerId,long timeout, TimeUnit unit) throws TimeoutException {
-        DcpStreamer.Status status = idToStreamer.get(streamerId).await(timeout, unit);
+    public DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException {
+        DcpStreamer.Status status = idToStreamer.get(streamerId).awaitStreamEnd(timeout, unit);
         stop(streamerId);
+        return status;
+    }
+
+    @Override
+    public DcpStreamer.Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit) {
+        DcpStreamer.Status status = idToStreamer.get(streamerId).awaitMutationCount(mutationCount, timeout, unit);
         return status;
     }
 
@@ -109,5 +118,10 @@ public class StreamerServiceImpl implements StreamerService {
     public void shutdown() throws InterruptedException {
         list().forEach(this::stop);
         eventLoopGroup.shutdownGracefully().await(3, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public Status status(String streamerId) {
+        return idToStreamer.get(streamerId).status();
     }
 }
