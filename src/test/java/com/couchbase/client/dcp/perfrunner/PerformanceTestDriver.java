@@ -145,6 +145,7 @@ class PerformanceTestDriver {
                 }
 
                 latch.countDown();
+                flowController.ack(event);
                 event.release();
             }
         });
