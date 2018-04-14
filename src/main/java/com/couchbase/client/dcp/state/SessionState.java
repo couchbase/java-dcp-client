@@ -17,6 +17,7 @@ package com.couchbase.client.dcp.state;
 
 import com.couchbase.client.dcp.state.json.SessionStateDeserializer;
 import com.couchbase.client.dcp.state.json.SessionStateSerializer;
+import com.couchbase.client.dcp.util.MathUtils;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.ObjectMapper;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -45,7 +46,9 @@ public class SessionState {
     private static final ObjectMapper JACKSON = new ObjectMapper();
 
     /**
-     * Special Sequence number defined by DCP which says "no end".
+     * The highest possible sequence number, {@code (2^64)-1}. Sequence numbers must be interpreted as unsigned values.
+     * When comparing two sequence numbers to see which is greater, use {@link MathUtils#lessThanUnsigned}
+     * (or {@code Long.compareUnsigned} if Java 8 is available).
      */
     public static final long NO_END_SEQNO = 0xffffffffffffffffL;
 

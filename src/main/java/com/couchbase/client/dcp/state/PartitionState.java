@@ -21,6 +21,8 @@ import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
+
 /**
  * Represents the individual current session state for a given partition.
  *
@@ -144,7 +146,10 @@ public class PartitionState {
      */
     @JsonIgnore
     public boolean isAtEnd() {
-        return startSeqno >= endSeqno;
+        // Because sequence numbers must be interpreted as unsigned, we can't use the built-in >= operator.
+        // For example, when streaming "to infinity" the end seqno consists of 64 "1" bits, which is either
+        // -1 or (2^64)-1 depending on whether it's interpreted as signed or unsigned.
+        return !lessThanUnsigned(startSeqno, endSeqno);
     }
 
     /**
