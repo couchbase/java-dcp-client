@@ -16,21 +16,6 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-
-import javax.annotation.PreDestroy;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
@@ -41,6 +26,19 @@ import com.couchbase.client.dcp.test.agent.DcpStreamer.Status;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.github.therapi.core.annotation.Default;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.annotation.PreDestroy;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Service
 public class StreamerServiceImpl implements StreamerService {
@@ -61,7 +59,7 @@ public class StreamerServiceImpl implements StreamerService {
     }
 
     @Override
-    public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to) {
+    public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks) {
         String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
 
         Client client = Client.configure()
@@ -69,10 +67,10 @@ public class StreamerServiceImpl implements StreamerService {
                 .bucket(bucket)
                 .username(username)
                 .password(password)
+                .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
+                .flowControl(1024 * 128)
                 .hostnames(nodes.split(","))
                 .controlParam(DcpControl.Names.ENABLE_NOOP, true)
-                .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 128 * 1024)
-                .bufferAckWatermark(80)
                 .connectionNameGenerator(() -> streamerId)
                 .build();
 

@@ -21,6 +21,8 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.io.UncheckedIOException;
 
 /**
  * Helper methods that check the exit code of exec'd processes.
@@ -40,7 +42,7 @@ public class ExecUtils {
         }
 
         public String toString() {
-            StringBuilder sb = new StringBuilder();
+            final StringBuilder sb = new StringBuilder();
             if (!getStdout().isEmpty()) {
                 sb.append("stdout: ").append(getStdout());
             }
@@ -58,34 +60,47 @@ public class ExecUtils {
         throw new AssertionError("not instantiable");
     }
 
-    public static ExecResultWithExitCode execOrDie(Container container, String shellCommand) throws IOException, InterruptedException {
-        ExecResultWithExitCode result = exec(container, shellCommand);
+    public static ExecResultWithExitCode execOrDie(Container container, String shellCommand) {
+        return checkExitCode(exec(container, shellCommand));
+    }
+
+    private static ExecResultWithExitCode checkExitCode(ExecResultWithExitCode result) {
         if (result.exitCode != 0) {
-            throw new IOException(result.toString());
+            throw new UncheckedIOException(new IOException(result.toString()));
         }
         return result;
     }
 
-    public static ExecResultWithExitCode exec(Container container, String shellCommand) throws IOException, InterruptedException {
-        Logger log = LoggerFactory.getLogger("[" + container.getContainerName() + "]");
+    public static ExecResultWithExitCode exec(Container container, String shellCommand) {
+        final Logger log = LoggerFactory.getLogger("[" + container.getContainerName() + "]");
         log.info("Executing command: {}", shellCommand);
 
-        String exitCodeMarker = "ExitCode=";
-        Container.ExecResult result = container.execInContainer(
+        final String exitCodeMarker = "ExitCode=";
+        final Container.ExecResult result = execInContainerUnchecked(container,
                 "sh", "-c", shellCommand + "; echo \"" + exitCodeMarker + "$?\""
         );
-        String stdout = result.getStdout();
-        int i = stdout.lastIndexOf(exitCodeMarker);
+        final String stdout = result.getStdout();
+        final int i = stdout.lastIndexOf(exitCodeMarker);
         if (i < 0) {
             throw new RuntimeException("failed to determine exit code: " + result.getStdout() + "/" + result.getStderr());
         }
-        int exitCode = Integer.parseInt(stdout.substring(i + exitCodeMarker.length()).trim());
-        ExecResultWithExitCode resultWithExitCode = new ExecResultWithExitCode(stdout.substring(0, i), result.getStderr(), exitCode);
+        final int exitCode = Integer.parseInt(stdout.substring(i + exitCodeMarker.length()).trim());
+        final ExecResultWithExitCode resultWithExitCode = new ExecResultWithExitCode(stdout.substring(0, i), result.getStderr(), exitCode);
         if (resultWithExitCode.exitCode != 0) {
             log.warn("{}", resultWithExitCode);
         } else {
             log.info("{}", resultWithExitCode);
         }
         return resultWithExitCode;
+    }
+
+    private static Container.ExecResult execInContainerUnchecked(Container container, String... command) {
+        try {
+            return container.execInContainer(command);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            throw new UncheckedIOException(new InterruptedIOException(e.getMessage()));
+        }
     }
 }

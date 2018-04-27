@@ -16,16 +16,21 @@
 
 package com.couchbase.client.dcp.test;
 
-import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
-
-import java.net.MalformedURLException;
-import java.util.concurrent.TimeUnit;
-
+import com.couchbase.client.dcp.StreamFrom;
+import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.BucketService;
 import com.couchbase.client.dcp.test.agent.DocumentService;
 import com.couchbase.client.dcp.test.agent.StreamerService;
 import com.github.therapi.jsonrpc.client.JdkHttpClient;
 import com.github.therapi.jsonrpc.client.ServiceFactory;
+
+import java.net.MalformedURLException;
+import java.util.concurrent.TimeUnit;
+
+import static com.couchbase.client.dcp.test.agent.StreamerService.ALL_VBUCKETS;
+import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
+import static java.util.Objects.requireNonNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Client for the JSON-RPC API exposed by the test agent.
@@ -64,5 +69,36 @@ public class RemoteAgent {
 
     public DocumentService document() {
         return documentService;
+    }
+
+    public StreamBuilder newStreamer(String bucket) {
+        return new StreamBuilder(bucket);
+    }
+
+    public class StreamBuilder {
+        private final String bucket;
+        private StreamFrom from = StreamFrom.BEGINNING;
+        private StreamTo to = StreamTo.INFINITY;
+        private boolean mitigateRollbacks;
+
+        public StreamBuilder(String bucket) {
+            this.bucket = requireNonNull(bucket);
+            assertTrue(bucket().list().contains(bucket));
+        }
+
+        public StreamBuilder range(StreamFrom from, StreamTo to) {
+            this.from = requireNonNull(from);
+            this.to = requireNonNull(to);
+            return this;
+        }
+
+        public StreamBuilder mitigateRollbacks() {
+            this.mitigateRollbacks = true;
+            return this;
+        }
+
+        public RemoteDcpStreamer start() {
+            return new RemoteDcpStreamer(streamer(), streamer().start(bucket, ALL_VBUCKETS, from, to, mitigateRollbacks));
+        }
     }
 }

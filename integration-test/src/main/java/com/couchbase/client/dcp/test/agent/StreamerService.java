@@ -16,6 +16,7 @@
 
 package com.couchbase.client.dcp.test.agent;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +30,9 @@ import com.github.therapi.core.annotation.Remotable;
 
 @Remotable("streamer")
 public interface StreamerService {
+
+    List<Short> ALL_VBUCKETS = Collections.emptyList();
+
     /**
      * @param bucket
      *            Name of the bucket to stream from.
@@ -36,7 +40,7 @@ public interface StreamerService {
      *            List of vBuckets to stream from, or empty list for all vBuckets.
      * @return ID of the new streamer.
      */
-    String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to);
+    String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks);
 
     /**
      * Immediately disconnects the streamer.
@@ -70,11 +74,8 @@ public interface StreamerService {
     DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException;
 
     /**
-     * Waits for the stream to reach the mutation count, then returns the streamer
-     * status.
-     *
-     * @throws TimeoutException
-     *             if stream end is not reached before deadline
+     * Waits for the stream to reach the mutation count or for the timeout to expire (whichever comes first)
+     * then returns the streamer status.
      */
     Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit);
 

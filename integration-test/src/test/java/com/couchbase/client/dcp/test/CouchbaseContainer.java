@@ -16,30 +16,42 @@
 
 package com.couchbase.client.dcp.test;
 
+import com.couchbase.client.dcp.test.ExecUtils.ExecResultWithExitCode;
+import com.couchbase.client.dcp.util.Version;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
+import org.testcontainers.shaded.com.google.common.base.Stopwatch;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
+
 import static com.couchbase.client.dcp.test.ExecUtils.exec;
 import static com.couchbase.client.dcp.test.ExecUtils.execOrDie;
 import static java.util.Objects.requireNonNull;
 
-import java.io.IOException;
-import java.util.Optional;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.shaded.com.google.common.base.Stopwatch;
-
-import com.couchbase.client.dcp.test.ExecUtils.ExecResultWithExitCode;
-import com.couchbase.client.dcp.util.Version;
-
 public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     private static final Logger log = LoggerFactory.getLogger(CouchbaseContainer.class);
+
+    private static final int WEB_PORT = 8091;
+    private static final int CLUSTER_RAM_MB = 1024;
 
     private final String username;
     private final String password;
     private final String hostname;
+    private final String dockerImageName;
 
-    public CouchbaseContainer(String dockerImageName, String hostname, String username, String password) {
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    private volatile Optional<Version> version;
+
+    private CouchbaseContainer(String dockerImageName, String hostname, String username, String password) {
         super(dockerImageName);
+        this.dockerImageName = requireNonNull(dockerImageName);
         this.username = requireNonNull(username);
         this.password = requireNonNull(password);
         this.hostname = requireNonNull(hostname);
@@ -48,18 +60,89 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
         withCreateContainerCmdModifier(cmd -> cmd.withHostName(hostname));
     }
 
-    public CouchbaseContainer initCluster(int ramMb) throws IOException, InterruptedException {
+    public static CouchbaseContainer newCluster(String dockerImageName, Network network, String hostname) {
+        final String username;
+        final String password;
+
+        try (InputStream is = BasicRebalanceIntegrationTest.class.getResourceAsStream("/application.properties")) {
+            Properties props = new Properties();
+            props.load(is);
+            username = props.getProperty("username");
+            password = props.getProperty("password");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        log.info("Username: " + username);
+        log.info("Password: " + password);
+
+        final CouchbaseContainer couchbase = new CouchbaseContainer(dockerImageName, hostname, username, password)
+                .withNetwork(network)
+                .withExposedPorts(WEB_PORT);
+
+        couchbase.start();
+        couchbase.initCluster();
+
+        return couchbase;
+    }
+
+    private void initCluster() {
         execOrDie(this, "couchbase-cli cluster-init" +
                 " --cluster " + getHostname() +
                 " --cluster-username=" + username +
                 " --cluster-password=" + password +
 //                " --services=data,query,index" +
 //                " --cluster-index-ramsize=512" +
-                " --cluster-ramsize=" + ramMb);
-        return this;
+                " --cluster-ramsize=" + CLUSTER_RAM_MB);
     }
 
-    public CouchbaseContainer loadSampleBucket(String bucketName, int bucketQuotaMb) throws IOException, InterruptedException {
+
+    private static final AtomicLong nodeCounter = new AtomicLong(2);
+
+    public CouchbaseContainer addNode() {
+        return addNode("kv" + nodeCounter.getAndIncrement() + ".couchbase.host");
+    }
+
+    public CouchbaseContainer addNode(String hostname) {
+        final CouchbaseContainer newNode = new CouchbaseContainer(dockerImageName, hostname, username, password)
+                .withNetwork(getNetwork())
+                .withExposedPorts(getExposedPorts().toArray(new Integer[0]));
+
+        newNode.start();
+        serverAdd(newNode);
+
+        return newNode;
+    }
+
+    private void serverAdd(CouchbaseContainer newNode) {
+        execOrDie(this, "couchbase-cli server-add" +
+                " --cluster " + getHostname() +
+                " --user=" + username +
+                " --password=" + password +
+                " --server-add=" + newNode.hostname +
+                " --server-add-username=" + username +
+                " --server-add-password=" + password);
+    }
+
+    public void stopPersistence(String bucket) {
+        execOrDie(this, "cbepctl localhost stop" +
+                " -u " + username +
+                " -p " + password +
+                " -b " + bucket);
+    }
+
+    public void startPersistence(String bucket) {
+        execOrDie(this, "cbepctl localhost start" +
+                " -u " + username +
+                " -p " + password +
+                " -b " + bucket);
+    }
+
+    public void loadSampleBucket(String bucketName) {
+        loadSampleBucket(bucketName, 100);
+    }
+
+    public void loadSampleBucket(String bucketName, int bucketQuotaMb) {
         Stopwatch timer = Stopwatch.createStarted();
 
         ExecResultWithExitCode result = exec(this, "cbdocloader" +
@@ -72,13 +155,12 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
 
         // Query and index services must be present to avoid this warning. We don't need those services.
         if (result.getExitCode() != 0 && !result.getStdout().contains("Errors occurred during the index creation phase")) {
-            throw new IOException("Failed to load sample bucket: " + result);
+            throw new UncheckedIOException(new IOException("Failed to load sample bucket: " + result));
         }
 
         log.info("Importing sample bucket took {}", timer);
-        return this;
 
-        // cbimport is faster, but isn't always available, and fails when query & index services are not absent
+        // cbimport is faster, but isn't always available, and fails when query & index services are absent
 //        Stopwatch timer = Stopwatch.createStarted();
 //        createBucket(bucketName, bucketQuotaMb);
 //        exec(this, "cbimport2 json " +
@@ -92,7 +174,11 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
 //        return this;
     }
 
-    public CouchbaseContainer createBucket(String bucketName, int bucketQuotaMb) throws IOException, InterruptedException {
+    public void createBucket(String bucketName) {
+        createBucket(bucketName, 100, 0);
+    }
+
+    public void createBucket(String bucketName, int bucketQuotaMb, int replicas) {
         Stopwatch timer = Stopwatch.createStarted();
 
         execOrDie(this, "couchbase-cli bucket-create" +
@@ -102,74 +188,55 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
                 " --bucket " + bucketName +
                 " --bucket-ramsize " + bucketQuotaMb + "" +
                 " --bucket-type couchbase " +
-                //" --bucket-replica " + replicas +
+                " --bucket-replica " + replicas +
                 " --wait");
+
         log.info("Creating bucket took " + timer);
-        return this;
     }
 
-    public Optional<Version> getVersion() throws IOException, InterruptedException {
-        ExecResultWithExitCode execResult = exec(this, "couchbase-server --version");
-        if (execResult.getExitCode() != 0) {
-            return getVersionFromDockerImageName();
+    public void deleteBucket(String bucketName) {
+        Stopwatch timer = Stopwatch.createStarted();
+
+        execOrDie(this, "couchbase-cli bucket-delete" +
+                " --cluster " + getHostname() +
+                " --username " + username +
+                " --password " + password +
+                " --bucket " + bucketName);
+
+        log.info("Deleting bucket took " + timer);
+    }
+
+    public Optional<Version> getVersion() {
+        if (this.version == null) {
+            throw new IllegalStateException("Must start container before getting version.");
         }
-        Optional<Version> result = tryParseVersion(execResult.getStdout().trim());
-        return result.isPresent() ? result : getVersionFromDockerImageName();
+
+        return this.version;
     }
 
-    private static int indexOfFirstDigit(final String s) {
-        for (int i = 0; i < s.length(); i++) {
-            if (Character.isDigit(s.charAt(i))) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private static Optional<Version> tryParseVersion(final String versionString) {
-        try {
-            // We get a string like "Couchbase Server 5.5.0-2036 (EE)". The version parser
-            // tolerates trailing garbage, but not leading garbage, so...
-            final int actualStartIndex = indexOfFirstDigit(versionString);
-            if (actualStartIndex == -1) {
-                return Optional.empty();
-            }
-            final String versionWithoutLeadingGarbage = versionString.substring(actualStartIndex);
-            final Version version = Version.parseVersion(versionWithoutLeadingGarbage);
-            // builds off master branch might have version 0.0.0 :-(
-            return version.major() == 0 ? Optional.empty() : Optional.of(version);
-        } catch (Exception e) {
-            log.warn("Failed to parse version string '{}'", versionString, e);
-            return Optional.empty();
-        }
-    }
-
-    private Optional<Version> getVersionFromDockerImageName() {
-        final String imageName = getDockerImageName();
-        final int tagDelimiterIndex = imageName.indexOf(':');
-        return tagDelimiterIndex == -1 ? Optional.empty() : tryParseVersion(imageName.substring(tagDelimiterIndex + 1));
-    }
-
-    public CouchbaseContainer addServer(CouchbaseContainer newNode) throws IOException, InterruptedException {
-        execOrDie(this, "couchbase-cli server-add" +
-                        " --cluster " + getHostname() +
-                        " --user=" + username +
-                        " --password=" + password +
-                        " --server-add=" + newNode.hostname +
-                        " --server-add-username=" + username +
-                        " --server-add-password=" + password);
-        return this;
-    }
-
-    public CouchbaseContainer rebalance() throws IOException, InterruptedException {
+    public void rebalance() {
         execOrDie(this, "couchbase-cli rebalance" +
-                        " -c " + hostname +
-                        " -u " + username +
-                        " -p " + password);
-        return this;
+                " -c " + hostname +
+                " -u " + username +
+                " -p " + password);
     }
 
     private String getHostname() {
         return hostname;
+    }
+
+    @Override
+    public void start() {
+        super.start();
+
+        try {
+            this.version = VersionUtils.getVersion(this);
+            Version serverVersion = getVersion().orElse(null);
+            log.info("Couchbase Server (version {}) {} running at http://localhost:{}",
+                    serverVersion, hostname, getMappedPort(WEB_PORT));
+        } catch (Exception e) {
+            stop();
+            throw new RuntimeException(e);
+        }
     }
 }
