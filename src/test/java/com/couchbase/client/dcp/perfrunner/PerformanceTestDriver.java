@@ -86,7 +86,7 @@ class PerformanceTestDriver {
             compressionMetrics.put("compressedMessageCount", compressedMessageCount);
             compressionMetrics.put("totalCompressedBytes", totalCompressedBytes);
             compressionMetrics.put("totalDecompressedBytes", totalDecompressedBytes);
-            compressionMetrics.put("avgCompressionRatio",
+            compressionMetrics.put("avgCompressionRatio", totalCompressedBytes.longValue() == 0 ? "N/A" :
                     new BigDecimal(totalDecompressedBytes.doubleValue() / totalCompressedBytes.doubleValue())
                             .setScale(2, RoundingMode.HALF_UP));
 
