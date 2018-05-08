@@ -81,6 +81,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
                 .withExposedPorts(WEB_PORT);
 
         couchbase.start();
+        couchbase.assignHostname();
         couchbase.initCluster();
 
         return couchbase;
@@ -221,6 +222,14 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
                 " -p " + password);
     }
 
+    public void failover() {
+        execOrDie(this, "couchbase-cli failover" +
+                " --cluster " + getHostname() + ":8091" +
+                " --username " + username +
+                " --password " + password +
+                " --server-failover " + getHostname() + ":8091");
+    }
+
     private String getHostname() {
         return hostname;
     }
@@ -238,5 +247,14 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
             stop();
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Ensures the node refers to itself by hostname instead of IP address.
+     * Doesn't really matter, but it's nice to see consistent names in the web UI's server list.
+     */
+    private void assignHostname() {
+        execOrDie(this, "curl --silent --user " + username + ":" + password +
+                " http://127.0.0.1:8091/node/controller/rename --data hostname=" + hostname);
     }
 }

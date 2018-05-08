@@ -72,13 +72,13 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
                     .start()) {
 
                 bucket.createDocuments(BATCH_SIZE, "a");
-                couchbase().stopPersistence(bucket.name());
+                bucket.stopPersistence();
                 bucket.createDocuments(BATCH_SIZE, "b");
 
                 // expect to see all of "a" and none of "b"
                 streamer.assertMutationCount(BATCH_SIZE);
 
-                couchbase().startPersistence(bucket.name());
+                bucket.startPersistence();
 
                 // Now wait and expect both batches
                 streamer.assertMutationCount(BATCH_SIZE * 2);

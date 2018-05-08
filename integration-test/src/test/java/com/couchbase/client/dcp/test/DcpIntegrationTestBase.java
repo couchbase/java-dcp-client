@@ -35,7 +35,7 @@ import static org.junit.Assert.assertEquals;
 public abstract class DcpIntegrationTestBase {
     private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
 
-    private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0-Mar";
+    private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0-beta";
 
     private static CouchbaseContainer couchbase;
     private static AgentContainer agentContainer;
@@ -157,6 +157,14 @@ public abstract class DcpIntegrationTestBase {
 
         public String name() {
             return name;
+        }
+
+        public void stopPersistence() {
+            couchbase().stopPersistence(name);
+        }
+
+        public void startPersistence() {
+            couchbase().startPersistence(name);
         }
     }
 }
