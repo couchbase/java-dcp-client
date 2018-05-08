@@ -38,25 +38,35 @@ import java.util.concurrent.Future;
 public class AgentContainer extends GenericContainer<AgentContainer> {
     private static final Logger log = LoggerFactory.getLogger(AgentContainer.class);
 
-    private static final int HTTP_PORT = 8080;
-    private static final int DEBUG_PORT = 5005;
+    private static final int HOST_DEBUG_PORT = 5005;
 
-    public AgentContainer(File agentJar) throws FileNotFoundException {
+    private static final int CONTAINER_HTTP_PORT = 8080;
+    private static final int CONTAINER_DEBUG_PORT = 5005;
+
+    public AgentContainer(File agentJar, int fixedUiPort) throws FileNotFoundException {
         super(createImage(agentJar));
 
         if (debuggerPresent()) {
-            withExposedPorts(HTTP_PORT, DEBUG_PORT);
+            withExposedPorts(CONTAINER_HTTP_PORT, CONTAINER_DEBUG_PORT);
+            addFixedExposedPort(HOST_DEBUG_PORT, CONTAINER_DEBUG_PORT);
+
+            if (fixedUiPort != 0) {
+                addFixedExposedPort(fixedUiPort, CONTAINER_HTTP_PORT);
+            }
         } else {
-            withExposedPorts(HTTP_PORT);
+            withExposedPorts(CONTAINER_HTTP_PORT);
+            if (fixedUiPort != 0) {
+                addFixedExposedPort(fixedUiPort, CONTAINER_HTTP_PORT);
+            }
         }
     }
 
     public int getHttpPort() {
-        return getMappedPort(HTTP_PORT);
+        return getMappedPort(CONTAINER_HTTP_PORT);
     }
 
     public int getDebuggerPort() {
-        return getMappedPort(DEBUG_PORT);
+        return getMappedPort(CONTAINER_DEBUG_PORT);
     }
 
     @Override
@@ -79,7 +89,7 @@ public class AgentContainer extends GenericContainer<AgentContainer> {
         final List<String> command = new ArrayList<>(Arrays.asList("java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app.jar"));
         if (debuggerPresent()) {
             // The integration tests are running in debug mode, so launch the agent in debug mode too.
-            command.add(1, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + DEBUG_PORT);
+            command.add(1, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + CONTAINER_DEBUG_PORT);
         }
         final String[] entryPoint = command.toArray(new String[0]);
 

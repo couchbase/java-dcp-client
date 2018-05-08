@@ -37,6 +37,15 @@ public abstract class DcpIntegrationTestBase {
 
     private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0-beta";
 
+    // Use dynamic ports in CI environment to avoid port conflicts
+    private static final boolean DYNAMIC_PORTS = System.getenv("JENKINS_URL") != null;
+
+    // Supply a non-zero value to use a fixed port for Couchbase web UI.
+    private static final int HOST_COUCHBASE_UI_PORT = DYNAMIC_PORTS ? 0 : 8891;
+
+    // Supply a non-zero value to use a fixed port for Agent web UI.
+    private static final int AGENT_UI_PORT = DYNAMIC_PORTS ? 0 : 8880;
+
     private static CouchbaseContainer couchbase;
     private static AgentContainer agentContainer;
     private static RemoteAgent agent;
@@ -44,7 +53,7 @@ public abstract class DcpIntegrationTestBase {
     @BeforeClass
     public static void setup() throws Exception {
         final Network network = Network.builder().id("dcp-test-network").build();
-        couchbase = CouchbaseContainer.newCluster(COUCHBASE_DOCKER_IMAGE, network, "kv1.couchbase.host");
+        couchbase = CouchbaseContainer.newCluster(COUCHBASE_DOCKER_IMAGE, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
         agentContainer = startAgent(network);
         agent = new RemoteAgent(agentContainer);
     }
@@ -57,7 +66,7 @@ public abstract class DcpIntegrationTestBase {
     protected static AgentContainer startAgent(Network network) throws Exception {
         File appFile = new File("target/dcp-test-agent-0.1.0.jar");
 
-        AgentContainer agentContainer = new AgentContainer(appFile).withNetwork(network);
+        AgentContainer agentContainer = new AgentContainer(appFile, AGENT_UI_PORT).withNetwork(network);
         agentContainer.start();
 
         return agentContainer;

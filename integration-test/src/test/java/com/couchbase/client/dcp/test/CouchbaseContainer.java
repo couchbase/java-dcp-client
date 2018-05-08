@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     private static final Logger log = LoggerFactory.getLogger(CouchbaseContainer.class);
 
-    private static final int WEB_PORT = 8091;
+    private static final int CONTAINTER_WEB_UI_PORT = 8091;
     private static final int CLUSTER_RAM_MB = 1024;
 
     private final String username;
@@ -49,7 +49,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private volatile Optional<Version> version;
 
-    private CouchbaseContainer(String dockerImageName, String hostname, String username, String password) {
+    private CouchbaseContainer(String dockerImageName, String hostname, String username, String password, int hostUiPort) {
         super(dockerImageName);
         this.dockerImageName = requireNonNull(dockerImageName);
         this.username = requireNonNull(username);
@@ -58,9 +58,14 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
 
         withNetworkAliases(hostname);
         withCreateContainerCmdModifier(cmd -> cmd.withHostName(hostname));
+
+        withExposedPorts(CONTAINTER_WEB_UI_PORT);
+        if (hostUiPort != 0) {
+            addFixedExposedPort(hostUiPort, CONTAINTER_WEB_UI_PORT);
+        }
     }
 
-    public static CouchbaseContainer newCluster(String dockerImageName, Network network, String hostname) {
+    public static CouchbaseContainer newCluster(String dockerImageName, Network network, String hostname, int hostUiPort) {
         final String username;
         final String password;
 
@@ -76,9 +81,8 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
         log.info("Username: " + username);
         log.info("Password: " + password);
 
-        final CouchbaseContainer couchbase = new CouchbaseContainer(dockerImageName, hostname, username, password)
-                .withNetwork(network)
-                .withExposedPorts(WEB_PORT);
+        final CouchbaseContainer couchbase = new CouchbaseContainer(dockerImageName, hostname, username, password, hostUiPort)
+                .withNetwork(network);
 
         couchbase.start();
         couchbase.assignHostname();
@@ -105,7 +109,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     }
 
     public CouchbaseContainer addNode(String hostname) {
-        final CouchbaseContainer newNode = new CouchbaseContainer(dockerImageName, hostname, username, password)
+        final CouchbaseContainer newNode = new CouchbaseContainer(dockerImageName, hostname, username, password, 0)
                 .withNetwork(getNetwork())
                 .withExposedPorts(getExposedPorts().toArray(new Integer[0]));
 
@@ -242,7 +246,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
             this.version = VersionUtils.getVersion(this);
             Version serverVersion = getVersion().orElse(null);
             log.info("Couchbase Server (version {}) {} running at http://localhost:{}",
-                    serverVersion, hostname, getMappedPort(WEB_PORT));
+                    serverVersion, hostname, getMappedPort(CONTAINTER_WEB_UI_PORT));
         } catch (Exception e) {
             stop();
             throw new RuntimeException(e);
