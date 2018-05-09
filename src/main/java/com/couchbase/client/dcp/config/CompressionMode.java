@@ -86,15 +86,15 @@ public enum CompressionMode {
      * Values stored in compressed form will be sent compressed.
      * Values stored in uncompressed form will be sent uncompressed.
      * <p>
-     * When connecting to a server older than version 5.5, this mode will has
-     * the same effect as {@link #FORCED}.
+     * When connecting to a server older than version 5.5, this mode will be
+     * downgraded to DISABLED.
      *
      * @since Couchbase Server 5.5 (Vulcan)
      */
     ENABLED {
         @Override
         public CompressionMode effectiveMode(Version serverVersion) {
-            return serverVersion.isAtLeast(VULCAN) ? this : FORCED.effectiveMode(serverVersion);
+            return serverVersion.isAtLeast(VULCAN) ? this : DISABLED;
         }
 
         @Override

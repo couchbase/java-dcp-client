@@ -44,7 +44,7 @@ public class CompressionModeTest {
         assertEquals(FORCED, FORCED.effectiveMode(VULCAN));
 
         assertEquals(DISABLED, ENABLED.effectiveMode(OLDER));
-        assertEquals(FORCED, ENABLED.effectiveMode(WATSON));
+        assertEquals(DISABLED, ENABLED.effectiveMode(WATSON));
         assertEquals(ENABLED, ENABLED.effectiveMode(VULCAN));
     }
 
