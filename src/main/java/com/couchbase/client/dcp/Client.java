@@ -15,7 +15,6 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.core.annotations.InterfaceStability;
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
@@ -909,13 +908,8 @@ public class Client {
 
         /**
          * Sets the compression mode for message values sent by Couchbase Server.
-         * If not specified, defaults to {@link CompressionMode#DISABLED}.
-         * <p>
-         * This method has an interface stability level of "uncommitted" because
-         * the default mode and the semantics of the different modes may change
-         * in a future release.
+         * If not specified, defaults to {@link CompressionMode#ENABLED}.
          */
-        @InterfaceStability.Uncommitted
         public Builder compression(CompressionMode compressionMode) {
             this.dcpControl.compression(compressionMode);
             return this;

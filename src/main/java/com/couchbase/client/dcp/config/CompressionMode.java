@@ -27,8 +27,6 @@ import static com.couchbase.client.dcp.message.HelloRequest.SNAPPY;
 public enum CompressionMode {
     /**
      * Couchbase Server will never send compressed values.
-     * <p>
-     * This is the default mode.
      */
     DISABLED {
         @Override
@@ -82,6 +80,8 @@ public enum CompressionMode {
     },
 
     /**
+     * Default mode.
+     * <p>
      * Couchbase Server may send compressed values at its discretion.
      * Values stored in compressed form will be sent compressed.
      * Values stored in uncompressed form will be sent uncompressed.

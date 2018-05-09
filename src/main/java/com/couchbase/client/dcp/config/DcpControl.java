@@ -47,7 +47,7 @@ public class DcpControl {
     /**
      * The requested compression mode.
      */
-    private CompressionMode compressionMode = CompressionMode.DISABLED;
+    private CompressionMode compressionMode = CompressionMode.ENABLED;
 
     /**
      * Creates a new {@link DcpControl} instance with no params set upfront.
