@@ -80,14 +80,6 @@ public class DcpControl {
      * @return the {@link DcpControl} instance for chainability.
      */
     public DcpControl put(final Names name, final String value) {
-        // Intercept the deprecated compression control. The name of the control
-        // for this feature has changed between server versions.
-        if (name == DcpControl.Names.ENABLE_VALUE_COMPRESSION) {
-            final boolean enabled = parseBoolean(value);
-            compression(enabled ? CompressionMode.FORCED : CompressionMode.DISABLED);
-            return this;
-        }
-
         // Provide a default NOOP interval because the client needs
         // to know the interval in order to detect dead connections.
         if (name == Names.ENABLE_NOOP && get(Names.SET_NOOP_INTERVAL) == null) {

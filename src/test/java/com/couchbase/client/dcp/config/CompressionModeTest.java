@@ -40,7 +40,7 @@ public class CompressionModeTest {
         assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(VULCAN));
 
         assertEquals(DISABLED, FORCED.effectiveMode(OLDER));
-        assertEquals(FORCED, FORCED.effectiveMode(WATSON));
+        assertEquals(DISABLED, FORCED.effectiveMode(WATSON));
         assertEquals(FORCED, FORCED.effectiveMode(VULCAN));
 
         assertEquals(DISABLED, ENABLED.effectiveMode(OLDER));
@@ -72,10 +72,9 @@ public class CompressionModeTest {
         assertEquals(emptyMap(), DISABLED.getDcpControls(WATSON));
     }
 
-    @Test
+    @Test(expected = IllegalArgumentException.class)
     public void watsonForced() throws Exception {
-        // Don't care about hello, doesn't affect server compression behavior
-        assertEquals(singletonMap("enable_value_compression", "true"), FORCED.getDcpControls(WATSON));
+        FORCED.getDcpControls(WATSON);
     }
 
     @Test

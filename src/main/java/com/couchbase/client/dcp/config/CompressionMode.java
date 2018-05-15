@@ -53,29 +53,25 @@ public enum CompressionMode {
      * of how the values are stored on the server, unless the compressed
      * form is larger than the uncompressed form.
      * <p>
-     * When connecting to a server older than version 4.5, this mode will be
+     * When connecting to a server older than version 5.5, this mode will be
      * downgraded to DISABLED.
      *
-     * @since Couchbase Server 4.5 (Watson)
+     * @since Couchbase Server 5.5 (Vulcan)
      */
     FORCED {
         @Override
         public CompressionMode effectiveMode(Version serverVersion) {
-            return serverVersion.isAtLeast(WATSON) ? this : DISABLED;
+            return serverVersion.isAtLeast(VULCAN) ? this : DISABLED;
         }
 
         @Override
         public Map<String, String> getDcpControls(Version serverVersion) {
-            if (!serverVersion.isAtLeast(WATSON)) {
+            if (!serverVersion.isAtLeast(VULCAN)) {
                 // Programming error, should have called effectiveMode first to downgrade if compression is not supported.
                 throw new IllegalArgumentException("Server version " + serverVersion + " does not support value compression");
             }
 
-            // The name of this control changed in Vulcan, but the effect is the same.
-            String controlName = serverVersion.isAtLeast(VULCAN)
-                    ? "force_value_compression" : "enable_value_compression";
-
-            return Collections.singletonMap(controlName, String.valueOf(true));
+            return Collections.singletonMap("force_value_compression", String.valueOf(true));
         }
     },
 
@@ -104,14 +100,6 @@ public enum CompressionMode {
     };
 
     private static final short[] EMPTY_SHORT_ARRAY = new short[0];
-
-    /**
-     * Watson only supports {@link #DISABLED} and {@link #FORCED}.
-     * <p>
-     * To enable {@link #FORCED} mode for Watson, set the `enable_value_compression`
-     * control param to `true`.
-     */
-    private static final Version WATSON = new Version(4, 5, 0);
 
     /**
      * Vulcan supports {@link #DISABLED}, {@link #FORCED}, and {@link #ENABLED}.
