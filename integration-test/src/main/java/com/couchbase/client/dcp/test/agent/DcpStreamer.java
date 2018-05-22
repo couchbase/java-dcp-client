@@ -16,17 +16,6 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
@@ -36,6 +25,17 @@ import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.state.SessionState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static com.couchbase.client.dcp.test.util.Poller.poll;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DcpStreamer {
     private static final Logger LOGGER = LoggerFactory.getLogger(DcpStreamer.class);
@@ -124,35 +124,18 @@ public class DcpStreamer {
             throw new IllegalStateException("Streaming to infinity; can't wait for that!");
         }
 
-        final long deadline = System.nanoTime() + unit.toNanos(timeout);
+        poll().atInterval(100, MILLISECONDS)
+                .withTimeout(timeout, unit)
+                .until(() -> client.sessionState().isAtEnd());
 
-        while (!client.sessionState().isAtEnd()) {
-            try {
-                MILLISECONDS.sleep(100);
-                if (System.nanoTime() > deadline) {
-                    throw new TimeoutException();
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-        }
         return status();
     }
 
     public Status awaitMutationCount(int mutationCount, long timeout, TimeUnit unit) {
-        final long deadline = System.nanoTime() + unit.toNanos(timeout);
-        while (mutations.get() < mutationCount) {
-            try {
-                MILLISECONDS.sleep(100);
-                if (System.nanoTime() > deadline) {
-                    break;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-        }
+        poll().atInterval(100, MILLISECONDS)
+                .withTimeout(timeout, unit)
+                .untilTimeExpiresOr(() -> mutations.get() >= mutationCount);
+
         return status();
     }
 

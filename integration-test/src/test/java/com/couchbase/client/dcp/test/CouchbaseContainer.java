@@ -18,22 +18,30 @@ package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.test.ExecUtils.ExecResultWithExitCode;
 import com.couchbase.client.dcp.util.Version;
+import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.ContainerLaunchException;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.shaded.com.google.common.base.Stopwatch;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.couchbase.client.dcp.test.ExecUtils.exec;
 import static com.couchbase.client.dcp.test.ExecUtils.execOrDie;
+import static com.couchbase.client.dcp.test.util.Poller.poll;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     private static final Logger log = LoggerFactory.getLogger(CouchbaseContainer.class);
@@ -143,6 +151,32 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
                 " -b " + bucket);
     }
 
+    public void restart() {
+        execOrDie(this, "sv restart couchbase-server");
+        waitForReadyState();
+    }
+
+    public void waitForReadyState() {
+        poll().atInterval(3, SECONDS)
+                .withTimeout(2, MINUTES)
+                .until(this::allNodesHealthy);
+    }
+
+    private boolean allNodesHealthy() {
+        try {
+            final String poolInfo = curl("pools/default");
+            final List<String> nodeStatuses = JsonPath.read(poolInfo, "$.nodes[*].status");
+            return nodeStatuses.stream().allMatch(status -> status.equals("healthy"));
+        } catch (UncheckedIOException e) {
+            return false; // This node is not responding to HTTP requests, and therefore not healthy.
+        }
+    }
+
+    private String curl(String path) {
+        return execOrDie(this, "curl -sS http://localhost:8091/" + path + " -u " + username + ":" + password)
+                .getStdout();
+    }
+
     public void loadSampleBucket(String bucketName) {
         loadSampleBucket(bucketName, 100);
     }
@@ -240,7 +274,14 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
 
     @Override
     public void start() {
-        super.start();
+        try {
+            super.start();
+        } catch (ContainerLaunchException e) {
+            if (stackTraceAsString(e).contains("port is already allocated")) {
+                e.printStackTrace();
+                throw new RuntimeException("Failed to start container due to port conflict; have you stopped all other debug sessions?");
+            }
+        }
 
         try {
             this.version = VersionUtils.getVersion(this);
@@ -251,6 +292,12 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
             stop();
             throw new RuntimeException(e);
         }
+    }
+
+    private static String stackTraceAsString(Throwable t) {
+        StringWriter w = new StringWriter();
+        t.printStackTrace(new PrintWriter(w));
+        return w.toString();
     }
 
     /**

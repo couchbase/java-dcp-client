@@ -85,4 +85,16 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
             }
         }
     }
+
+    @Test
+    public void clientReconnectsAfterServerRestart() throws Exception {
+        try (TestBucket bucket = newBucket().create()) {
+            try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
+                bucket.createDocuments(BATCH_SIZE, "a");
+                couchbase().restart();
+                bucket.createDocuments(BATCH_SIZE, "b");
+                streamer.assertMutationCount(BATCH_SIZE * 2);
+            }
+        }
+    }
 }
