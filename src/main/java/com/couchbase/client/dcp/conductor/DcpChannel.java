@@ -64,6 +64,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.message.ResponseStatus.KEY_EXISTS;
 import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
@@ -316,6 +317,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                         ByteBuf buf = future.getNow().buffer();
                         try {
                             final ResponseStatus status = MessageUtil.getResponseStatus(buf);
+
+                            if (status == KEY_EXISTS) {
+                                LOGGER.debug("Stream already open against {} with vbid: {}", inetAddress, vbid);
+                                subscriber.onCompleted();
+                                return;
+                            }
 
                             if (!status.isSuccess()) {
                                 LOGGER.debug("Failed open Stream against {} with vbid: {}", inetAddress, vbid);

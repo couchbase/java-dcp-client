@@ -389,6 +389,13 @@ public class Conductor {
     private void remove(final DcpChannel node) {
         if (channels.remove(node)) {
             LOGGER.debug("Removing DCP Channel against {}", node);
+
+            for (short partition = 0; partition < node.streamIsOpen.length(); partition++) {
+                if (node.streamIsOpen(partition)) {
+                    maybeMovePartition(partition);
+                }
+            }
+
             node.disconnect().subscribe(new CompletableSubscriber() {
                 @Override
                 public void onCompleted() {
