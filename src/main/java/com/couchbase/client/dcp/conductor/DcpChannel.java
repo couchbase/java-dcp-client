@@ -347,6 +347,13 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             if (status.isSuccess()) {
                                 LOGGER.debug("Opened Stream against {} with vbid: {}", inetAddress, vbid);
                                 streamIsOpen.set(vbid, true);
+
+                                if (env.persistencePollingEnabled()) {
+                                    // The buffer might hold obsolete entries from a previous connection
+                                    // that was closed ungracefully (without a stream end message).
+                                    env.streamEventBuffer().clear(vbid);
+                                }
+
                                 subscriber.onCompleted();
 
                                 ByteBuf flog = Unpooled.buffer();

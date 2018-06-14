@@ -127,6 +127,10 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
         return newNode;
     }
 
+    public void killMemcached() {
+        execOrDie(this, "pkill -9 memcached");
+    }
+
     private void serverAdd(CouchbaseContainer newNode) {
         execOrDie(this, "couchbase-cli server-add" +
                 " --cluster " + getHostname() +

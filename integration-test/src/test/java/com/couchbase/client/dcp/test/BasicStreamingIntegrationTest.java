@@ -87,6 +87,35 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
     }
 
     @Test
+    public void rollbackMitigationClearsEventBufferOnReconnect() throws Exception {
+        try (TestBucket bucket = newBucket().create()) {
+            try (RemoteDcpStreamer streamer = bucket.newStreamer()
+                    .mitigateRollbacks()
+                    .start()) {
+
+                bucket.createDocuments(BATCH_SIZE, "a");
+                streamer.assertMutationCount(BATCH_SIZE);
+
+                bucket.stopPersistence();
+                bucket.createDocuments(BATCH_SIZE, "b");
+
+                // expect to see all of "a" and none of "b"
+                streamer.assertMutationCount(BATCH_SIZE);
+
+                // Discard unpersisted items and force a reconnect.
+                // Streaming will resume from last observed persisted state.
+                couchbase().killMemcached(); // implicitly starts persistence
+                couchbase().waitForReadyState();
+
+                bucket.createDocuments(BATCH_SIZE, "c");
+
+                // Expect batches "a" and "c" ("b" was never persisted)
+                streamer.assertMutationCount(BATCH_SIZE * 2);
+            }
+        }
+    }
+
+    @Test
     public void clientReconnectsAfterServerRestart() throws Exception {
         try (TestBucket bucket = newBucket().create()) {
             try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {

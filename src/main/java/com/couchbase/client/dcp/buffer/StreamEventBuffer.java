@@ -161,6 +161,17 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     }
 
     /**
+     * Discard all buffered events in the given vbucket.
+     */
+    public void clear(final short vbucket) {
+        final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
+        synchronized (queue) {
+            LOGGER.debug("Clearing stream event buffer for partition {}", vbucket);
+            queue.clear();
+        }
+    }
+
+    /**
      * Discard any buffered events in the given vBucket with sequence numbers
      * higher than the given sequence number.
      */
@@ -172,6 +183,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
                 final BufferedEvent event = i.next();
                 final boolean eventSeqnoIsGreaterThanRollbackSeqno = compareUnsignedLong(event.seqno, toSeqno) > 0;
                 if (eventSeqnoIsGreaterThanRollbackSeqno) {
+                    LOGGER.trace("Dropping event with seqno {} from stream buffer for partition {}", event.seqno, vbucket);
                     i.remove();
                 }
             }

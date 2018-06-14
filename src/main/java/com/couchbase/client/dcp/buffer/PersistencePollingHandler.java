@@ -61,7 +61,11 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(final ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        configSubscription.unsubscribe();
+        if (configSubscription != null){
+            // The null check seems weird, but it's necessary since channelActive
+            // might not have been invoked if the connection wasn't fully established.
+            configSubscription.unsubscribe();
+        }
         activeGroupId++; // cancel recurring polling tasks
     }
 
