@@ -169,6 +169,8 @@ class PerformanceTestDriver {
         CompressionMode compressionMode = CompressionMode.valueOf(
                 args.settings.getProperty("compression", CompressionMode.DISABLED.name()));
 
+        final boolean mitigateRollbacks = Boolean.parseBoolean(args.settings.getProperty("mitigateRollbacks"));
+
         PerformanceTestConnectionString connectionString = new PerformanceTestConnectionString(args.connectionString);
 
         List<String> hostnames = new ArrayList<String>();
@@ -179,12 +181,30 @@ class PerformanceTestDriver {
             hostnames.add(host.getHostName());
         }
 
-        return Client.configure()
+        final Client.Builder builder = Client.configure()
                 .username(requireNonNull(connectionString.username(), "Connection string is missing username"))
                 .password(requireNonNull(connectionString.password(), "Connection string is missing password"))
                 .hostnames(hostnames)
                 .bucket(requireNonNull(connectionString.bucket(), "Connection string is missing bucket name"))
-                .compression(compressionMode)
-                .build();
+                .compression(compressionMode);
+
+        if (mitigateRollbacks) {
+            final int KB = 1024;
+            final int MB = 1024 * KB;
+            final int bufferSize = 24 * MB;
+
+            final int pollingInterval = 100;
+            final TimeUnit intervalUnit = TimeUnit.MILLISECONDS;
+
+            System.out.println("Mitigating rollbacks with flow control buffer of " + bufferSize
+                    + " bytes and polling interval of " + pollingInterval + " " + intervalUnit);
+
+            builder.flowControl(bufferSize)
+                    .mitigateRollbacks(pollingInterval, intervalUnit);
+        } else {
+            System.out.println("Rollback mitigation disabled.");
+        }
+
+        return builder.build();
     }
 }
