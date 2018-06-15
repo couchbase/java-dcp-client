@@ -33,6 +33,7 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
@@ -78,6 +79,20 @@ import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRel
 public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpChannel.class);
+
+    /**
+     * A "do nothing" flow controller for when an event does not require acknowledgement,
+     * and the "real" flow controller isn't easily accessible.
+     */
+    private static final ChannelFlowController dummyFlowController = new ChannelFlowController() {
+        @Override
+        public void ack(ByteBuf message) {
+        }
+
+        @Override
+        public void ack(int numBytes) {
+        }
+    };
 
     private final DcpChannelControlHandler controlHandler;
     private volatile boolean isShutdown;
@@ -340,7 +355,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                                 ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
                                 MessageUtil.setContent(content, flog);
                                 content.release();
-                                env.controlEventHandler().onEvent(null, flog);
+                                env.controlEventHandler().onEvent(dummyFlowController, flog);
 
                             } else if (status == ROLLBACK_REQUIRED) {
                                 subscriber.onError(new RollbackException());
@@ -348,7 +363,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                                 // create a rollback message and emit
                                 ByteBuf rb = Unpooled.buffer();
                                 RollbackMessage.init(rb, vbid, DcpOpenStreamResponse.rollbackSeqno(buf));
-                                env.controlEventHandler().onEvent(null, rb);
+                                env.controlEventHandler().onEvent(dummyFlowController, rb);
 
                             } else if (status == NOT_MY_VBUCKET) {
                                 subscriber.onError(new NotMyVbucketException());

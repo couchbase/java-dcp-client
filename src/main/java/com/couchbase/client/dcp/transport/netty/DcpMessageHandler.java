@@ -139,7 +139,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
                       final DcpChannelControlHandler controlHandler) {
         this.dataEventHandler = environment.dataEventHandler();
         this.controlHandler = controlHandler;
-        this.flowController = new ChannelFlowController(channel, environment);
+        this.flowController = new ChannelFlowControllerImpl(channel, environment);
     }
 
     @Override

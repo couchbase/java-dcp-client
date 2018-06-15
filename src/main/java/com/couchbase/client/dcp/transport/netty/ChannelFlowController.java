@@ -15,56 +15,9 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
-import com.couchbase.client.dcp.config.ClientEnvironment;
-import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.message.DcpBufferAckRequest;
-import com.couchbase.client.dcp.message.DcpDeletionMessage;
-import com.couchbase.client.dcp.message.DcpExpirationMessage;
-import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSetVbucketStateMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
-import com.couchbase.client.dcp.message.DcpStreamEndMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.channel.Channel;
 
-public class ChannelFlowController {
-    /**
-     * The logger used.
-     */
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ChannelFlowController.class);
-    /**
-     * The DCP channel
-     */
-    private final Channel channel;
-    /**
-     * Is ack enabled
-     */
-    private final boolean needsBufferAck;
-    /**
-     * Ack water mark
-     */
-    private final int bufferAckWatermark;
-    /**
-     * consumed data counter
-     */
-    private int bufferAckCounter;
-
-    public ChannelFlowController(Channel channel, ClientEnvironment environment) {
-        this.channel = channel;
-        this.needsBufferAck = environment.dcpControl().bufferAckEnabled();
-        if (needsBufferAck) {
-            int bufferAckPercent = environment.bufferAckWatermark();
-            int bufferSize = Integer.parseInt(environment.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE));
-            this.bufferAckWatermark = (int) Math.round(bufferSize / 100.0 * bufferAckPercent);
-            LOGGER.debug("BufferAckWatermark absolute is {}", bufferAckWatermark);
-        } else {
-            this.bufferAckWatermark = 0;
-        }
-        this.bufferAckCounter = 0;
-    }
-
+public interface ChannelFlowController {
     /**
      * Acknowledge bytes read if DcpControl.Names.CONNECTION_BUFFER_SIZE is set on bootstrap.
      *
@@ -76,31 +29,7 @@ public class ChannelFlowController {
      *
      * @param message the buffer to acknowledge.
      */
-    public void ack(ByteBuf message) {
-        if (needsBufferAck && (DcpSetVbucketStateMessage.is(message) || DcpSnapshotMarkerRequest.is(message)
-                || DcpStreamEndMessage.is(message)
-                || DcpMutationMessage.is(message) || DcpDeletionMessage.is(message)
-                || DcpExpirationMessage.is(message))) {
-            ack(message.readableBytes());
-        }
-    }
+    void ack(ByteBuf message);
 
-    public void ack(int numBytes) {
-        if (needsBufferAck) {
-            synchronized (this) {
-                bufferAckCounter += numBytes;
-                LOGGER.trace("BufferAckCounter is now {}", bufferAckCounter);
-                if (bufferAckCounter >= bufferAckWatermark) {
-                    LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.",
-                            channel.remoteAddress());
-                    ByteBuf buffer = channel.alloc().buffer();
-                    DcpBufferAckRequest.init(buffer);
-                    DcpBufferAckRequest.ackBytes(buffer, bufferAckCounter);
-                    channel.writeAndFlush(buffer);
-                    bufferAckCounter = 0;
-                }
-                LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
-            }
-        }
-    }
+    void ack(int numBytes);
 }
