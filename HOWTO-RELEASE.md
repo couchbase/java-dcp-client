@@ -22,7 +22,7 @@ Click on your username (upper right) and select "Profile". From the drop-down me
 select "User Token". Press "Access User Token" to see a snippet of XML with server credentials.
 Copy and paste this XML into the `servers` section of your Maven settings,
 replacing `${server}` with `ossrh`.
-
+* A local Docker installation, if you wish to run the integration tests.
 
 At a minimum, your `~/.m2/settings.xml` should look something like:
 
@@ -42,17 +42,18 @@ All set? In that case...
 ## Let's do this!
 
 Start by running `mvn clean verify -Prelease` to make sure the project builds successfully,
-artifact signing works, and the tests pass. If an integration test fails (and if you're
-okay with that), add `-DskipITs` to the Maven command line to skip integration tests.
+artifact signing works, and the unit tests pass. To run the integration tests, go to the
+`integration-test/aggregator` directory and run `mvn clean verify`.
 When you're satisfied with the test results, it's time to...
 
 
 ## Bump the project version number
 
 1. Edit `pom.xml` and remove the `-SNAPSHOT` prefix from the version string.
-2. Edit `README.md` and bump the version numbers. There may be references to
+2. Edit `integration-test/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
+3. Edit `README.md` and bump the version numbers. There may be references to
 the next snapshot release, so remember to edit those too.
-3. Commit these changes, with message "Prepare x.y.z release"
+4. Commit these changes, with message "Prepare x.y.z release"
 (where x.y.z is the version you're releasing).
 
 
