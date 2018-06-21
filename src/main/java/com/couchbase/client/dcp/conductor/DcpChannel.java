@@ -298,13 +298,27 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
 
     public Completable openStream(final short vbid, final long vbuuid, final long startSeqno, final long endSeqno,
-                                  final long snapshotStartSeqno, final long snapshotEndSeqno) {
+                                  final long origSnapshotStartSeqno, final long origSnapshotEndSeqno) {
         return Completable.create(new Completable.OnSubscribe() {
             @Override
             public void call(final CompletableSubscriber subscriber) {
                 if (state() != LifecycleState.CONNECTED) {
                     subscriber.onError(new NotConnectedException());
                     return;
+                }
+
+                final long snapshotStartSeqno;
+                final long snapshotEndSeqno;
+
+                if (origSnapshotStartSeqno == startSeqno + 1) {
+                    // startSeqno must be >= snapshotStartSeqno. If we get here, then we probably received
+                    // a snapshot marker and then disconnected before receiving the first seqno in the snapshot.
+                    LOGGER.debug("Disregarding snapshot marker from the future.");
+                    snapshotStartSeqno = startSeqno;
+                    snapshotEndSeqno = startSeqno;
+                } else {
+                    snapshotEndSeqno = origSnapshotEndSeqno;
+                    snapshotStartSeqno = origSnapshotStartSeqno;
                 }
 
                 LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
