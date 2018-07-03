@@ -73,9 +73,19 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
             return new BufferedEvent(seqno, null, null, STREAM_END_OK);
 
         }
+
+        void discard() {
+            try {
+                flowController.ack(event);
+            } catch (Throwable t) {
+                LOGGER.debug("Failed to ack buffered event; channel already closed?", t);
+            } finally {
+                event.release();
+            }
+        }
     }
 
-    private static final int MAX_PARITITONS = 1024;
+    private static final int MAX_PARTITIONS = 1024;
 
     private final EventBus eventBus;
     private volatile DataEventHandler dataEventHandler;
@@ -85,8 +95,8 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     public StreamEventBuffer(EventBus eventBus) {
         this.eventBus = eventBus;
 
-        final List<Deque<BufferedEvent>> partitionQueues = new ArrayList<Deque<BufferedEvent>>(MAX_PARITITONS);
-        for (int i = 0; i < MAX_PARITITONS; i++) {
+        final List<Deque<BufferedEvent>> partitionQueues = new ArrayList<Deque<BufferedEvent>>(MAX_PARTITIONS);
+        for (int i = 0; i < MAX_PARTITIONS; i++) {
             partitionQueues.add(new ArrayDeque<BufferedEvent>());
         }
         this.partitionQueues = unmodifiableList(partitionQueues);
@@ -131,7 +141,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
             if (event.reason() != StreamEndReason.OK) {
                 // Conductor.maybeMovePartition() will restart the stream from what it thinks is the current state.
                 // Buffered events are not reflected in the session state, so clear the buffer.
-                queue.clear();
+                clear(event.partition());
 
                 eventBus.publish(event);
                 return;
@@ -167,6 +177,9 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
         final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
         synchronized (queue) {
             LOGGER.debug("Clearing stream event buffer for partition {}", vbucket);
+            for (BufferedEvent bufferedEvent : queue) {
+                bufferedEvent.discard();
+            }
             queue.clear();
         }
     }
@@ -184,6 +197,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
                 final boolean eventSeqnoIsGreaterThanRollbackSeqno = compareUnsignedLong(event.seqno, toSeqno) > 0;
                 if (eventSeqnoIsGreaterThanRollbackSeqno) {
                     LOGGER.trace("Dropping event with seqno {} from stream buffer for partition {}", event.seqno, vbucket);
+                    event.discard();
                     i.remove();
                 }
             }
