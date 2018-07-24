@@ -42,6 +42,7 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -101,8 +102,7 @@ public class Client {
                 .setClusterAt(builder.clusterAt)
                 .setConnectionNameGenerator(builder.connectionNameGenerator)
                 .setBucket(builder.bucket)
-                .setUsername(builder.username == null ? builder.bucket : builder.username)
-                .setPassword(builder.password)
+                .setCredentialsProvider(builder.credentialsProvider)
                 .setDcpControl(builder.dcpControl)
                 .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
                 .setBufferAckWatermark(builder.bufferAckWatermark)
@@ -767,8 +767,7 @@ public class Client {
         private List<InetSocketAddress> clusterAt = Arrays.asList(InetSocketAddress.createUnresolved("127.0.0.1", 0));
         private EventLoopGroup eventLoopGroup;
         private String bucket = "default";
-        private String username;
-        private String password = "";
+        private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
         private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
         private DcpControl dcpControl = new DcpControl();
         private ConfigProvider configProvider = null;
@@ -864,11 +863,21 @@ public class Client {
          */
         public Builder bucket(final String bucket) {
             this.bucket = bucket;
+            Credentials cred = credentialsProvider.get(null);
+            if (cred.getUsername().isEmpty()) {
+                username(bucket);
+            }
             return this;
         }
 
         public Builder username(final String username) {
-            this.username = username;
+            Credentials cred = credentialsProvider.get(null);
+            this.credentialsProvider = new StaticCredentialsProvider(username, cred.getPassword());
+            return this;
+        }
+
+        public Builder credentialsProvider(final CredentialsProvider credentialsProvider) {
+            this.credentialsProvider = credentialsProvider;
             return this;
         }
 
@@ -879,7 +888,8 @@ public class Client {
          * @return this {@link Builder} for nice chainability.
          */
         public Builder password(final String password) {
-            this.password = password;
+            Credentials cred = credentialsProvider.get(null);
+            this.credentialsProvider = new StaticCredentialsProvider(cred.getUsername(), password);
             return this;
         }
 

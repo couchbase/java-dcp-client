@@ -27,6 +27,7 @@ import com.couchbase.client.core.node.MemcachedHashingStrategy;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.CredentialsProvider;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.SystemEventHandler;
 import com.couchbase.client.dcp.buffer.PersistedSeqnos;
@@ -35,6 +36,7 @@ import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -84,14 +86,9 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private final String bucket;
 
     /**
-     * The connecting username.
+     * The connecting credentialsProvider.
      */
-    private final String username;
-
-    /**
-     * The password of the username.
-     */
-    private final String password;
+    private final CredentialsProvider credentialsProvider;
 
     /**
      * Time in milliseconds to wait for initial configuration during bootstrap.
@@ -193,8 +190,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private ClientEnvironment(final Builder builder) {
         connectionNameGenerator = builder.connectionNameGenerator;
         bucket = builder.bucket;
-        username = builder.username;
-        password = builder.password;
+        credentialsProvider = builder.credentialsProvider;
         bootstrapTimeout = builder.bootstrapTimeout;
         connectTimeout = builder.connectTimeout;
         dcpControl = builder.dcpControl;
@@ -315,17 +311,28 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
     /**
-     * Usrename used.
+     * The credentials provider for the connection
      */
-    public String username() {
-        return username;
+    public CredentialsProvider credentialsProvider() {
+        return credentialsProvider;
     }
 
     /**
+     * @deprecated Use {@link ClientEnvironment.credentialsProvider()} instead to access username
+     * Usrename used.
+     */
+    @Deprecated
+    public String username() {
+        return credentialsProvider.get(null).getUsername();
+    }
+
+    /**
+     * @deprecated Use {@link ClientEnvironment.credentialsProvider()} instead to access password
      * Password of the user.
      */
+    @Deprecated
     public String password() {
-        return password;
+        return credentialsProvider.get(null).getPassword();
     }
 
     /**
@@ -487,8 +494,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         private List<InetSocketAddress> clusterAt;
         private ConnectionNameGenerator connectionNameGenerator;
         private String bucket;
-        private String username;
-        private String password;
+        private CredentialsProvider credentialsProvider;
         private long bootstrapTimeout = DEFAULT_BOOTSTRAP_TIMEOUT;
         private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
         private DcpControl dcpControl;
@@ -531,15 +537,11 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
             return this;
         }
 
-        public Builder setUsername(String username){
-            this.username = username;
+        public Builder setCredentialsProvider(CredentialsProvider credentialsProvider) {
+            this.credentialsProvider = credentialsProvider;
             return this;
         }
 
-        public Builder setPassword(String password) {
-            this.password = password;
-            return this;
-        }
 
         public Builder setBootstrapTimeout(long bootstrapTimeout) {
             this.bootstrapTimeout = bootstrapTimeout;
@@ -731,7 +733,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
                 "clusterAt=" + clusterAt +
                 ", connectionNameGenerator=" + connectionNameGenerator.getClass().getSimpleName() +
                 ", bucket='" + bucket + '\'' +
-                ", passwordSet=" + !password.isEmpty() +
                 ", dcpControl=" + dcpControl +
                 ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +
                 ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +

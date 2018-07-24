@@ -42,7 +42,7 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
     private final String username;
     private final String password;
 
-    StartStreamHandler(final String bucket, final String username, final String password) {
+    public StartStreamHandler(String bucket, String username, String password) {
         this.bucket = bucket;
         this.username = username;
         this.password = password;
@@ -89,9 +89,8 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
      * Helper method to add authentication credentials to the config stream request.
      */
     private void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request) {
-        final String pw = password == null ? "" : password;
-        ByteBuf raw = ctx.alloc().buffer(username.length() + pw.length() + 1);
-        raw.writeBytes((username + ":" + pw).getBytes(CharsetUtil.UTF_8));
+        ByteBuf raw = ctx.alloc().buffer(username.length() + password.length() + 1);
+        raw.writeBytes((username + ":" + password).getBytes(CharsetUtil.UTF_8));
         ByteBuf encoded = Base64.encode(raw, false);
         request.headers().add(HttpHeaders.Names.AUTHORIZATION, "Basic " + encoded.toString(CharsetUtil.UTF_8));
         encoded.release();

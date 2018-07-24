@@ -26,6 +26,7 @@ import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpContent;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpObject;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
@@ -40,11 +41,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigHandler.class);
-
-    /**
-     * Hostname used to replace $HOST parts in the config when used against localhost.
-     */
-    private final InetSocketAddress hostname;
 
     /**
      * The config stream where the configs are emitted into.
@@ -72,11 +68,10 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
      * @param currentBucketConfigRev revision of last received config.
      * @param environment the environment.
      */
-    ConfigHandler(final InetSocketAddress hostname,
+    ConfigHandler(
                   final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
                   final AtomicLong currentBucketConfigRev,
                   final ClientEnvironment environment) {
-        this.hostname = hostname;
         this.configStream = configStream;
         this.currentBucketConfigRev = currentBucketConfigRev;
         this.environment = environment;
@@ -89,7 +84,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     protected void channelRead0(final ChannelHandlerContext ctx, final HttpObject msg) throws Exception {
         if (msg instanceof HttpContent) {
             HttpContent content = (HttpContent) msg;
-            decodeChunk(content.content());
+            decodeChunk((InetSocketAddress) ctx.channel().remoteAddress(), content.content());
         }
     }
 
@@ -98,7 +93,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
      *
      * @param chunk the chunk to analyze.
      */
-    private void decodeChunk(final ByteBuf chunk) {
+    private void decodeChunk(InetSocketAddress address, final ByteBuf chunk) {
         responseContent.writeBytes(chunk);
 
         String currentChunk = responseContent.toString(CharsetUtil.UTF_8);
@@ -107,7 +102,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
             String rawConfig = currentChunk
                     .substring(0, separatorIndex)
                     .trim()
-                    .replace("$HOST", hostname.getAddress().getHostAddress());
+                    .replace("$HOST", address.getAddress().getHostAddress());
 
             CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment);
             synchronized (currentBucketConfigRev) {

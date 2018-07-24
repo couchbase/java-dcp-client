@@ -16,6 +16,8 @@
 
 package com.couchbase.client.dcp.buffer;
 
+import static java.util.Collections.unmodifiableList;
+
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.RedactableArgument;
@@ -26,8 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-
-import static java.util.Collections.unmodifiableList;
 
 public class BucketConfigHelper {
     private final boolean sslEnabled;
@@ -77,7 +77,7 @@ public class BucketConfigHelper {
 
     public InetSocketAddress getAddress(final NodeInfo node) {
         int port = getServicePortMap(node).get(ServiceType.BINARY);
-        return new InetSocketAddress(node.hostname().nameOrAddress(), port);
+        return new InetSocketAddress(node.rawHostname(), port);
     }
 
     private Map<ServiceType, Integer> getServicePortMap(final NodeInfo node) {

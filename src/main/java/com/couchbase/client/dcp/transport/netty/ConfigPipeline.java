@@ -15,12 +15,11 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import java.net.InetSocketAddress;
-import java.util.concurrent.atomic.AtomicLong;
-
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.Credentials;
+import com.couchbase.client.dcp.CredentialsProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.deps.io.netty.channel.Channel;
@@ -32,6 +31,9 @@ import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 
 import rx.subjects.Subject;
+
+import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Configures the pipeline for the HTTP config stream.
@@ -52,24 +54,14 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
     private final ClientEnvironment environment;
 
     /**
-     * Hostname used to replace $HOST parts in the config when used against localhost.
+     * Address used to replace $HOST parts in the config when used against localhost.
      */
-    private final InetSocketAddress hostname;
+    private final InetSocketAddress address;
 
     /**
      * The name of the bucket
      */
     private final String bucket;
-
-    /**
-     * The username (used for http auth).
-     */
-    private final String username;
-
-    /**
-     * THe password of the bucket (used for http auth).
-     */
-    private final String password;
 
     /**
      * The config stream where the configs are emitted into.
@@ -87,16 +79,14 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
     /**
      * Creates a new config pipeline.
      * @param environment the stateful environment.
-     * @param hostname hostname of the remote server.
+     * @param address address of the remote server.
      * @param configStream config stream where to send the configs.
      */
-    public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress hostname,
+    public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress address,
                           final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
                           final AtomicLong currentBucketConfigRev) {
-        this.hostname = hostname;
+        this.address = address;
         this.bucket = environment.bucket();
-        this.username = environment.username();
-        this.password = environment.password();
         this.configStream = configStream;
         this.currentBucketConfigRev = currentBucketConfigRev;
         this.environment = environment;
@@ -124,11 +114,12 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
         if (LOGGER.isTraceEnabled()) {
             pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
         }
-
+        CredentialsProvider credentialsProvider = environment.credentialsProvider();
+        Credentials credentials = credentialsProvider.get(address);
         pipeline
             .addLast(new HttpClientCodec())
-            .addLast(new StartStreamHandler(bucket, username, password))
-            .addLast(new ConfigHandler(hostname, configStream, currentBucketConfigRev, environment));
+                .addLast(new StartStreamHandler(bucket, credentials.getUsername(), credentials.getPassword()))
+                .addLast(new ConfigHandler(configStream, currentBucketConfigRev, environment));
     }
 
 }

@@ -20,13 +20,13 @@ import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.security.sasl.Sasl;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.SaslAuthRequest;
 import com.couchbase.client.dcp.message.SaslAuthResponse;
 import com.couchbase.client.dcp.message.SaslListMechsRequest;
 import com.couchbase.client.dcp.message.SaslListMechsResponse;
 import com.couchbase.client.dcp.message.SaslStepRequest;
 import com.couchbase.client.dcp.message.SaslStepResponse;
-import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
@@ -41,6 +41,7 @@ import javax.security.auth.callback.NameCallback;
 import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.sasl.SaslClient;
+
 import java.io.IOException;
 
 import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_ERROR;
@@ -82,12 +83,12 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
     /**
      * Creates a new auth handler.
      *
-     * @param username user/bucket name.
-     * @param password password of the user/bucket.
+     * @param address user/bucket name.
+     * @param environment password of the user/bucket.
      */
-    AuthHandler(final String username, final String password) {
+    AuthHandler(String username, String password) {
         this.username = username;
-        this.password = password == null ? "" : password;
+        this.password = password;
     }
 
     /**

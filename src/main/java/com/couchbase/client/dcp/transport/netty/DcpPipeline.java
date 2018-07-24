@@ -17,6 +17,7 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
@@ -32,6 +33,8 @@ import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateHandler;
+
+import java.net.InetSocketAddress;
 
 import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
 
@@ -65,10 +68,12 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
      *
      * @param environment
      *            the stateful environment.
+     * @param address 
      * @param controlHandler
      *            the control event handler.
      */
-    public DcpPipeline(final ClientEnvironment environment, final DcpChannelControlHandler controlHandler, ConfigProvider configProvider) {
+    public DcpPipeline(final ClientEnvironment environment,
+            final DcpChannelControlHandler controlHandler, ConfigProvider configProvider) {
         this.configProvider = requireNonNull(configProvider);
         this.environment = requireNonNull(environment);
         this.controlHandler = requireNonNull(controlHandler);
@@ -99,7 +104,8 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
 
         DcpControl control = environment.dcpControl();
 
-        pipeline.addLast(new AuthHandler(environment.username(), environment.password()))
+        Credentials credentials = environment.credentialsProvider().get((InetSocketAddress) ch.remoteAddress());
+        pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()))
                 .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket(), control))
                 .addLast(new DcpControlHandler(control));
 
