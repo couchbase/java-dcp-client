@@ -46,9 +46,30 @@ public class FailoverLogEntry {
 
     @Override
     public String toString() {
-        return "FailoverLogEntry{" +
-            "seqno=" + seqno +
-            ", uuid=" + uuid +
-            '}';
+        return uuid + "@" + seqno;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        FailoverLogEntry that = (FailoverLogEntry) o;
+
+        if (seqno != that.seqno) {
+            return false;
+        }
+        return uuid == that.uuid;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (int) (seqno ^ (seqno >>> 32));
+        result = 31 * result + (int) (uuid ^ (uuid >>> 32));
+        return result;
     }
 }

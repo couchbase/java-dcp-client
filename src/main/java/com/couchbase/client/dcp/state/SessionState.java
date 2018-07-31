@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
+import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
+
 /**
  * Holds the state information for the current session (all partitions involved).
  *
@@ -175,7 +177,7 @@ public class SessionState {
         while (flogIterator.hasNext()) {
             FailoverLogEntry entry = flogIterator.next();
             // check if this entry is has a higher seqno than we need to roll back to
-            if (entry.getSeqno() > seqno) {
+            if (lessThanUnsigned(seqno, entry.getSeqno())) {
                 entriesToRemove.add(entry);
             }
         }
