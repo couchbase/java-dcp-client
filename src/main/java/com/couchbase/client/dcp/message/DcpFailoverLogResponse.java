@@ -16,7 +16,11 @@
 package com.couchbase.client.dcp.message;
 
 
+import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_FAILOVER_LOG_OPCODE;
 
@@ -40,26 +44,43 @@ public enum DcpFailoverLogResponse {
         return MessageUtil.getContent(buffer).getShort(vbOffset);
     }
 
+    /**
+     * @deprecated in favor of {@link #entries(ByteBuf)}
+     */
+    @Deprecated
     public static int numLogEntries(final ByteBuf buffer) {
         return (MessageUtil.getContent(buffer).readableBytes() - 2) / 16;
     }
 
+    /**
+     * @deprecated in favor of {@link #entries(ByteBuf)}
+     */
+    @Deprecated
     public static long vbuuidEntry(final ByteBuf buffer, int index) {
         return MessageUtil.getContent(buffer).getLong(index * 16);
     }
 
+    /**
+     * @deprecated in favor of {@link #entries(ByteBuf)}
+     */
+    @Deprecated
     public static long seqnoEntry(final ByteBuf buffer, int index) {
         return MessageUtil.getContent(buffer).getLong(index * 16 + 8);
     }
 
-    public static String toString(final ByteBuf buffer) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("FailoverLog [");
-        sb.append("vbid: ").append(vbucket(buffer)).append(", log: [");
-        int numEntries = numLogEntries(buffer);
+    public static List<FailoverLogEntry> entries(final ByteBuf buffer) {
+        final int numEntries = numLogEntries(buffer);
+        final ByteBuf content = MessageUtil.getContent(buffer);
+        final List<FailoverLogEntry> result = new ArrayList<FailoverLogEntry>(numEntries);
         for (int i = 0; i < numEntries; i++) {
-            sb.append("[uuid: ").append(vbuuidEntry(buffer, i)).append(", seqno: ").append(seqnoEntry(buffer, i)).append("]");
+            final long vbuuid = content.getLong(i * 16);
+            final long seqno = content.getLong(i * 16 + 8);
+            result.add(new FailoverLogEntry(seqno, vbuuid));
         }
-        return sb.append("]]").toString();
+        return result;
+    }
+
+    public static String toString(final ByteBuf buffer) {
+        return "FailoverLog [vbid: " + vbucket(buffer) + ", log: " + entries(buffer) + "]";
     }
 }

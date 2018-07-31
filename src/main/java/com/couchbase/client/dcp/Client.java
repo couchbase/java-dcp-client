@@ -42,7 +42,6 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -264,14 +263,8 @@ public class Client {
      */
     private void handleFailoverLogResponse(final ByteBuf event) {
         short partition = DcpFailoverLogResponse.vbucket(event);
-        int numEntries = DcpFailoverLogResponse.numLogEntries(event);
         PartitionState ps = sessionState().get(partition);
-        for (int i = 0; i < numEntries; i++) {
-            ps.addToFailoverLog(
-                    DcpFailoverLogResponse.seqnoEntry(event, i),
-                    DcpFailoverLogResponse.vbuuidEntry(event, i)
-            );
-        }
+        ps.setFailoverLog(DcpFailoverLogResponse.entries(event));
         sessionState().set(partition, ps);
     }
 
@@ -284,7 +277,7 @@ public class Client {
      * The following messages can happen and should be handled depending on the needs of the
      * client:
      *
-     * - {@link DcpMutationMessage}: A mtation has occurred. Needs to be acknowledged.
+     * - {@link DcpMutationMessage}: A mutation has occurred. Needs to be acknowledged.
      * - {@link DcpDeletionMessage}: A deletion has occurred. Needs to be acknowledged.
      * - {@link DcpExpirationMessage}: An expiration has occurred. Note that current server versions
      * (as of 4.5.0) are not emitting this event, but in any case you should at least release it to

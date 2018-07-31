@@ -35,7 +35,7 @@ public class PartitionState {
      * Stores the failover log for this partition.
      */
     @JsonProperty("flog")
-    private final List<FailoverLogEntry> failoverLog;
+    private volatile List<FailoverLogEntry> failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>();
 
     /**
      * Stores the starting sequence number for this partition.
@@ -60,13 +60,6 @@ public class PartitionState {
      */
     @JsonProperty("ses")
     private volatile long snapshotEndSeqno = 0;
-
-    /**
-     * Initialize a new partition state.
-     */
-    public PartitionState() {
-        failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>();
-    }
 
     /**
      * Returns the current end sequence number.
@@ -104,11 +97,20 @@ public class PartitionState {
     }
 
     /**
+     * Sets the failover log.
+     */
+    public void setFailoverLog(List<FailoverLogEntry> log) {
+        failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>(log);
+    }
+
+    /**
      * Add a new seqno/uuid combination to the failover log.
      *
      * @param seqno the sequence number.
      * @param vbuuid the uuid for the sequence.
+     * @deprecated in favor of {@link #setFailoverLog(List)}
      */
+    @Deprecated
     public void addToFailoverLog(long seqno, long vbuuid) {
         failoverLog.add(new FailoverLogEntry(seqno, vbuuid));
     }
@@ -154,10 +156,10 @@ public class PartitionState {
 
     /**
      * Convenience method to get the last UUID returned on the failover log.
-     *
+     * <p>
      * Note that if the failover log is empty, 0 is sent out to indicate the start.
-     *
-     * Historically the server inserts failover records into the head of the list,
+     * <p>
+     * The server inserts failover records into the head of the list,
      * so the first one is the most recent.
      */
     @JsonIgnore
@@ -168,11 +170,11 @@ public class PartitionState {
     @Override
     public String toString() {
         return "{" +
-            "log=" + failoverLog +
-            ", ss=" + startSeqno +
-            ", es=" + endSeqno +
-            ", sss=" + snapshotStartSeqno +
-            ", ses=" + snapshotEndSeqno +
-            '}';
+                "log=" + failoverLog +
+                ", ss=" + startSeqno +
+                ", es=" + endSeqno +
+                ", sss=" + snapshotStartSeqno +
+                ", ses=" + snapshotEndSeqno +
+                '}';
     }
 }
