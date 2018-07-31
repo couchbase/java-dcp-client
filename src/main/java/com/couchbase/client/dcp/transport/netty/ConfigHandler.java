@@ -19,6 +19,7 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.utils.NetworkAddress;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -63,7 +64,6 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
     /**
      * Creates a new config handler.
      *
-     * @param hostname hostname of the remote server.
      * @param configStream config stream where to send the configs.
      * @param currentBucketConfigRev revision of last received config.
      * @param environment the environment.
@@ -104,7 +104,8 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
                     .trim()
                     .replace("$HOST", address.getAddress().getHostAddress());
 
-            CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment);
+            NetworkAddress origin = NetworkAddress.create(address.getAddress().getHostAddress());
+            CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment, origin);
             synchronized (currentBucketConfigRev) {
                 if (config.rev() > currentBucketConfigRev.get()) {
                     currentBucketConfigRev.set(config.rev());
