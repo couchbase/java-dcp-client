@@ -35,7 +35,7 @@ import static org.junit.Assert.assertEquals;
 public abstract class DcpIntegrationTestBase {
     private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
 
-    private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0-beta";
+    private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0";
 
     // Use dynamic ports in CI environment to avoid port conflicts
     private static final boolean DYNAMIC_PORTS = System.getenv("JENKINS_URL") != null;
