@@ -343,12 +343,20 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
         } else if (isControlMessage(message)) {
             controlHandler.onEvent(flowController, message);
         } else if (DcpNoopRequest.is(message)) {
-            ByteBuf buffer = ctx.alloc().buffer();
-            DcpNoopResponse.init(buffer);
-            MessageUtil.setOpaque(MessageUtil.getOpaque(message), buffer);
-            ctx.writeAndFlush(buffer);
+            try {
+                ByteBuf buffer = ctx.alloc().buffer();
+                DcpNoopResponse.init(buffer);
+                MessageUtil.setOpaque(MessageUtil.getOpaque(message), buffer);
+                ctx.writeAndFlush(buffer);
+            } finally {
+                message.release();
+            }
         } else {
-            LOGGER.warn("Unknown DCP Message, ignoring. \n{}", MessageUtil.humanize(message));
+            try {
+                LOGGER.warn("Unknown DCP Message, ignoring. \n{}", MessageUtil.humanize(message));
+            } finally {
+                message.release();
+            }
         }
     }
 
