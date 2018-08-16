@@ -182,6 +182,20 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                                     @Override
                                     public void operationComplete(ChannelFuture future) throws Exception {
                                         LOGGER.debug("Got notified of channel close on Node {}", inetAddress);
+
+                                        // dispatchReconnect() may restart the stream from what it thinks is the
+                                        // current state. Buffered events are not reflected in the session state, so
+                                        // clear the stream buffer to prevent duplicate (potentially obsolete) events.
+                                        // See also: DcpChannelControlHandler.filterDcpStreamEndMessage() which
+                                        // does something similar.
+                                        if (env.persistencePollingEnabled()) {
+                                            for (short vbid = 0; vbid < streamIsOpen.length(); vbid++) {
+                                                if (streamIsOpen.get(vbid)) {
+                                                    env.streamEventBuffer().clear(vbid);
+                                                }
+                                            }
+                                        }
+
                                         transitionState(LifecycleState.DISCONNECTED);
                                         if (!isShutdown) {
                                             dispatchReconnect();
@@ -361,12 +375,6 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                             if (status.isSuccess()) {
                                 LOGGER.debug("Opened Stream against {} with vbid: {}", inetAddress, vbid);
                                 streamIsOpen.set(vbid, true);
-
-                                if (env.persistencePollingEnabled()) {
-                                    // The buffer might hold obsolete entries from a previous connection
-                                    // that was closed ungracefully (without a stream end message).
-                                    env.streamEventBuffer().clear(vbid);
-                                }
 
                                 subscriber.onCompleted();
 
