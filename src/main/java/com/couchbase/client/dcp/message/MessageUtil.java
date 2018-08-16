@@ -19,6 +19,9 @@ import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
 import static com.couchbase.client.deps.io.netty.util.CharsetUtil.UTF_8;
 
 public enum MessageUtil {
@@ -64,6 +67,27 @@ public enum MessageUtil {
 
     public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
 
+    private static final String[] OPCODE_NAMES = initOpcodeNames();
+
+    private static String[] initOpcodeNames() {
+        final String[] names = new String[256];
+        try {
+            final String suffix = "_OPCODE";
+            for (Field f : MessageUtil.class.getDeclaredFields()) {
+                if (f.getType() == Byte.TYPE
+                        && Modifier.isPublic(f.getModifiers())
+                        && Modifier.isStatic(f.getModifiers())
+                        && f.getName().endsWith(suffix)) {
+                    final String nameWithoutSuffix = f.getName().substring(0, f.getName().length() - suffix.length());
+                    names[0xff & f.getByte(null)] = nameWithoutSuffix;
+                }
+            }
+        } catch (Throwable ignore) {
+            // Running in a restrictive environment? Oh well, opcode names are a luxury we can live without.
+        }
+        return names;
+    }
+
     /**
      * Returns true if message can be processed and false if more data is needed.
      */
@@ -92,7 +116,7 @@ public enum MessageUtil {
 
         sb.append("Field          (offset) (value)\n-----------------------------------\n");
         sb.append(String.format("Magic          (0)      %s\n", formatMagic(buffer.getByte(0))));
-        sb.append(String.format("Opcode         (1)      0x%02x\n", buffer.getByte(1)));
+        sb.append(String.format("Opcode         (1)      %s\n", formatOpcode(buffer.getByte(1))));
         sb.append(String.format("Key Length     (2,3)    0x%04x\n", keyLength));
         sb.append(String.format("Extras Length  (4)      0x%02x\n", extrasLength));
         sb.append(String.format("Data Type      (5)      0x%02x\n", buffer.getByte(5)));
@@ -304,6 +328,23 @@ public enum MessageUtil {
 
     public static long getCas(ByteBuf buffer) {
         return buffer.getLong(CAS_OFFSET);
+    }
+
+    private static String formatOpcode(byte opcode) {
+        return String.format("0x%02x (%s)", opcode, getOpcodeName(opcode));
+    }
+
+    /**
+     * Returns the human-readable name for an opcode, or "?" if unrecognized.
+     */
+    private static String getOpcodeName(byte opcode) {
+        final String unknownName = "?";
+        try {
+            final String name = OPCODE_NAMES[0xff & opcode];
+            return name == null ? unknownName : name;
+        } catch (IndexOutOfBoundsException opcodeArrayNotSizedCorrectly) {
+            return unknownName;
+        }
     }
 
     private static String formatMagic(byte magic) {
