@@ -35,6 +35,7 @@ import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
 import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateHandler;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
 
@@ -91,6 +92,12 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     @Override
     protected void initChannel(final Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
+
+        final int gracePeriodMillis = Integer.parseInt(System.getProperty("com.couchbase.connectCallbackGracePeriod", "2000"));
+        if (gracePeriodMillis != 0) {
+            final long handshakeTimeoutMillis = environment.socketConnectTimeout() + gracePeriodMillis;
+            pipeline.addLast(new HandshakeTimeoutHandler(handshakeTimeoutMillis, TimeUnit.MILLISECONDS));
+        }
 
         if (environment.sslEnabled()) {
             pipeline.addLast(new SslHandler(sslEngineFactory.get()));

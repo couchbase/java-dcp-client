@@ -18,10 +18,12 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.ChannelOutboundHandler;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
+import com.couchbase.client.deps.io.netty.channel.ConnectTimeoutException;
 import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 
+import java.net.ConnectException;
 import java.net.SocketAddress;
 
 /**
@@ -108,5 +110,22 @@ abstract class ConnectInterceptingHandler<T>
             originalPromise.setFailure(cause);
         }
         ctx.fireExceptionCaught(cause);
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof HandshakeDeadlineEvent) {
+            originalPromise().tryFailure(new ConnectTimeoutException("Handshake did not complete before deadline."));
+            ctx.close();
+            return;
+        }
+
+        ctx.fireUserEventTriggered(evt);
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        originalPromise().tryFailure(new ConnectException("Channel became inactive before handshake completed."));
+        ctx.fireChannelInactive();
     }
 }
