@@ -23,8 +23,11 @@ import com.couchbase.client.dcp.test.agent.DocumentService;
 import com.couchbase.client.dcp.test.agent.StreamerService;
 import com.github.therapi.jsonrpc.client.JdkHttpClient;
 import com.github.therapi.jsonrpc.client.ServiceFactory;
+import com.google.common.base.Strings;
 
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.dcp.test.agent.StreamerService.ALL_VBUCKETS;
@@ -40,8 +43,17 @@ public class RemoteAgent {
     private final DocumentService documentService;
     private final StreamerService streamerService;
 
+    private static String getDockerHost() {
+        try {
+            final String env = System.getenv("DOCKER_HOST");
+            return Strings.isNullOrEmpty(env) ? "localhost" : new URI(env).getHost();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public RemoteAgent(AgentContainer agentContainer) {
-        this("http://localhost:" + agentContainer.getHttpPort() + "/jsonrpc");
+        this("http://" + getDockerHost() + ":" + agentContainer.getHttpPort() + "/jsonrpc");
     }
 
     public RemoteAgent(String jsonRpcEndpoint) {
