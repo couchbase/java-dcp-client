@@ -68,6 +68,7 @@ public class RetryBuilder {
     }
 
     /** Only errors that are instanceOf the specified types will trigger a retry */
+    @SafeVarargs
     public static RetryBuilder anyOf(Class<? extends Throwable>... types) {
         RetryBuilder retryBuilder = new RetryBuilder();
         retryBuilder.maxAttempts = 1;
@@ -79,6 +80,7 @@ public class RetryBuilder {
     }
 
     /** Only errors that are NOT instanceOf the specified types will trigger a retry */
+    @SafeVarargs
     public static RetryBuilder allBut(Class<? extends Throwable>... types) {
         RetryBuilder retryBuilder = new RetryBuilder();
         retryBuilder.maxAttempts = 1;

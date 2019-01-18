@@ -35,7 +35,7 @@ public class PartitionState {
      * Stores the failover log for this partition.
      */
     @JsonProperty("flog")
-    private volatile List<FailoverLogEntry> failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>();
+    private volatile List<FailoverLogEntry> failoverLog = new CopyOnWriteArrayList<>();
 
     /**
      * Stores the starting sequence number for this partition.
@@ -100,7 +100,7 @@ public class PartitionState {
      * Sets the failover log.
      */
     public void setFailoverLog(List<FailoverLogEntry> log) {
-        failoverLog = new CopyOnWriteArrayList<FailoverLogEntry>(log);
+        failoverLog = new CopyOnWriteArrayList<>(log);
     }
 
     /**

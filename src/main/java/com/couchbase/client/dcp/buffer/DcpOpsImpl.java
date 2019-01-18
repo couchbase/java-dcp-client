@@ -31,8 +31,8 @@ import rx.functions.Func1;
 
 import java.util.concurrent.Callable;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
 import static com.couchbase.client.dcp.buffer.DcpOpsImpl.DcpRequestBuilder.request;
+import static java.util.Objects.requireNonNull;
 
 public class DcpOpsImpl implements DcpOps {
     private final DcpRequestDispatcher dispatcher;

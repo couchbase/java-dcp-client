@@ -11,7 +11,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java-compat.version>1.6</java-compat.version>
+        <java-compat.version>1.8</java-compat.version>
         <core.version>1.6.1</core.version>
         <client.version>2.6.1</client.version>
 
@@ -147,13 +147,13 @@
                 <configuration>
                     <signature>
                         <groupId>org.codehaus.mojo.signature</groupId>
-                        <artifactId>java16</artifactId>
+                        <artifactId>java18</artifactId>
                         <version>1.0</version>
                     </signature>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>ensure-java-1.6-class-library</id>
+                        <id>ensure-java-1.8-class-library</id>
                         <phase>compile</phase>
                         <goals>
                             <goal>check</goal>

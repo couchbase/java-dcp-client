@@ -33,7 +33,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 

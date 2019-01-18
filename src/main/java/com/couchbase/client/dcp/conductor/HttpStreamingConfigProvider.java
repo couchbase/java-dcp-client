@@ -71,7 +71,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
     public HttpStreamingConfigProvider(final ClientEnvironment env) {
         super(LifecycleState.DISCONNECTED);
         this.env = env;
-        this.remoteHosts = new AtomicReference<List<InetSocketAddress>>(env.clusterAt());
+        this.remoteHosts = new AtomicReference<>(env.clusterAt());
         this.configStream = BehaviorSubject.<CouchbaseBucketConfig>create().toSerialized();
 
         configStream.subscribe(new Subscriber<CouchbaseBucketConfig>() {
@@ -87,7 +87,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
             @Override
             public void onNext(CouchbaseBucketConfig config) {
-                List<InetSocketAddress> newNodes = new ArrayList<InetSocketAddress>();
+                List<InetSocketAddress> newNodes = new ArrayList<>();
                 for (NodeInfo node : config.nodes()) {
                     Integer port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.CONFIG);
                     newNodes.add(new InetSocketAddress(node.rawHostname(), port));

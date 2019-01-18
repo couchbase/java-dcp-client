@@ -42,7 +42,6 @@ import java.util.Queue;
 import static com.couchbase.client.dcp.buffer.StreamEventBuffer.BufferedEvent.Type.CONTROL;
 import static com.couchbase.client.dcp.buffer.StreamEventBuffer.BufferedEvent.Type.DATA;
 import static com.couchbase.client.dcp.buffer.StreamEventBuffer.BufferedEvent.Type.STREAM_END_OK;
-import static com.couchbase.client.dcp.util.MathUtils.compareUnsignedLong;
 import static java.util.Collections.unmodifiableList;
 
 /**
@@ -95,9 +94,9 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     public StreamEventBuffer(EventBus eventBus) {
         this.eventBus = eventBus;
 
-        final List<Deque<BufferedEvent>> partitionQueues = new ArrayList<Deque<BufferedEvent>>(MAX_PARTITIONS);
+        final List<Deque<BufferedEvent>> partitionQueues = new ArrayList<>(MAX_PARTITIONS);
         for (int i = 0; i < MAX_PARTITIONS; i++) {
-            partitionQueues.add(new ArrayDeque<BufferedEvent>());
+            partitionQueues.add(new ArrayDeque<>());
         }
         this.partitionQueues = unmodifiableList(partitionQueues);
     }
@@ -194,7 +193,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
         synchronized (queue) {
             for (Iterator<BufferedEvent> i = queue.iterator(); i.hasNext(); ) {
                 final BufferedEvent event = i.next();
-                final boolean eventSeqnoIsGreaterThanRollbackSeqno = compareUnsignedLong(event.seqno, toSeqno) > 0;
+                final boolean eventSeqnoIsGreaterThanRollbackSeqno = Long.compareUnsigned(event.seqno, toSeqno) > 0;
                 if (eventSeqnoIsGreaterThanRollbackSeqno) {
                     LOGGER.trace("Dropping event with seqno {} from stream buffer for partition {}", event.seqno, vbucket);
                     event.discard();
@@ -219,7 +218,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
 
         synchronized (queue) {
             // while the head of the queue has a seqno <= the given seqno
-            while (!queue.isEmpty() && compareUnsignedLong(queue.peek().seqno, seqno) < 1) {
+            while (!queue.isEmpty() && Long.compareUnsigned(queue.peek().seqno, seqno) < 1) {
                 final BufferedEvent event = queue.poll();
 
                 try {

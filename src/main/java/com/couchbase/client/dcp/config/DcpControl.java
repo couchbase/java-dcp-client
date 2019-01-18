@@ -22,8 +22,7 @@ import com.couchbase.client.dcp.util.Version;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
-import static java.lang.Boolean.parseBoolean;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is used during bootstrap to configure all the possible DCP negotiation parameters.
@@ -53,7 +52,7 @@ public class DcpControl {
      * Creates a new {@link DcpControl} instance with no params set upfront.
      */
     public DcpControl() {
-        this.values = new HashMap<String, String>();
+        this.values = new HashMap<>();
     }
 
     /**
@@ -148,7 +147,7 @@ public class DcpControl {
             LOGGER.debug("Compression mode: {}", compressionMode);
         }
 
-        final Map<String, String> result = new HashMap<String, String>(values);
+        final Map<String, String> result = new HashMap<>(values);
         result.putAll(effectiveMode.getDcpControls(serverVersion));
         return result;
     }

@@ -33,7 +33,7 @@ import static java.util.Collections.unmodifiableList;
 class NodeToPartitionMultimap {
 
     private final Map<Integer, List<PartitionInstance>> nodeIndexToHostedPartitions =
-            new HashMap<Integer, List<PartitionInstance>>();
+            new HashMap<>();
 
     NodeToPartitionMultimap(final CouchbaseBucketConfig bucketConfig) {
         for (short partition = 0; partition < bucketConfig.numberOfPartitions(); partition++) {
@@ -53,11 +53,7 @@ class NodeToPartitionMultimap {
     }
 
     private void put(final int nodeIndex, final PartitionInstance partition) {
-        List<PartitionInstance> hostedPartitions = nodeIndexToHostedPartitions.get(nodeIndex);
-        if (hostedPartitions == null) {
-            hostedPartitions = new ArrayList<PartitionInstance>(4);
-            nodeIndexToHostedPartitions.put(nodeIndex, hostedPartitions);
-        }
+        List<PartitionInstance> hostedPartitions = nodeIndexToHostedPartitions.computeIfAbsent(nodeIndex, k -> new ArrayList<>(4));
         hostedPartitions.add(partition);
     }
 
@@ -73,7 +69,7 @@ class NodeToPartitionMultimap {
      * Returns the partition instances whose node indexes are < 0.
      */
     List<PartitionInstance> getAbsent() {
-        List<PartitionInstance> absentPartitions = new ArrayList<PartitionInstance>();
+        List<PartitionInstance> absentPartitions = new ArrayList<>();
         for (Map.Entry<Integer, List<PartitionInstance>> e : nodeIndexToHostedPartitions.entrySet()) {
             if (e.getKey() < 0) {
                 absentPartitions.addAll(e.getValue());

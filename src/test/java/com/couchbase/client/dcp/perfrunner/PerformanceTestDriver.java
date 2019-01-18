@@ -47,7 +47,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.Collections.singletonMap;
 
 /**
@@ -79,9 +79,8 @@ class PerformanceTestDriver {
             throw new IOException("Failed to create report directory: " + reportDir.getAbsolutePath());
         }
 
-        OutputStream os = new FileOutputStream(new File(reportDir, "metrics.json"));
-        try {
-            Map<String, Object> compressionMetrics = new LinkedHashMap<String, Object>();
+        try (OutputStream os = new FileOutputStream(new File(reportDir, "metrics.json"))) {
+            Map<String, Object> compressionMetrics = new LinkedHashMap<>();
             compressionMetrics.put("totalMessageCount", totalMessageCount);
             compressionMetrics.put("compressedMessageCount", compressedMessageCount);
             compressionMetrics.put("totalCompressedBytes", totalCompressedBytes);
@@ -94,9 +93,6 @@ class PerformanceTestDriver {
 
             new ObjectMapper().writerWithDefaultPrettyPrinter()
                     .writeValue(os, singletonMap("compression", compressionMetrics));
-
-        } finally {
-            os.close();
         }
     }
 
@@ -173,7 +169,7 @@ class PerformanceTestDriver {
 
         PerformanceTestConnectionString connectionString = new PerformanceTestConnectionString(args.connectionString);
 
-        List<String> hostnames = new ArrayList<String>();
+        List<String> hostnames = new ArrayList<>();
         for (InetSocketAddress host : connectionString.hosts()) {
             if (host.getPort() != 0) {
                 throw new IllegalArgumentException("Connection string must not specify port");

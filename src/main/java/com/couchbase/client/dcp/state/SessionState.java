@@ -49,8 +49,7 @@ public class SessionState {
 
     /**
      * The highest possible sequence number, {@code (2^64)-1}. Sequence numbers must be interpreted as unsigned values.
-     * When comparing two sequence numbers to see which is greater, use {@link MathUtils#lessThanUnsigned}
-     * (or {@code Long.compareUnsigned} if Java 8 is available).
+     * When comparing two sequence numbers to see which is greater, use {@code Long.compareUnsigned}.
      */
     public static final long NO_END_SEQNO = 0xffffffffffffffffL;
 
@@ -73,7 +72,7 @@ public class SessionState {
      * Initializes with an empty partition state for 1024 partitions.
      */
     public SessionState() {
-        this.partitionStates = new AtomicReferenceArray<PartitionState>(MAX_PARTITIONS);
+        this.partitionStates = new AtomicReferenceArray<>(MAX_PARTITIONS);
     }
 
     /**
@@ -173,7 +172,7 @@ public class SessionState {
         ps.setSnapshotEndSeqno(seqno);
         List<FailoverLogEntry> failoverLog = ps.getFailoverLog();
         Iterator<FailoverLogEntry> flogIterator = failoverLog.iterator();
-        List<FailoverLogEntry> entriesToRemove = new ArrayList<FailoverLogEntry>();
+        List<FailoverLogEntry> entriesToRemove = new ArrayList<>();
         while (flogIterator.hasNext()) {
             FailoverLogEntry entry = flogIterator.next();
             // check if this entry is has a higher seqno than we need to roll back to

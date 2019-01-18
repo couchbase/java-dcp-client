@@ -20,7 +20,7 @@ import com.couchbase.client.core.CouchbaseException;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import rx.Single;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 public interface DcpOps {
 

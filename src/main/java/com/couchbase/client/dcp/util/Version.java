@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.util;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Representation of a software version, up to major.minor.patch granularity.
@@ -74,19 +74,15 @@ public class Version implements Comparable<Version> {
 
     @Override
     public int compareTo(Version o) {
-        int result = compare(major, o.major);
+        int result = Integer.compare(major, o.major);
         if (result != 0) {
             return result;
         }
-        result = compare(minor, o.minor);
+        result = Integer.compare(minor, o.minor);
         if (result != 0) {
             return result;
         }
-        return compare(patch, o.patch);
-    }
-
-    private static int compare(int x, int y) {
-        return (x < y) ? -1 : ((x == y) ? 0 : 1);
+        return Integer.compare(patch, o.patch);
     }
 
     @Override

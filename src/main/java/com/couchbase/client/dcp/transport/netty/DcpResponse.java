@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 public class DcpResponse {
     private final ByteBuf buffer;

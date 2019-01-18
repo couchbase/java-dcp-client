@@ -71,7 +71,7 @@ public enum DcpFailoverLogResponse {
     public static List<FailoverLogEntry> entries(final ByteBuf buffer) {
         final int numEntries = numLogEntries(buffer);
         final ByteBuf content = MessageUtil.getContent(buffer);
-        final List<FailoverLogEntry> result = new ArrayList<FailoverLogEntry>(numEntries);
+        final List<FailoverLogEntry> result = new ArrayList<>(numEntries);
         for (int i = 0; i < numEntries; i++) {
             final long vbuuid = content.getLong(i * 16);
             final long seqno = content.getLong(i * 16 + 8);

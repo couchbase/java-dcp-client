@@ -76,7 +76,7 @@ class PerformanceTestConnectionString {
 
     private static List<InetSocketAddress> parseHosts(final String input) {
         try {
-            List<InetSocketAddress> hosts = new ArrayList<InetSocketAddress>();
+            List<InetSocketAddress> hosts = new ArrayList<>();
 
             String[] hostStrings = input.split(",");
             for (String singleHost : hostStrings) {
@@ -112,7 +112,7 @@ class PerformanceTestConnectionString {
     }
 
     private static Map<String, String> parseParams(String input) {
-        Map<String, String> params = new HashMap<String, String>();
+        Map<String, String> params = new HashMap<>();
         if (input == null) {
             return params;
         }

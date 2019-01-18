@@ -15,12 +15,13 @@
  */
 package com.couchbase.client.dcp.state.json;
 
-import static org.junit.Assert.assertEquals;
-
 import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import org.junit.Test;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertEquals;
 
 public class SessionStateDeserializerTest {
     @Test
@@ -28,7 +29,7 @@ public class SessionStateDeserializerTest {
         SessionState sessionState = new SessionState();
 
         String json = "{\"v\":1,\"ps\":[{\"flog\":[{\"seqno\":5,\"uuid\":12345}],\"ss\":1,\"es\":1000,\"sss\":2,\"ses\":3}]}";
-        sessionState.setFromJson(json.getBytes("UTF-8"));
+        sessionState.setFromJson(json.getBytes(UTF_8));
 
         PartitionState partitionState = sessionState.get(0);
 

@@ -20,8 +20,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 public class FailoverIntegrationTest extends DcpIntegrationTestBase {
 
     private static CouchbaseContainer secondNode;

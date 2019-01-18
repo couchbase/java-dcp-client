@@ -16,8 +16,6 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import static java.util.Collections.unmodifiableList;
-
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.RedactableArgument;
@@ -29,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import static java.util.Collections.unmodifiableList;
+
 public class BucketConfigHelper {
     private final boolean sslEnabled;
     private final NodeToPartitionMultimap map;
@@ -38,7 +38,7 @@ public class BucketConfigHelper {
         this.sslEnabled = sslEnabled;
         this.map = new NodeToPartitionMultimap(config);
 
-        final List<NodeInfo> tempDataNodes = new ArrayList<NodeInfo>();
+        final List<NodeInfo> tempDataNodes = new ArrayList<>();
         for (NodeInfo node : config.nodes()) {
             if (hasBinaryService(node)) {
                 tempDataNodes.add(node);

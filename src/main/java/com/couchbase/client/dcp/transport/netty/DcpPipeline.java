@@ -37,7 +37,7 @@ import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateHandler;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Sets up the pipeline for the actual DCP communication channels.

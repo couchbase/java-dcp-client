@@ -30,7 +30,7 @@ class FailoverLogResponse {
     public FailoverLogResponse(final ByteBuf response) {
         final ByteBuf content = MessageUtil.getContent(response);
         final int numEntries = content.readableBytes() / 16;
-        final List<FailoverLogEntry> entries = new ArrayList<FailoverLogEntry>(numEntries);
+        final List<FailoverLogEntry> entries = new ArrayList<>(numEntries);
 
         for (int i = 0; i < numEntries; i++) {
             final long vbuuid = content.readLong();

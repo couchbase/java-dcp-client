@@ -175,7 +175,7 @@ public class Client {
             @Override
             public Observable<PartitionAndSeqno> call(ByteBuf buf) {
                 int numPairs = buf.readableBytes() / 10; // 2 byte short + 8 byte long
-                List<PartitionAndSeqno> pairs = new ArrayList<PartitionAndSeqno>(numPairs);
+                List<PartitionAndSeqno> pairs = new ArrayList<>(numPairs);
                 for (int i = 0; i < numPairs; i++) {
                     pairs.add(new PartitionAndSeqno(buf.getShort(10 * i), buf.getLong(10 * i + 2)));
                 }
@@ -411,7 +411,7 @@ public class Client {
      * of starting without initializing.
      */
     private List<Short> selectInitializedPartitions(int clusterPartitions, List<Short> partitions) {
-        List<Short> initializedPartitions = new ArrayList<Short>();
+        List<Short> initializedPartitions = new ArrayList<>();
         SessionState state = sessionState();
 
         for (short partition : partitions) {
@@ -475,7 +475,7 @@ public class Client {
             return Arrays.asList(vbids);
         }
 
-        List<Short> partitions = new ArrayList<Short>(vbids.length);
+        List<Short> partitions = new ArrayList<>(vbids.length);
         for (short i = 0; i < numPartitions; i++) {
             partitions.add(i);
         }
@@ -708,7 +708,7 @@ public class Client {
 
         return getSeqnos()
                 .doOnNext(callback)
-                .reduce(new ArrayList<Short>(), new Func2<List<Short>, PartitionAndSeqno, List<Short>>() {
+                .reduce(new ArrayList<>(), new Func2<List<Short>, PartitionAndSeqno, List<Short>>() {
                     @Override
                     public List<Short> call(List<Short> partitions, PartitionAndSeqno partitionAndSeqno) {
                         partitions.add(partitionAndSeqno.partition());
@@ -802,7 +802,7 @@ public class Client {
          * @return this {@link Builder} for nice chainability.
          */
         public Builder hostnames(final List<String> hostnames) {
-            this.clusterAt = new ArrayList<InetSocketAddress>(hostnames.size());
+            this.clusterAt = new ArrayList<>(hostnames.size());
             for (String hostname : hostnames) {
                 this.clusterAt.add(new InetSocketAddress(hostname, 0));
             }

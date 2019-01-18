@@ -44,8 +44,8 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
 import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Handles the "business logic" of incoming DCP mutation and control messages.
@@ -127,7 +127,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
      * <p>
      * Must only be accessed/modified by the event loop thread.
      */
-    private final Queue<OutstandingRequest> outstandingRequests = new ArrayDeque<OutstandingRequest>();
+    private final Queue<OutstandingRequest> outstandingRequests = new ArrayDeque<>();
 
     /**
      * Create a new message handler.

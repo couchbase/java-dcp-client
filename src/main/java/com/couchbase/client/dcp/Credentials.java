@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 package com.couchbase.client.dcp;
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 
 public class Credentials {

@@ -58,10 +58,10 @@ public class Conductor {
     private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Conductor.class);
 
     private final ConfigProvider configProvider;
-    private final Set<DcpChannel> channels = new ConcurrentSet<DcpChannel>();
+    private final Set<DcpChannel> channels = new ConcurrentSet<>();
     private volatile boolean stopped = true;
     private final ClientEnvironment env;
-    private final AtomicReference<CouchbaseBucketConfig> currentConfig = new AtomicReference<CouchbaseBucketConfig>();
+    private final AtomicReference<CouchbaseBucketConfig> currentConfig = new AtomicReference<>();
     private final boolean ownsConfigProvider;
     private final SessionState sessionState = new SessionState();
 
@@ -292,8 +292,8 @@ public class Conductor {
     }
 
     private void reconfigure(CouchbaseBucketConfig config) {
-        final List<InetSocketAddress> toAdd = new ArrayList<InetSocketAddress>();
-        final List<DcpChannel> toRemove = new ArrayList<DcpChannel>();
+        final List<InetSocketAddress> toAdd = new ArrayList<>();
+        final List<DcpChannel> toRemove = new ArrayList<>();
         final BucketConfigHelper configHelper = new BucketConfigHelper(config, env.sslEnabled());
         final boolean onlyConnectToPrimaryPartition = !env.persistencePollingEnabled();
 

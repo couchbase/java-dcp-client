@@ -25,7 +25,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
 import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
-import static com.couchbase.client.core.lang.backport.java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Collaborates with {@link ConnectInterceptingHandler} to fail the connection
