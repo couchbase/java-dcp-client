@@ -44,14 +44,16 @@ import rx.functions.Action4;
 import rx.functions.Func1;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
 public class Conductor {
 
@@ -292,65 +294,36 @@ public class Conductor {
     }
 
     private void reconfigure(CouchbaseBucketConfig config) {
-        final List<InetSocketAddress> toAdd = new ArrayList<>();
-        final List<DcpChannel> toRemove = new ArrayList<>();
         final BucketConfigHelper configHelper = new BucketConfigHelper(config, env.sslEnabled());
         final boolean onlyConnectToPrimaryPartition = !env.persistencePollingEnabled();
+        final List<NodeInfo> nodes = configHelper.getDataNodes(onlyConnectToPrimaryPartition);
 
-        for (NodeInfo node : configHelper.getDataNodes()) {
-            if (onlyConnectToPrimaryPartition && !config.hasPrimaryPartitionsOnNode(node.hostname())) {
-                continue;
-            }
+        final Map<InetSocketAddress, DcpChannel> existingChannelsByAddress = channels.stream()
+                .collect(toMap(DcpChannel::address, c -> c));
 
-            final InetSocketAddress address = configHelper.getAddress(node);
+        final Set<InetSocketAddress> nodeAddresses = nodes.stream()
+                .map(configHelper::getAddress)
+                .collect(toSet());
 
-            boolean found = false;
-            for (DcpChannel chan : channels) {
-                if (chan.address().equals(address)) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                toAdd.add(address);
-                LOGGER.debug("Planning to add {}", address);
+        for (InetSocketAddress address : nodeAddresses) {
+            if (!existingChannelsByAddress.containsKey(address)) {
+                add(address);
             }
         }
 
-        for (DcpChannel chan : channels) {
-            boolean found = false;
-            for (NodeInfo node : config.nodes()) {
-                final InetSocketAddress address = configHelper.getAddress(node);
-                if (address.equals(chan.address())) {
-                    found = true;
-                    break;
-                }
+        for (Map.Entry<InetSocketAddress, DcpChannel> entry : existingChannelsByAddress.entrySet()) {
+            if (!nodeAddresses.contains(entry.getKey())) {
+                remove(entry.getValue());
             }
-            if (!found) {
-                LOGGER.debug("Planning to remove {}", chan);
-                toRemove.add(chan);
-            }
-        }
-
-        for (InetSocketAddress add : toAdd) {
-            add(add);
-        }
-
-        for (DcpChannel remove : toRemove) {
-            remove(remove);
         }
     }
 
     private void add(final InetSocketAddress node) {
-        //noinspection SuspiciousMethodCalls: channel proxies equals/hashcode to its address
-        if (channels.contains(node)) {
-            return;
-        }
-
         LOGGER.debug("Adding DCP Channel against {}", node);
         final DcpChannel channel = new DcpChannel(node, env, this);
-        channels.add(channel);
+        if (!channels.add(channel)) {
+            throw new IllegalStateException("Tried to add duplicate channel: " + system(channel));
+        }
 
         channel
                 .connect()
@@ -387,35 +360,37 @@ public class Conductor {
     }
 
     private void remove(final DcpChannel node) {
-        if (channels.remove(node)) {
-            LOGGER.debug("Removing DCP Channel against {}", node);
+        if (!channels.remove(node)) {
+            throw new IllegalStateException("Tried to remove unknown channel: " + system(node));
+        }
 
-            for (short partition = 0; partition < node.streamIsOpen.length(); partition++) {
-                if (node.streamIsOpen(partition)) {
-                    maybeMovePartition(partition);
+        LOGGER.debug("Removing DCP Channel against {}", node);
+
+        for (short partition = 0; partition < node.streamIsOpen.length(); partition++) {
+            if (node.streamIsOpen(partition)) {
+                maybeMovePartition(partition);
+            }
+        }
+
+        node.disconnect().subscribe(new CompletableSubscriber() {
+            @Override
+            public void onCompleted() {
+                LOGGER.debug("Channel remove notified as complete for {}", node.address());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOGGER.warn("Got error during Node removal for node {}", system(node.address()), e);
+                if (env.eventBus() != null) {
+                    env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
                 }
             }
 
-            node.disconnect().subscribe(new CompletableSubscriber() {
-                @Override
-                public void onCompleted() {
-                    LOGGER.debug("Channel remove notified as complete for {}", node.address());
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    LOGGER.warn("Got error during Node removal for node {}", system(node.address()), e);
-                    if (env.eventBus() != null) {
-                        env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
-                    }
-                }
-
-                @Override
-                public void onSubscribe(Subscription d) {
-                    // ignored.
-                }
-            });
-        }
+            @Override
+            public void onSubscribe(Subscription d) {
+                // ignored.
+            }
+        });
     }
 
     /**

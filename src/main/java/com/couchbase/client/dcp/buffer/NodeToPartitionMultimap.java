@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 
 /**
@@ -58,11 +59,7 @@ class NodeToPartitionMultimap {
     }
 
     List<PartitionInstance> get(final int nodeIndex) {
-        List<PartitionInstance> hostedPartitions = nodeIndexToHostedPartitions.get(nodeIndex);
-        if (hostedPartitions == null) {
-            throw new IllegalArgumentException("Node " + nodeIndex + " does not exist");
-        }
-        return hostedPartitions;
+        return nodeIndexToHostedPartitions.getOrDefault(nodeIndex, emptyList());
     }
 
     /**

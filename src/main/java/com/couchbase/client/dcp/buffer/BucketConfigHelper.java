@@ -28,23 +28,45 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 public class BucketConfigHelper {
     private final boolean sslEnabled;
+    private final CouchbaseBucketConfig config;
     private final NodeToPartitionMultimap map;
-    private final List<NodeInfo> dataNodes;
+    private final List<NodeInfo> dataNodesWithAnyPartitions;
+    private final List<NodeInfo> dataNodesWithActivePartitions;
 
     public BucketConfigHelper(final CouchbaseBucketConfig config, final boolean sslEnabled) {
+        this.config = requireNonNull(config);
         this.sslEnabled = sslEnabled;
         this.map = new NodeToPartitionMultimap(config);
 
-        final List<NodeInfo> tempDataNodes = new ArrayList<>();
-        for (NodeInfo node : config.nodes()) {
-            if (hasBinaryService(node)) {
-                tempDataNodes.add(node);
+        final List<NodeInfo> active = new ArrayList<>();
+        final List<NodeInfo> activeOrReplica = new ArrayList<>();
+
+        for (int i = 0, len = config.nodes().size(); i < len; i++) {
+            final NodeInfo node = config.nodes().get(i);
+            final boolean hasAnyPartitions = !map.get(i).isEmpty();
+
+            if (hasAnyPartitions) {
+                if (!hasBinaryService(node)) {
+                    throw new IllegalArgumentException("Only nodes running the KV service can host bucket partitions.");
+                }
+
+                activeOrReplica.add(node);
+
+                final boolean nodeHasActivePartitions =
+                        map.get(i).stream().anyMatch(partitionInstance -> partitionInstance.slot() == 0);
+
+                if (nodeHasActivePartitions) {
+                    active.add(node);
+                }
             }
         }
-        this.dataNodes = unmodifiableList(tempDataNodes);
+
+        this.dataNodesWithAnyPartitions = unmodifiableList(activeOrReplica);
+        this.dataNodesWithActivePartitions = unmodifiableList(active);
     }
 
     public List<PartitionInstance> getHostedPartitions(final InetSocketAddress nodeAddress) throws NoSuchElementException {
@@ -54,15 +76,18 @@ public class BucketConfigHelper {
 
     /**
      * Returns an unmodifiable list containing only those nodes that are running the Data Service
-     * (also known as Key/Value Service or Binary Service)
+     * (also known as Key/Value Service or Binary Service) and are hosting at least one active or replica partition.
+     *
+     * @param requireActivePartition if true, only nodes hosting at least one active partition will be returned.
+     * Otherwise, nodes hosting at least partition of any kind (active or replica) will be returned.
      */
-    public List<NodeInfo> getDataNodes() {
-        return dataNodes;
+    public List<NodeInfo> getDataNodes(boolean requireActivePartition) {
+        return requireActivePartition ? dataNodesWithActivePartitions : dataNodesWithAnyPartitions;
     }
 
     public int getNodeIndex(final InetSocketAddress nodeAddress) throws NoSuchElementException {
         int nodeIndex = 0;
-        for (NodeInfo node : getDataNodes()) {
+        for (NodeInfo node : config.nodes()) {
             if (nodeAddress.equals(getAddress(node))) {
                 return nodeIndex;
             }

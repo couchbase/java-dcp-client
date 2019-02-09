@@ -19,6 +19,7 @@ import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import com.couchbase.client.core.logging.RedactableArgument;
 import com.couchbase.client.core.utils.NetworkAddress;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -108,6 +109,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
             CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment, origin);
             synchronized (currentBucketConfigRev) {
                 if (config.rev() > currentBucketConfigRev.get()) {
+                    LOGGER.trace("Publishing bucket config: {}", RedactableArgument.system(rawConfig));
                     currentBucketConfigRev.set(config.rev());
                     configStream.onNext(config);
                 } else {
