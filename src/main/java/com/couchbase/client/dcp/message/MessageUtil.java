@@ -41,6 +41,7 @@ public enum MessageUtil {
     public static final short OPAQUE_OFFSET = 12;
     public static final short CAS_OFFSET = 16;
 
+    public static final byte NOOP_OPCODE = 0x0a; // ordinary client-initiated noop, not to be confused with DCP_NOOP
     public static final byte VERSION_OPCODE = 0x0b;
     public static final byte HELLO_OPCODE = 0x1f;
     public static final byte SASL_LIST_MECHS_OPCODE = 0x20;

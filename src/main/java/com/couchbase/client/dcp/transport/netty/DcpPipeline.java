@@ -38,6 +38,8 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Sets up the pipeline for the actual DCP communication channels.
@@ -118,6 +120,13 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
 
         if (control.noopEnabled()) {
             pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
+
+            // Server only sends DCP_NOOP requests when at least one DCP stream is open. The client
+            // sends its own NOOP requests to keep the connection alive even if there are no open streams.
+            // Use slightly longer interval to avoid wasting bandwidth on redundant NOOPs.
+            final long serverNoopIntervalMillis = SECONDS.toMillis(control.noopIntervalSeconds());
+            final long clientNoopIntervalMillis = (long) (serverNoopIntervalMillis * 1.2);
+            pipeline.addLast(new ClientNoopHandler(clientNoopIntervalMillis, MILLISECONDS));
         }
 
         if (LOGGER.isTraceEnabled()) {
