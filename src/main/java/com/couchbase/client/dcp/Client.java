@@ -802,10 +802,7 @@ public class Client {
          * @return this {@link Builder} for nice chainability.
          */
         public Builder hostnames(final List<String> hostnames) {
-            this.clusterAt = new ArrayList<>(hostnames.size());
-            for (String hostname : hostnames) {
-                this.clusterAt.add(new InetSocketAddress(hostname, 0));
-            }
+            this.clusterAt = ConnectionString.fromHostnames(hostnames).hosts();
             return this;
         }
 
