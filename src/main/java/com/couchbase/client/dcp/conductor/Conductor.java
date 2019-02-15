@@ -25,6 +25,7 @@ import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.buffer.BucketConfigHelper;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
 import com.couchbase.client.dcp.events.FailedToRemoveNodeEvent;
@@ -439,7 +440,13 @@ public class Conductor {
 
             @Override
             public void onError(Throwable e) {
-                LOGGER.warn("Error during Partition Move for partition " + partition, e);
+                if (e instanceof RollbackException) {
+                    // Benign, so don't log a scary stack trace. A synthetic "rollback" message has been passed
+                    // to the Control Event Handler, which may react by calling Client.rollbackAndRestartStream().
+                    LOGGER.warn("Rollback during Partition Move for partition {}", partition);
+                } else {
+                    LOGGER.warn("Error during Partition Move for partition {}", partition, e);
+                }
                 if (env.eventBus() != null) {
                     env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
                 }
