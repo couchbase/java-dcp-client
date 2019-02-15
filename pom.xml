@@ -12,8 +12,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.8</java-compat.version>
-        <core.version>1.6.1</core.version>
-        <client.version>2.6.1</client.version>
+        <core.version>1.7.2</core.version>
+        <client.version>2.7.2</client.version>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -108,7 +108,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Compilation dependency to mark exception to enforced JDK 6 API -->
+        <!-- Compilation dependency to mark exception to enforced JDK API -->
         <dependency>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>animal-sniffer-annotations</artifactId>
