@@ -75,7 +75,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
             LOGGER.debug("Negotiating DCP Control {}: {}", setting.getKey(), setting.getValue());
             ByteBuf request = ctx.alloc().buffer();
             DcpControlRequest.init(request);
-            DcpControlRequest.key(Unpooled.copiedBuffer(setting.getKey(), CharsetUtil.UTF_8), request);
+            DcpControlRequest.key(setting.getKey(), request);
             DcpControlRequest.value(Unpooled.copiedBuffer(setting.getValue(), CharsetUtil.UTF_8), request);
 
             ctx.writeAndFlush(request);

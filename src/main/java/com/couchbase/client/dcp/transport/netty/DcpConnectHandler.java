@@ -195,7 +195,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     private void open(ChannelHandlerContext ctx) {
         ByteBuf request = ctx.alloc().buffer();
         DcpOpenConnectionRequest.init(request);
-        DcpOpenConnectionRequest.connectionName(request, Unpooled.copiedBuffer(connectionName, CharsetUtil.UTF_8));
+        DcpOpenConnectionRequest.connectionName(request, connectionName);
         ctx.writeAndFlush(request);
 
     }
@@ -225,7 +225,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
         final CompressionMode compressionMode = dcpControl.compression(serverVersion);
         short[] extraFeatures = compressionMode.getHelloFeatures(serverVersion);
         ByteBuf request = ctx.alloc().buffer();
-        HelloRequest.init(request, Unpooled.copiedBuffer(connectionName, CharsetUtil.UTF_8), extraFeatures);
+        HelloRequest.init(request, connectionName, extraFeatures);
         ctx.writeAndFlush(request);
     }
 

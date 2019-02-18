@@ -39,7 +39,7 @@ public enum HelloRequest {
 
     private static final short[] standardFeatures = new short[]{XERROR, SELECT};
 
-    public static void init(ByteBuf buffer, ByteBuf connectionName, short... extraFeatures) {
+    public static void init(ByteBuf buffer, String connectionName, short... extraFeatures) {
         MessageUtil.initRequest(MessageUtil.HELLO_OPCODE, buffer);
         MessageUtil.setKey(connectionName, buffer);
 

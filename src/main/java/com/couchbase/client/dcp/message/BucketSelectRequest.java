@@ -16,16 +16,12 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 
 public enum BucketSelectRequest {
     ;
 
     public static void init(ByteBuf buffer, String bucket) {
         MessageUtil.initRequest(MessageUtil.SELECT_BUCKET_OPCODE, buffer);
-        ByteBuf key = Unpooled.copiedBuffer(bucket, CharsetUtil.UTF_8);
-        MessageUtil.setKey(key, buffer);
-        key.release();
+        MessageUtil.setKey(bucket, buffer);
     }
 }

@@ -15,24 +15,106 @@
  */
 package com.couchbase.client.dcp;
 
-import java.util.UUID;
+import com.couchbase.client.core.utils.DefaultObjectMapper;
+import com.couchbase.client.dcp.util.UserAgentBuilder;
+import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonProcessingException;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+
+import static com.couchbase.client.dcp.ClientVersion.clientVersion;
 
 /**
  * The default implementation for the {@link ConnectionNameGenerator}.
- *
- * It generates a new name every time called with a "dcp-java-" prefix followed by a UUID.
+ * <p>
+ * It generates a new name every time called, using the format specified by the
+ * <a href="https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0035-rto.md#client--connection-ids">
+ * Response Time Observability RFC</a>.
  *
  * @author Michael Nitschinger
  * @since 1.0.0
  */
 public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
+    /**
+     * A connection name generator with a default User Agent string.
+     */
+    public static final ConnectionNameGenerator INSTANCE = new DefaultConnectionNameGenerator(new UserAgentBuilder());
 
-    public static final ConnectionNameGenerator INSTANCE = new DefaultConnectionNameGenerator();
+    private static final String clientId = paddedHex(randomLong());
 
-    private DefaultConnectionNameGenerator() {}
+    private final String userAgent;
+
+    /**
+     * Returns a new connection name generator that includes the given product information in the User Agent string.
+     *
+     * @param productName Product name to include in the User Agent string.
+     * @param productVersion Optional product version to include in the User Agent string. May be null.
+     * @param comments Optional comments to include in the User Agent string.
+     */
+    public static DefaultConnectionNameGenerator forProduct(String productName, String productVersion, String... comments) {
+        return new DefaultConnectionNameGenerator(
+                new UserAgentBuilder().append(productName, productVersion, comments));
+    }
+
+    private DefaultConnectionNameGenerator(UserAgentBuilder userAgentBuilder) {
+        userAgentBuilder
+                .append("java-dcp-client", clientVersion())
+                .appendJava()
+                .appendOs();
+
+        // The JSON form of the user agent string may use no more than 202 of the maximum key size of 250 bytes.
+        // That's 200 bytes for the user agent (including any JSON escape chars) and 2 bytes for the enclosing quotes.
+        // We can assume 1 byte per character, since the User Agent builder only outputs ASCII characters.
+        this.userAgent = truncateAsJson(userAgentBuilder.build(), 202);
+    }
 
     @Override
     public String name() {
-        return "dcp-java-" + UUID.randomUUID().toString();
+        final String connectionId = paddedHex(randomLong());
+
+        final Map<String, String> name = new LinkedHashMap<>();
+        name.put("a", userAgent);
+        name.put("i", clientId + "/" + connectionId);
+
+        try {
+            return DefaultObjectMapper.writeValueAsString(name);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Returns the given string truncated so its JSON representation does not exceed the given length.
+     * <p>
+     * Assumes the input contains only printable characters, with whitespace restricted to spaces and horizontal tabs.
+     */
+    private static String truncateAsJson(String s, int maxSerializedLength) {
+        int resultLength = 0;
+        int spaceLeft = maxSerializedLength - 2; // enclosing quotes always consume 2 slots
+
+        for (char c : s.toCharArray()) {
+            final boolean charNeedsEscape = c == '\\' || c == '"' || c == '\t';
+
+            spaceLeft -= charNeedsEscape ? 2 : 1;
+            if (spaceLeft < 0) {
+                break;
+            }
+            resultLength++;
+        }
+
+        return truncate(s, resultLength);
+    }
+
+    private static String truncate(String s, int maxLength) {
+        return s.length() <= maxLength ? s : s.substring(0, maxLength);
+    }
+
+    private static String paddedHex(long number) {
+        return String.format("%016X", number);
+    }
+
+    private static long randomLong() {
+        return ThreadLocalRandom.current().nextLong();
     }
 }

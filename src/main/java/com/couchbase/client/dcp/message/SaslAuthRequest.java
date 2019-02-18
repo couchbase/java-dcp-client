@@ -39,7 +39,7 @@ public enum SaslAuthRequest {
     /**
      * Sets the selected mechanism.
      */
-    public static void mechanism(ByteBuf mechanism, ByteBuf buffer) {
+    public static void mechanism(String mechanism, ByteBuf buffer) {
         MessageUtil.setKey(mechanism, buffer);
     }
 

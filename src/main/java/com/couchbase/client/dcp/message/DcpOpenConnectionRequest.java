@@ -45,7 +45,7 @@ public enum DcpOpenConnectionRequest {
     /**
      * Set the connection name on the buffer.
      */
-    public static void connectionName(final ByteBuf buffer, final ByteBuf connectionName) {
+    public static void connectionName(final ByteBuf buffer, final String connectionName) {
         MessageUtil.setKey(connectionName, buffer);
     }
 

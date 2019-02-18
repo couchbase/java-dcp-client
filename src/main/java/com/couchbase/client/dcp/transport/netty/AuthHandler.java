@@ -150,7 +150,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
 
             ByteBuf request = ctx.alloc().buffer();
             SaslStepRequest.init(request);
-            SaslStepRequest.mechanism(Unpooled.copiedBuffer(selectedMechanism, CharsetUtil.UTF_8), request);
+            SaslStepRequest.mechanism(selectedMechanism, request);
             SaslStepRequest.challengeResponse(content, request);
 
             ChannelFuture future = ctx.writeAndFlush(request);
@@ -205,7 +205,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
 
         ByteBuf request = ctx.alloc().buffer();
         SaslAuthRequest.init(request);
-        SaslAuthRequest.mechanism(Unpooled.copiedBuffer(selectedMechanism, CharsetUtil.UTF_8), request);
+        SaslAuthRequest.mechanism(selectedMechanism, request);
         SaslAuthRequest.challengeResponse(payload, request);
         payload.release();
 

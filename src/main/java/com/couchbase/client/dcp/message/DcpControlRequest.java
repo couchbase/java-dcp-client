@@ -38,7 +38,7 @@ public enum DcpControlRequest {
         MessageUtil.initRequest(DCP_CONTROL_OPCODE, buffer);
     }
 
-    public static void key(final ByteBuf key, final ByteBuf buffer) {
+    public static void key(final String key, final ByteBuf buffer) {
         MessageUtil.setKey(key, buffer);
     }
 

@@ -43,8 +43,7 @@ public class OpenConnectionRequestTest {
         ByteBuf buffer = Unpooled.buffer();
         DcpOpenConnectionRequest.init(buffer);
 
-        ByteBuf name = Unpooled.copiedBuffer("name", CharsetUtil.UTF_8);
-        DcpOpenConnectionRequest.connectionName(buffer, name);
+        DcpOpenConnectionRequest.connectionName(buffer, "name");
 
         assertEquals("name", DcpOpenConnectionRequest.connectionName(buffer).toString(CharsetUtil.UTF_8));
     }

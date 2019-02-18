@@ -192,9 +192,10 @@ public enum MessageUtil {
     /**
      * Helper method to set the key, update the key length and the content length.
      */
-    public static void setKey(ByteBuf key, ByteBuf buffer) {
+    public static void setKey(String key, ByteBuf buffer) {
+        byte[] keyBytes = key.getBytes(UTF_8);
         short oldKeyLength = buffer.getShort(KEY_LENGTH_OFFSET);
-        short newKeyLength = (short) key.readableBytes();
+        short newKeyLength = (short) keyBytes.length;
         int oldBodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
         byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
         int newBodyLength = oldBodyLength - oldKeyLength + newKeyLength;
@@ -202,7 +203,8 @@ public enum MessageUtil {
         buffer.setShort(KEY_LENGTH_OFFSET, newKeyLength);
         buffer.setInt(BODY_LENGTH_OFFSET, newBodyLength);
 
-        buffer.setBytes(HEADER_SIZE + extrasLength, key);
+        buffer.writerIndex(HEADER_SIZE + extrasLength);
+        buffer.writeBytes(keyBytes);
         buffer.writerIndex(HEADER_SIZE + newBodyLength);
 
         // todo: make sure stuff is still in order if content is there and its sliced in
