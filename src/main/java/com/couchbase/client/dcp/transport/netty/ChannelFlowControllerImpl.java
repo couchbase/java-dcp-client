@@ -82,12 +82,16 @@ public class ChannelFlowControllerImpl implements ChannelFlowController {
                 bufferAckCounter += numBytes;
                 LOGGER.trace("BufferAckCounter is now {}", bufferAckCounter);
                 if (bufferAckCounter >= bufferAckWatermark) {
-                    LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.",
-                            channel.remoteAddress());
-                    ByteBuf buffer = channel.alloc().buffer();
-                    DcpBufferAckRequest.init(buffer);
-                    DcpBufferAckRequest.ackBytes(buffer, bufferAckCounter);
-                    channel.writeAndFlush(buffer);
+                    if (channel.isActive()) {
+                        LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.",
+                                channel.remoteAddress());
+                        ByteBuf buffer = channel.alloc().buffer();
+                        DcpBufferAckRequest.init(buffer);
+                        DcpBufferAckRequest.ackBytes(buffer, bufferAckCounter);
+                        channel.writeAndFlush(buffer);
+                    } else {
+                        LOGGER.trace("Skipping flow control ACK because channel is no longer active.");
+                    }
                     bufferAckCounter = 0;
                 }
                 LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
