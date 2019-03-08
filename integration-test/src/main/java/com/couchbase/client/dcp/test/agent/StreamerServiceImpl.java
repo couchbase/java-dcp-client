@@ -122,4 +122,22 @@ public class StreamerServiceImpl implements StreamerService {
     public Status status(String streamerId) {
         return idToStreamer.get(streamerId).status();
     }
+
+    @Override
+    public int getNumberOfPartitions(String bucket) {
+        final Client client = Client.configure()
+                .eventLoopGroup(eventLoopGroup)
+                .bucket(bucket)
+                .username(username)
+                .password(password)
+                .hostnames(nodes.split(","))
+                .build();
+
+        client.connect().await();
+        try {
+            return client.numPartitions();
+        } finally {
+            client.disconnect().await();
+        }
+    }
 }

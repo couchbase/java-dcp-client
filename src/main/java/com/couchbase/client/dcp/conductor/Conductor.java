@@ -88,7 +88,9 @@ public class Conductor {
 
     public Completable connect() {
         stopped = false;
-        Completable atLeastOneConfig = configProvider.configs().first().toCompletable()
+        Completable atLeastOneConfig = configProvider.configs()
+                .filter(config -> config.numberOfPartitions() != 0)
+                .first().toCompletable()
                 .timeout(env.bootstrapTimeout(), TimeUnit.SECONDS)
                 .doOnError(new Action1<Throwable>() {
                     @Override

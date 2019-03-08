@@ -20,6 +20,8 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+
 public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
     private static final int BATCH_SIZE = 1024;
 
@@ -123,6 +125,20 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
                 couchbase().restart();
                 bucket.createDocuments(BATCH_SIZE, "b");
                 streamer.assertMutationCount(BATCH_SIZE * 2);
+            }
+        }
+    }
+
+    /**
+     * For some time after a bucket is created, the bucket config reported by the server has an empty
+     * partition map ("vBucketMap":[]) and CouchbaseBucketConfig.numberOfPartitions() returns zero.
+     * When the client connects, make sure it waits for a non-empty partition map.
+     */
+    @Test
+    public void connectWaitsForPartitionMap() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            try (TestBucket bucket = newBucket().createWithoutWaiting()) {
+                assertEquals(1024, agent().streamer().getNumberOfPartitions(bucket.name()));
             }
         }
     }

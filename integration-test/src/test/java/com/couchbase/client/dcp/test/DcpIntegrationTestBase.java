@@ -131,7 +131,12 @@ public abstract class DcpIntegrationTestBase {
         }
 
         public TestBucket create() {
-            couchbase().createBucket(name, ramMb, replicas);
+            couchbase().createBucket(name, ramMb, replicas, true);
+            return new TestBucket(name);
+        }
+
+        public TestBucket createWithoutWaiting() {
+            couchbase().createBucket(name, ramMb, replicas, false);
             return new TestBucket(name);
         }
     }

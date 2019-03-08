@@ -85,4 +85,11 @@ public interface StreamerService {
      * @return the status
      */
     Status status(String streamerId);
+
+    /**
+     * Creates a temporary DCP client, connects to the bucket, and returns the number of partitions from the bucket config.
+     *
+     * @param bucket Name of the bucket to query
+     */
+    int getNumberOfPartitions(String bucket);
 }

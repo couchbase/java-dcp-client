@@ -218,10 +218,10 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     }
 
     public void createBucket(String bucketName) {
-        createBucket(bucketName, 100, 0);
+        createBucket(bucketName, 100, 0, true);
     }
 
-    public void createBucket(String bucketName, int bucketQuotaMb, int replicas) {
+    public void createBucket(String bucketName, int bucketQuotaMb, int replicas, boolean wait) {
         Stopwatch timer = Stopwatch.createStarted();
 
         execOrDie(this, "couchbase-cli bucket-create" +
@@ -232,7 +232,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
                 " --bucket-ramsize " + bucketQuotaMb + "" +
                 " --bucket-type couchbase " +
                 " --bucket-replica " + replicas +
-                " --wait");
+                (wait ? " --wait" : ""));
 
         log.info("Creating bucket took " + timer);
     }
