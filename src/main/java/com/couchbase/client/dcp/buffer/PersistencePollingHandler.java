@@ -26,7 +26,6 @@ import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.ChannelInboundHandlerAdapter;
 import rx.SingleSubscriber;
 import rx.Subscription;
-import rx.functions.Action1;
 import rx.schedulers.Schedulers;
 
 import java.net.InetSocketAddress;
@@ -75,12 +74,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 
         configSubscription = configProvider.configs()
                 .observeOn(Schedulers.from(ctx.executor()))
-                .subscribe(new Action1<CouchbaseBucketConfig>() {
-                    @Override
-                    public void call(CouchbaseBucketConfig bucketConfig) {
-                        reconfigure(ctx, bucketConfig);
-                    }
-                });
+                .subscribe(bucketConfig -> reconfigure(ctx, bucketConfig));
     }
 
     private void reconfigure(final ChannelHandlerContext ctx, final CouchbaseBucketConfig bucketConfig) {
@@ -108,18 +102,12 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
             for (PartitionInstance partitionInstance : partitions) {
                 final PartitionInstance pas = partitionInstance;
                 dcpOps.getFailoverLog(partitionInstance.partition())
-                        .subscribe(new Action1<FailoverLogResponse>() {
-                            @Override
-                            public void call(FailoverLogResponse failoverLog) {
-                                long vbuuid = failoverLog.getCurrentVbuuid();
-                                observeAndRepeat(ctx, pas, vbuuid, groupId);
-                            }
-                        }, new Action1<Throwable>() {
-                            @Override
-                            public void call(Throwable throwable) {
-                                LOGGER.warn("Failed to fetch failover log for {}. Closing channel.", pas, throwable);
-                                ctx.close();
-                            }
+                        .subscribe(failoverLog -> {
+                            long vbuuid = failoverLog.getCurrentVbuuid();
+                            observeAndRepeat(ctx, pas, vbuuid, groupId);
+                        }, throwable -> {
+                            LOGGER.warn("Failed to fetch failover log for {}. Closing channel.", pas, throwable);
+                            ctx.close();
                         });
             }
         } catch (Throwable t) {
@@ -138,12 +126,8 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
         }
 
         try {
-            ctx.executor().schedule(new Runnable() {
-                @Override
-                public void run() {
-                    observeAndRepeat(ctx, partitionInstance, vbuuid, groupId);
-                }
-            }, env.persistencePollingIntervalMillis() * intervalMultiplier, TimeUnit.MILLISECONDS);
+            ctx.executor().schedule(() -> observeAndRepeat(ctx, partitionInstance, vbuuid, groupId),
+                    env.persistencePollingIntervalMillis() * intervalMultiplier, TimeUnit.MILLISECONDS);
 
         } catch (Throwable t) {
             LOGGER.error("Failed to schedule observeSeqno. Closing channel.", t);

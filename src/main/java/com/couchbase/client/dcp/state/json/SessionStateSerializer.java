@@ -20,7 +20,6 @@ import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonGenerator;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.JsonSerializer;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.SerializerProvider;
-import rx.functions.Action1;
 
 import java.io.IOException;
 
@@ -42,14 +41,11 @@ public class SessionStateSerializer extends JsonSerializer<SessionState> {
 
         gen.writeFieldName("ps");
         gen.writeStartArray();
-        ss.foreachPartition(new Action1<PartitionState>() {
-            @Override
-            public void call(PartitionState partitionState) {
-                try {
-                    gen.writeObject(partitionState);
-                } catch (Exception ex) {
-                    throw new RuntimeException("Could not serialize PartitionState to JSON: " + partitionState, ex);
-                }
+        ss.foreachPartition(partitionState -> {
+            try {
+                gen.writeObject(partitionState);
+            } catch (Exception ex) {
+                throw new RuntimeException("Could not serialize PartitionState to JSON: " + partitionState, ex);
             }
         });
         gen.writeEndArray();

@@ -37,15 +37,12 @@ import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Subscriber;
-import rx.functions.Action4;
-import rx.functions.Func1;
 import rx.subjects.BehaviorSubject;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -152,12 +149,9 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         Completable chain = tryConnectHost(hosts.get(0));
         for (int i = 1; i < hosts.size(); i++) {
             final InetSocketAddress h = hosts.get(i);
-            chain = chain.onErrorResumeNext(new Func1<Throwable, Completable>() {
-                @Override
-                public Completable call(Throwable throwable) {
-                    LOGGER.warn("Could not get config from Node, trying next in list.", throwable);
-                    return tryConnectHost(h);
-                }
+            chain = chain.onErrorResumeNext(throwable -> {
+                LOGGER.warn("Could not get config from Node, trying next in list.", throwable);
+                return tryConnectHost(h);
             });
         }
         return chain;
@@ -209,13 +203,9 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
                     .retryWhen(any()
                             .delay(env.configProviderReconnectDelay())
                             .max(env.configProviderReconnectMaxAttempts())
-                            .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
-                                @Override
-                                public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
+                            .doOnRetry((retry, cause, delay, delayUnit) ->
                                     LOGGER.info("No host usable to fetch a config from, waiting and retrying (remote hosts: {}).",
-                                            system(remoteHosts.get()));
-                                }
-                            })
+                                            system(remoteHosts.get())))
                             .build()
                     )
                     .subscribe();

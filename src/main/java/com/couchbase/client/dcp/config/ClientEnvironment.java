@@ -36,15 +36,12 @@ import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Subscriber;
 import rx.Subscription;
-import rx.functions.Func1;
-import rx.functions.Func2;
 
 import java.net.InetSocketAddress;
 import java.security.KeyStore;
@@ -318,8 +315,9 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
     /**
-     * @deprecated Use {@link ClientEnvironment.credentialsProvider()} instead to access username
-     * Usrename used.
+     * Username used.
+     *
+     * @deprecated Use {@link ClientEnvironment#credentialsProvider()} instead to access username
      */
     @Deprecated
     public String username() {
@@ -327,8 +325,9 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
     /**
-     * @deprecated Use {@link ClientEnvironment.credentialsProvider()} instead to access password
      * Password of the user.
+     *
+     * @deprecated Use {@link ClientEnvironment#credentialsProvider()} instead to access password
      */
     @Deprecated
     public String password() {
@@ -401,12 +400,8 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         }
         if (systemEventHandler != null) {
             systemEventSubscription = eventBus().get()
-                    .filter(new Func1<CouchbaseEvent, Boolean>() {
-                        @Override
-                        public Boolean call(CouchbaseEvent evt) {
-                            return evt.type().equals(EventType.SYSTEM);
-                        }
-                    }).subscribe(new Subscriber<CouchbaseEvent>() {
+                    .filter(evt -> evt.type().equals(EventType.SYSTEM))
+                    .subscribe(new Subscriber<CouchbaseEvent>() {
                         @Override
                         public void onCompleted() { /* Ignoring on purpose. */}
 
@@ -716,15 +711,9 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
                 }
             }).toObservable();
         }
-        return Observable.merge(
-                schedulerShutdownHook.shutdown(),
-                loopShutdown
-        ).reduce(true, new Func2<Boolean, Boolean, Boolean>() {
-            @Override
-            public Boolean call(Boolean previous, Boolean current) {
-                return previous && current;
-            }
-        }).toCompletable();
+        return Observable.merge(schedulerShutdownHook.shutdown(), loopShutdown)
+                .reduce(true, (previous, current) -> previous && current)
+                .toCompletable();
     }
 
     @Override

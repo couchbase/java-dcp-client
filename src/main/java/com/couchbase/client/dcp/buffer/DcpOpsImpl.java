@@ -27,9 +27,9 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import rx.Single;
 import rx.SingleEmitter;
 import rx.functions.Action1;
-import rx.functions.Func1;
 
-import java.util.concurrent.Callable;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.couchbase.client.dcp.buffer.DcpOpsImpl.DcpRequestBuilder.request;
 import static java.util.Objects.requireNonNull;
@@ -43,44 +43,27 @@ public class DcpOpsImpl implements DcpOps {
 
     @Override
     public Single<ObserveSeqnoResponse> observeSeqno(final int partition, final long vbuuid) {
-        return doRequest(new Callable<DcpRequestBuilder>() {
-            @Override
-            public DcpRequestBuilder call() throws Exception {
-                return request(MessageUtil.OBSERVE_SEQNO_OPCODE)
+        return doRequest(
+                () -> request(MessageUtil.OBSERVE_SEQNO_OPCODE)
                         .vbucket(partition)
-                        .content(Unpooled.buffer(8).writeLong(vbuuid));
-            }
-        }, new Func1<ByteBuf, ObserveSeqnoResponse>() {
-            @Override
-            public ObserveSeqnoResponse call(ByteBuf buf) {
-                return new ObserveSeqnoResponse(buf);
-            }
-        });
+                        .content(Unpooled.buffer(8).writeLong(vbuuid)),
+                ObserveSeqnoResponse::new);
     }
 
     @Override
     public Single<FailoverLogResponse> getFailoverLog(final int partition) {
-        return doRequest(new Callable<DcpRequestBuilder>() {
-            @Override
-            public DcpRequestBuilder call() throws Exception {
-                return request(MessageUtil.DCP_FAILOVER_LOG_OPCODE)
-                        .vbucket(partition);
-
-            }
-        }, new Func1<ByteBuf, FailoverLogResponse>() {
-            @Override
-            public FailoverLogResponse call(ByteBuf buf) {
-                return new FailoverLogResponse(buf);
-            }
-        });
+        return doRequest(
+                () -> request(MessageUtil.DCP_FAILOVER_LOG_OPCODE)
+                        .vbucket(partition),
+                FailoverLogResponse::new);
     }
 
-    private <R> Single<R> doRequest(final Callable<DcpRequestBuilder> requestBuilder, final Func1<ByteBuf, R> resultExtractor) {
+    private <R> Single<R> doRequest(final Supplier<DcpRequestBuilder> requestBuilder, final Function<ByteBuf, R> resultExtractor) {
         return Single.fromEmitter(new Action1<SingleEmitter<R>>() {
             @Override
             public void call(final SingleEmitter<R> singleEmitter) {
                 try {
-                    final ByteBuf request = requestBuilder.call().build();
+                    final ByteBuf request = requestBuilder.get().build();
 
                     dispatcher.sendRequest(request).addListener(new DcpResponseListener() {
                         @Override
@@ -97,7 +80,7 @@ public class DcpOpsImpl implements DcpOps {
                                     throw new BadResponseStatusException(status);
                                 }
 
-                                final R result = resultExtractor.call(buf);
+                                final R result = resultExtractor.apply(buf);
                                 singleEmitter.onSuccess(result);
 
                             } catch (Throwable t) {
@@ -126,7 +109,7 @@ public class DcpOpsImpl implements DcpOps {
         private boolean used;
 
         private DcpRequestBuilder(byte opcode) {
-            this.opcode = requireNonNull(opcode);
+            this.opcode = opcode;
         }
 
         static DcpRequestBuilder request(byte opcode) {

@@ -17,7 +17,6 @@ package com.couchbase.client.dcp.state;
 
 import com.couchbase.client.dcp.state.json.SessionStateDeserializer;
 import com.couchbase.client.dcp.state.json.SessionStateSerializer;
-import com.couchbase.client.dcp.util.MathUtils;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.ObjectMapper;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -145,12 +144,9 @@ public class SessionState {
      */
     public boolean isAtEnd() {
         final AtomicBoolean atEnd = new AtomicBoolean(true);
-        foreachPartition(new Action1<PartitionState>() {
-            @Override
-            public void call(PartitionState ps) {
-                if (!ps.isAtEnd()) {
-                    atEnd.set(false);
-                }
+        foreachPartition(ps -> {
+            if (!ps.isAtEnd()) {
+                atEnd.set(false);
             }
         });
         return atEnd.get();

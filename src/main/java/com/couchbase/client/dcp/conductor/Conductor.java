@@ -39,10 +39,6 @@ import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Single;
 import rx.Subscription;
-import rx.functions.Action0;
-import rx.functions.Action1;
-import rx.functions.Action4;
-import rx.functions.Func1;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -72,13 +68,10 @@ public class Conductor {
         this.env = env;
         configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
         ownsConfigProvider = cp == null;
-        configProvider.configs().forEach(new Action1<CouchbaseBucketConfig>() {
-            @Override
-            public void call(CouchbaseBucketConfig config) {
-                LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
-                currentConfig.set(config);
-                reconfigure(config);
-            }
+        configProvider.configs().forEach(config -> {
+            LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
+            currentConfig.set(config);
+            reconfigure(config);
         });
     }
 
@@ -92,20 +85,10 @@ public class Conductor {
                 .filter(config -> config.numberOfPartitions() != 0)
                 .first().toCompletable()
                 .timeout(env.bootstrapTimeout(), TimeUnit.SECONDS)
-                .doOnError(new Action1<Throwable>() {
-                    @Override
-                    public void call(Throwable throwable) {
-                        LOGGER.warn("Did not receive initial configuration from provider.");
-                    }
-                });
+                .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from provider."));
         return configProvider.start()
                 .timeout(env.connectTimeout(), TimeUnit.SECONDS)
-                .doOnError(new Action1<Throwable>() {
-                    @Override
-                    public void call(Throwable throwable) {
-                        LOGGER.warn("Cannot connect configuration provider.");
-                    }
-                })
+                .doOnError(throwable -> LOGGER.warn("Cannot connect configuration provider."))
                 .concatWith(atLeastOneConfig);
     }
 
@@ -135,24 +118,14 @@ public class Conductor {
         stopped = true;
         Completable channelShutdown = Observable
                 .from(channels)
-                .flatMapCompletable(new Func1<DcpChannel, Completable>() {
-                    @Override
-                    public Completable call(DcpChannel dcpChannel) {
-                        return dcpChannel.disconnect();
-                    }
-                })
+                .flatMapCompletable(DcpChannel::disconnect)
                 .toCompletable();
 
         if (ownsConfigProvider) {
             channelShutdown = channelShutdown.andThen(configProvider.stop());
         }
 
-        return channelShutdown.doOnCompleted(new Action0() {
-            @Override
-            public void call() {
-                LOGGER.info("Shutdown complete.");
-            }
-        });
+        return channelShutdown.doOnCompleted(() -> LOGGER.info("Shutdown complete."));
     }
 
     /**
@@ -166,34 +139,18 @@ public class Conductor {
     public Observable<ByteBuf> getSeqnos() {
         return Observable
                 .from(channels)
-                .flatMap(new Func1<DcpChannel, Observable<ByteBuf>>() {
-                    @Override
-                    public Observable<ByteBuf> call(DcpChannel channel) {
-                        return getSeqnosForChannel(channel);
-                    }
-                });
+                .flatMap(this::getSeqnosForChannel);
     }
 
     @SuppressWarnings("unchecked")
     private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
         return Observable
                 .just(channel)
-                .flatMapSingle(new Func1<DcpChannel, Single<ByteBuf>>() {
-                    @Override
-                    public Single<ByteBuf> call(DcpChannel channel) {
-                        return channel.getSeqnos();
-                    }
-                })
+                .flatMapSingle(DcpChannel::getSeqnos)
                 .retryWhen(anyOf(NotConnectedException.class)
                         .max(Integer.MAX_VALUE)
                         .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-                        .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
-                            @Override
-                            public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                                LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel);
-
-                            }
-                        })
+                        .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel))
                         .build()
                 );
     }
@@ -202,28 +159,12 @@ public class Conductor {
     public Single<ByteBuf> getFailoverLog(final short partition) {
         return Observable
                 .just(partition)
-                .map(new Func1<Short, DcpChannel>() {
-                    @Override
-                    public DcpChannel call(Short aShort) {
-                        return masterChannelByPartition(partition);
-                    }
-                })
-                .flatMapSingle(new Func1<DcpChannel, Single<ByteBuf>>() {
-                    @Override
-                    public Single<ByteBuf> call(DcpChannel channel) {
-                        return channel.getFailoverLog(partition);
-                    }
-                })
+                .map(ignored -> masterChannelByPartition(partition))
+                .flatMapSingle(channel -> channel.getFailoverLog(partition))
                 .retryWhen(anyOf(NotConnectedException.class)
                         .max(Integer.MAX_VALUE)
                         .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-                        .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
-                            @Override
-                            public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                                LOGGER.debug("Rescheduling Get Failover Log for vbid {}, not connected (yet).", partition);
-
-                            }
-                        })
+                        .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling Get Failover Log for vbid {}, not connected (yet).", partition))
                         .build()
                 ).toSingle();
     }
@@ -233,28 +174,12 @@ public class Conductor {
                                                final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
         return Observable
                 .just(partition)
-                .map(new Func1<Short, DcpChannel>() {
-                    @Override
-                    public DcpChannel call(Short aShort) {
-                        return masterChannelByPartition(partition);
-                    }
-                })
-                .flatMapCompletable(new Func1<DcpChannel, Completable>() {
-                    @Override
-                    public Completable call(DcpChannel channel) {
-                        return channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
-                    }
-                })
+                .map(ignored -> masterChannelByPartition(partition))
+                .flatMapCompletable(channel -> channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno))
                 .retryWhen(anyOf(NotConnectedException.class)
                         .max(Integer.MAX_VALUE)
                         .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-                        .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
-                            @Override
-                            public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                                LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition);
-
-                            }
-                        })
+                        .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition))
                         .build()
                 )
                 .toCompletable();
@@ -330,36 +255,30 @@ public class Conductor {
 
         channel
                 .connect()
-                .retryWhen(RetryBuilder.anyMatches(new Func1<Throwable, Boolean>() {
+                .retryWhen(RetryBuilder.anyMatches(t -> !stopped)
+                        .max(env.dcpChannelsReconnectMaxAttempts())
+                        .delay(env.dcpChannelsReconnectDelay())
+                        .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node))
+                        .build())
+                .subscribe(new CompletableSubscriber() {
                     @Override
-                    public Boolean call(Throwable t) {
-                        return !stopped;
+                    public void onCompleted() {
+                        LOGGER.debug("Completed Node connect for DCP channel {}", node);
                     }
-                }).max(env.dcpChannelsReconnectMaxAttempts()).delay(env.dcpChannelsReconnectDelay()).
-                        doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
-                            @Override
-                            public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                                LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node);
-                            }
-                        }).build()).subscribe(new CompletableSubscriber() {
-            @Override
-            public void onCompleted() {
-                LOGGER.debug("Completed Node connect for DCP channel {}", node);
-            }
 
-            @Override
-            public void onError(Throwable e) {
-                LOGGER.warn("Got error during connect (maybe retried) for node {}", system(node), e);
-                if (env.eventBus() != null) {
-                    env.eventBus().publish(new FailedToAddNodeEvent(node, e));
-                }
-            }
+                    @Override
+                    public void onError(Throwable e) {
+                        LOGGER.warn("Got error during connect (maybe retried) for node {}", system(node), e);
+                        if (env.eventBus() != null) {
+                            env.eventBus().publish(new FailedToAddNodeEvent(node, e));
+                        }
+                    }
 
-            @Override
-            public void onSubscribe(Subscription d) {
-                // ignored.
-            }
-        });
+                    @Override
+                    public void onSubscribe(Subscription d) {
+                        // ignored.
+                    }
+                });
     }
 
     private void remove(final DcpChannel node) {
@@ -406,34 +325,28 @@ public class Conductor {
     void maybeMovePartition(final short partition) {
         Observable
                 .timer(50, TimeUnit.MILLISECONDS)
-                .filter(new Func1<Long, Boolean>() {
-                    @Override
-                    public Boolean call(Long aLong) {
-                        PartitionState ps = sessionState.get(partition);
-                        boolean desiredSeqnoReached = ps.isAtEnd();
-                        if (desiredSeqnoReached) {
-                            LOGGER.debug("Reached desired high seqno {} for vbucket {}, not reopening stream.",
-                                    ps.getEndSeqno(), partition);
-                        }
-                        return !desiredSeqnoReached;
+                .filter(ignored -> {
+                    PartitionState ps = sessionState.get(partition);
+                    boolean desiredSeqnoReached = ps.isAtEnd();
+                    if (desiredSeqnoReached) {
+                        LOGGER.debug("Reached desired high seqno {} for vbucket {}, not reopening stream.",
+                                ps.getEndSeqno(), partition);
                     }
+                    return !desiredSeqnoReached;
                 })
-                .flatMapCompletable(new Func1<Long, Completable>() {
-                    @Override
-                    public Completable call(Long aLong) {
-                        PartitionState ps = sessionState.get(partition);
-                        return startStreamForPartition(
-                                partition,
-                                ps.getLastUuid(),
-                                ps.getStartSeqno(),
-                                ps.getEndSeqno(),
-                                ps.getSnapshotStartSeqno(),
-                                ps.getSnapshotEndSeqno()
-                        ).retryWhen(anyOf(NotMyVbucketException.class)
-                                .max(Integer.MAX_VALUE)
-                                .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-                                .build());
-                    }
+                .flatMapCompletable(ignored -> {
+                    PartitionState ps = sessionState.get(partition);
+                    return startStreamForPartition(
+                            partition,
+                            ps.getLastUuid(),
+                            ps.getStartSeqno(),
+                            ps.getEndSeqno(),
+                            ps.getSnapshotStartSeqno(),
+                            ps.getSnapshotEndSeqno()
+                    ).retryWhen(anyOf(NotMyVbucketException.class)
+                            .max(Integer.MAX_VALUE)
+                            .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
+                            .build());
                 }).toCompletable().subscribe(new CompletableSubscriber() {
             @Override
             public void onCompleted() {
