@@ -21,13 +21,13 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 /**
  * This interface acts as a callback on the {@link Client#dataEventHandler(DataEventHandler)} API
  * that allows one to react to data events.
- *
+ * <p>
  * Right now {@link com.couchbase.client.dcp.message.DcpMutationMessage},
  * {@link com.couchbase.client.dcp.message.DcpExpirationMessage} and
  * {@link com.couchbase.client.dcp.message.DcpDeletionMessage} are emitted, but the expirations are
  * as of Couchbase Server 4.5.0 not actually emitted. So while good practice to handle them, even if
  * you opt out to do so make sure to release the buffers.
- *
+ * <p>
  * Keep in mind that the callback is called on the IO event loops, so you should never block or run
  * expensive computations in the callback! Use queues and other synchronization primities!
  *
@@ -36,16 +36,14 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
  */
 public interface DataEventHandler {
 
-    /**
-     * Called when a data event happens.
-     *
-     * Make sure to release the buffers!!
-     *
-     * @param flowController
-     *            the flow controller for the passed event.
-     * @param event
-     *            the data event happening right now.
-     */
-    void onEvent(ChannelFlowController flowController, ByteBuf event);
+  /**
+   * Called when a data event happens.
+   * <p>
+   * Make sure to release the buffers!!
+   *
+   * @param flowController the flow controller for the passed event.
+   * @param event the data event happening right now.
+   */
+  void onEvent(ChannelFlowController flowController, ByteBuf event);
 
 }

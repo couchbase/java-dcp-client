@@ -29,7 +29,6 @@ import com.couchbase.client.deps.io.netty.handler.codec.http.HttpClientCodec;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
-
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
@@ -43,83 +42,84 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class ConfigPipeline extends ChannelInitializer<Channel> {
 
-    /**
-     * The logger used.
-     */
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigPipeline.class);
+  /**
+   * The logger used.
+   */
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigPipeline.class);
 
-    /**
-     * The stateful environment.
-     */
-    private final ClientEnvironment environment;
+  /**
+   * The stateful environment.
+   */
+  private final ClientEnvironment environment;
 
-    /**
-     * Address used to replace $HOST parts in the config when used against localhost.
-     */
-    private final InetSocketAddress address;
+  /**
+   * Address used to replace $HOST parts in the config when used against localhost.
+   */
+  private final InetSocketAddress address;
 
-    /**
-     * The name of the bucket
-     */
-    private final String bucket;
+  /**
+   * The name of the bucket
+   */
+  private final String bucket;
 
-    /**
-     * The config stream where the configs are emitted into.
-     */
-    private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+  /**
+   * The config stream where the configs are emitted into.
+   */
+  private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
 
-    /**
-     * The revision of the last config emitted. Only emit a config
-     * if it is newer than this revision.
-     */
-    private final AtomicLong currentBucketConfigRev;
+  /**
+   * The revision of the last config emitted. Only emit a config
+   * if it is newer than this revision.
+   */
+  private final AtomicLong currentBucketConfigRev;
 
-    private final SSLEngineFactory sslEngineFactory;
+  private final SSLEngineFactory sslEngineFactory;
 
-    /**
-     * Creates a new config pipeline.
-     * @param environment the stateful environment.
-     * @param address address of the remote server.
-     * @param configStream config stream where to send the configs.
-     */
-    public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress address,
-                          final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
-                          final AtomicLong currentBucketConfigRev) {
-        this.address = address;
-        this.bucket = environment.bucket();
-        this.configStream = configStream;
-        this.currentBucketConfigRev = currentBucketConfigRev;
-        this.environment = environment;
-        if (environment.sslEnabled()) {
-            this.sslEngineFactory = new SSLEngineFactory(environment);
-        } else {
-            this.sslEngineFactory = null;
-        }
+  /**
+   * Creates a new config pipeline.
+   *
+   * @param environment the stateful environment.
+   * @param address address of the remote server.
+   * @param configStream config stream where to send the configs.
+   */
+  public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress address,
+                        final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
+                        final AtomicLong currentBucketConfigRev) {
+    this.address = address;
+    this.bucket = environment.bucket();
+    this.configStream = configStream;
+    this.currentBucketConfigRev = currentBucketConfigRev;
+    this.environment = environment;
+    if (environment.sslEnabled()) {
+      this.sslEngineFactory = new SSLEngineFactory(environment);
+    } else {
+      this.sslEngineFactory = null;
     }
+  }
 
-    /**
-     * Init the pipeline with the HTTP codec and our handler which does all the json chunk
-     * decoding and parsing.
-     *
-     * If trace logging is enabled also add the logging handler so we can figure out whats
-     * going on when debugging.
-     */
-    @Override
-    protected void initChannel(final Channel ch) throws Exception {
-        ChannelPipeline pipeline = ch.pipeline();
+  /**
+   * Init the pipeline with the HTTP codec and our handler which does all the json chunk
+   * decoding and parsing.
+   * <p>
+   * If trace logging is enabled also add the logging handler so we can figure out whats
+   * going on when debugging.
+   */
+  @Override
+  protected void initChannel(final Channel ch) throws Exception {
+    ChannelPipeline pipeline = ch.pipeline();
 
-        if (environment.sslEnabled()) {
-            pipeline.addLast(new SslHandler(sslEngineFactory.get()));
-        }
-        if (LOGGER.isTraceEnabled()) {
-            pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
-        }
-        CredentialsProvider credentialsProvider = environment.credentialsProvider();
-        Credentials credentials = credentialsProvider.get(address);
-        pipeline
-            .addLast(new HttpClientCodec())
-                .addLast(new StartStreamHandler(bucket, credentials.getUsername(), credentials.getPassword()))
-                .addLast(new ConfigHandler(configStream, currentBucketConfigRev, environment));
+    if (environment.sslEnabled()) {
+      pipeline.addLast(new SslHandler(sslEngineFactory.get()));
     }
+    if (LOGGER.isTraceEnabled()) {
+      pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
+    }
+    CredentialsProvider credentialsProvider = environment.credentialsProvider();
+    Credentials credentials = credentialsProvider.get(address);
+    pipeline
+        .addLast(new HttpClientCodec())
+        .addLast(new StartStreamHandler(bucket, credentials.getUsername(), credentials.getPassword()))
+        .addLast(new ConfigHandler(configStream, currentBucketConfigRev, environment));
+  }
 
 }

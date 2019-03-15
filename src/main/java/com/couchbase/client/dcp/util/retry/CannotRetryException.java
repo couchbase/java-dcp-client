@@ -21,17 +21,17 @@ import com.couchbase.client.core.CouchbaseException;
  * A {@link CouchbaseException} that denotes that a retry cycle failed because the maximum allowed attempt
  * count was reached.
  *
- * @see Retry
  * @author Simon Baslé
+ * @see Retry
  * @since 1.0.0
  */
 public class CannotRetryException extends CouchbaseException {
 
-    public CannotRetryException(String message) {
-        super(message);
-    }
+  public CannotRetryException(String message) {
+    super(message);
+  }
 
-    public CannotRetryException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public CannotRetryException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

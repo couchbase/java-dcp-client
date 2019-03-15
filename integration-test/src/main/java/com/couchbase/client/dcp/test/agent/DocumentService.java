@@ -23,25 +23,25 @@ import java.util.Set;
 
 @Remotable("document")
 public interface DocumentService {
-    /**
-     * @param bucket Name of the bucket to upsert into.
-     * @param documentId ID to assign to the document.
-     * @param documentBodyJson Body to assign to the document.
-     */
-    void upsert(String bucket, String documentId, String documentBodyJson);
+  /**
+   * @param bucket Name of the bucket to upsert into.
+   * @param documentId ID to assign to the document.
+   * @param documentBodyJson Body to assign to the document.
+   */
+  void upsert(String bucket, String documentId, String documentBodyJson);
 
-    /**
-     * @param bucket Name of the bucket to upsert into.
-     * @param documentIdPrefix The prefix to use for ID generation.
-     * @return The IDs of the upserted documents.
-     */
-    Set<String> upsertOneDocumentToEachVbucket(String bucket, String documentIdPrefix);
+  /**
+   * @param bucket Name of the bucket to upsert into.
+   * @param documentIdPrefix The prefix to use for ID generation.
+   * @return The IDs of the upserted documents.
+   */
+  Set<String> upsertOneDocumentToEachVbucket(String bucket, String documentIdPrefix);
 
-    /**
-     * Deletes documents if they exist, otherwise does nothing.
-     *
-     * @param bucket Name of the bucket to delete from.
-     * @param documentIds Document IDs to delete.
-     */
-    void delete(String bucket, List<String> documentIds);
+  /**
+   * Deletes documents if they exist, otherwise does nothing.
+   *
+   * @param bucket Name of the bucket to delete from.
+   * @param documentIds Document IDs to delete.
+   */
+  void delete(String bucket, List<String> documentIds);
 }

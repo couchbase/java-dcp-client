@@ -26,52 +26,52 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class CheckSessionState {
-    private static final ObjectMapper JACKSON = new ObjectMapper();
+  private static final ObjectMapper JACKSON = new ObjectMapper();
 
-    public static void main(String[] args) {
-        if (args.length == 0) {
-            System.err.println("At least one path to serialized session required.");
-            System.exit(1);
-        }
-        for (String sessionStatePath : args) {
-            try {
-                File sessionStateFile = new File(sessionStatePath);
-                SessionState sessionState = JACKSON.readValue(sessionStateFile, SessionState.class);
-                final AtomicInteger idx = new AtomicInteger(0);
-                sessionState.foreachPartition(new Action1<PartitionState>() {
-                    @Override
-                    public void call(PartitionState state) {
-                        int partition = idx.getAndIncrement();
-                        if (lessThan(state.getEndSeqno(), state.getStartSeqno())) {
-                            System.out.printf("stream request for partition %d will fail because " +
-                                            "start sequence number (%d) is larger than " +
-                                            "end sequence number (%d)\n",
-                                    partition, state.getStartSeqno(), state.getEndSeqno());
-                        }
-                        if (lessThan(state.getStartSeqno(), state.getSnapshotStartSeqno())) {
-                            System.out.printf("stream request for partition %d will fail because " +
-                                            "snapshot start sequence number (%d) must not be larger than " +
-                                            "start sequence number (%d)\n",
-                                    partition, state.getSnapshotStartSeqno(), state.getStartSeqno());
-                        }
-                        if (lessThan(state.getSnapshotEndSeqno(), state.getStartSeqno())) {
-                            System.out.printf("stream request for partition %d will fail because " +
-                                            "start sequence number (%d) must not be larger than " +
-                                            "snapshot end sequence number (%d)\n",
-                                    partition, state.getStartSeqno(), state.getSnapshotEndSeqno());
-                        }
-                    }
-                });
-            } catch (IOException e) {
-                System.out.println("Failed to decode " + sessionStatePath + ": " + e);
+  public static void main(String[] args) {
+    if (args.length == 0) {
+      System.err.println("At least one path to serialized session required.");
+      System.exit(1);
+    }
+    for (String sessionStatePath : args) {
+      try {
+        File sessionStateFile = new File(sessionStatePath);
+        SessionState sessionState = JACKSON.readValue(sessionStateFile, SessionState.class);
+        final AtomicInteger idx = new AtomicInteger(0);
+        sessionState.foreachPartition(new Action1<PartitionState>() {
+          @Override
+          public void call(PartitionState state) {
+            int partition = idx.getAndIncrement();
+            if (lessThan(state.getEndSeqno(), state.getStartSeqno())) {
+              System.out.printf("stream request for partition %d will fail because " +
+                      "start sequence number (%d) is larger than " +
+                      "end sequence number (%d)\n",
+                  partition, state.getStartSeqno(), state.getEndSeqno());
             }
-        }
+            if (lessThan(state.getStartSeqno(), state.getSnapshotStartSeqno())) {
+              System.out.printf("stream request for partition %d will fail because " +
+                      "snapshot start sequence number (%d) must not be larger than " +
+                      "start sequence number (%d)\n",
+                  partition, state.getSnapshotStartSeqno(), state.getStartSeqno());
+            }
+            if (lessThan(state.getSnapshotEndSeqno(), state.getStartSeqno())) {
+              System.out.printf("stream request for partition %d will fail because " +
+                      "start sequence number (%d) must not be larger than " +
+                      "snapshot end sequence number (%d)\n",
+                  partition, state.getStartSeqno(), state.getSnapshotEndSeqno());
+            }
+          }
+        });
+      } catch (IOException e) {
+        System.out.println("Failed to decode " + sessionStatePath + ": " + e);
+      }
     }
+  }
 
-    /**
-     * @return true if x < y, where x and y treated as unsigned long int
-     */
-    private static boolean lessThan(long x, long y) {
-        return (x < y) ^ (x < 0) ^ (y < 0);
-    }
+  /**
+   * @return true if x < y, where x and y treated as unsigned long int
+   */
+  private static boolean lessThan(long x, long y) {
+    return (x < y) ^ (x < 0) ^ (y < 0);
+  }
 }

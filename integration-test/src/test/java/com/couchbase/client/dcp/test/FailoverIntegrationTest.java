@@ -22,33 +22,33 @@ import org.junit.Test;
 
 public class FailoverIntegrationTest extends DcpIntegrationTestBase {
 
-    private static CouchbaseContainer secondNode;
+  private static CouchbaseContainer secondNode;
 
-    @BeforeClass
-    public static void startSecondNode() {
-        secondNode = couchbase().addNode();
-        couchbase().rebalance();
+  @BeforeClass
+  public static void startSecondNode() {
+    secondNode = couchbase().addNode();
+    couchbase().rebalance();
+  }
+
+  @AfterClass
+  public static void stopSecondNode() {
+    stop(secondNode);
+  }
+
+  @Test
+  public void failover() throws Exception {
+    final TestBucket bucket = newBucket().replicas(1).create();
+
+    final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
+
+    try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
+      streamer.assertMutationCount(batchSize);
+
+      secondNode.failover();
+      couchbase().rebalance();
+
+      bucket.createOneDocumentInEachVbucket("b");
+      streamer.assertMutationCount(batchSize * 2);
     }
-
-    @AfterClass
-    public static void stopSecondNode() {
-        stop(secondNode);
-    }
-
-    @Test
-    public void failover() throws Exception {
-        final TestBucket bucket = newBucket().replicas(1).create();
-
-        final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
-
-        try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
-            streamer.assertMutationCount(batchSize);
-
-            secondNode.failover();
-            couchbase().rebalance();
-
-            bucket.createOneDocumentInEachVbucket("b");
-            streamer.assertMutationCount(batchSize * 2);
-        }
-    }
+  }
 }

@@ -49,94 +49,91 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class DcpPipeline extends ChannelInitializer<Channel> {
 
-    /**
-     * The logger used.
-     */
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpPipeline.class);
+  /**
+   * The logger used.
+   */
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpPipeline.class);
 
-    /**
-     * The stateful environment.
-     */
-    private final ClientEnvironment environment;
+  /**
+   * The stateful environment.
+   */
+  private final ClientEnvironment environment;
 
-    /**
-     * The observable where all the control events are fed into for advanced handling up the stack.
-     */
-    private final DcpChannelControlHandler controlHandler;
-    private final SSLEngineFactory sslEngineFactory;
-    private final ConfigProvider configProvider;
+  /**
+   * The observable where all the control events are fed into for advanced handling up the stack.
+   */
+  private final DcpChannelControlHandler controlHandler;
+  private final SSLEngineFactory sslEngineFactory;
+  private final ConfigProvider configProvider;
 
-    /**
-     * Creates the pipeline.
-     *
-     * @param environment
-     *            the stateful environment.
-     * @param address
-     * @param controlHandler
-     *            the control event handler.
-     */
-    public DcpPipeline(final ClientEnvironment environment,
-                       final DcpChannelControlHandler controlHandler, ConfigProvider configProvider) {
-        this.configProvider = requireNonNull(configProvider);
-        this.environment = requireNonNull(environment);
-        this.controlHandler = requireNonNull(controlHandler);
-        if (environment.sslEnabled()) {
-            this.sslEngineFactory = new SSLEngineFactory(environment);
-        } else {
-            this.sslEngineFactory = null;
-        }
+  /**
+   * Creates the pipeline.
+   *
+   * @param environment the stateful environment.
+   * @param controlHandler the control event handler.
+   */
+  public DcpPipeline(final ClientEnvironment environment,
+                     final DcpChannelControlHandler controlHandler, ConfigProvider configProvider) {
+    this.configProvider = requireNonNull(configProvider);
+    this.environment = requireNonNull(environment);
+    this.controlHandler = requireNonNull(controlHandler);
+    if (environment.sslEnabled()) {
+      this.sslEngineFactory = new SSLEngineFactory(environment);
+    } else {
+      this.sslEngineFactory = null;
+    }
+  }
+
+  /**
+   * Initializes the full pipeline with all handlers needed (some of them may remove themselves during
+   * steady state, like auth and feature negotiation).
+   */
+  @Override
+  protected void initChannel(final Channel ch) throws Exception {
+    ChannelPipeline pipeline = ch.pipeline();
+
+    final int gracePeriodMillis = Integer.parseInt(System.getProperty("com.couchbase.connectCallbackGracePeriod", "2000"));
+    if (gracePeriodMillis != 0) {
+      final long handshakeTimeoutMillis = environment.socketConnectTimeout() + gracePeriodMillis;
+      pipeline.addLast(new HandshakeTimeoutHandler(handshakeTimeoutMillis, TimeUnit.MILLISECONDS));
     }
 
-    /**
-     * Initializes the full pipeline with all handlers needed (some of them may remove themselves during
-     * steady state, like auth and feature negotiation).
-     */
-    @Override
-    protected void initChannel(final Channel ch) throws Exception {
-        ChannelPipeline pipeline = ch.pipeline();
-
-        final int gracePeriodMillis = Integer.parseInt(System.getProperty("com.couchbase.connectCallbackGracePeriod", "2000"));
-        if (gracePeriodMillis != 0) {
-            final long handshakeTimeoutMillis = environment.socketConnectTimeout() + gracePeriodMillis;
-            pipeline.addLast(new HandshakeTimeoutHandler(handshakeTimeoutMillis, TimeUnit.MILLISECONDS));
-        }
-
-        if (environment.sslEnabled()) {
-            pipeline.addLast(new SslHandler(sslEngineFactory.get()));
-        }
-        pipeline.addLast(
-                new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false));
-
-        if (LOGGER.isTraceEnabled()) {
-            pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
-        }
-
-        DcpControl control = environment.dcpControl();
-
-        Credentials credentials = environment.credentialsProvider().get((InetSocketAddress) ch.remoteAddress());
-        pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()))
-                .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket(), control))
-                .addLast(new DcpControlHandler(control));
-
-        if (control.noopEnabled()) {
-            pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
-
-            // Server only sends DCP_NOOP requests when at least one DCP stream is open. The client
-            // sends its own NOOP requests to keep the connection alive even if there are no open streams.
-            // Use slightly longer interval to avoid wasting bandwidth on redundant NOOPs.
-            final long serverNoopIntervalMillis = SECONDS.toMillis(control.noopIntervalSeconds());
-            final long clientNoopIntervalMillis = (long) (serverNoopIntervalMillis * 1.2);
-            pipeline.addLast(new ClientNoopHandler(clientNoopIntervalMillis, MILLISECONDS));
-        }
-
-        if (LOGGER.isTraceEnabled()) {
-            pipeline.addLast(new DcpLoggingHandler(LogLevel.TRACE));
-        }
-        DcpMessageHandler messageHandler = new DcpMessageHandler(ch, environment, controlHandler);
-        pipeline.addLast(messageHandler);
-
-        if (environment.persistencePollingEnabled()) {
-            pipeline.addLast(new PersistencePollingHandler(environment, configProvider, messageHandler));
-        }
+    if (environment.sslEnabled()) {
+      pipeline.addLast(new SslHandler(sslEngineFactory.get()));
     }
+    pipeline.addLast(
+        new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false));
+
+    if (LOGGER.isTraceEnabled()) {
+      pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
+    }
+
+    DcpControl control = environment.dcpControl();
+
+    Credentials credentials = environment.credentialsProvider().get((InetSocketAddress) ch.remoteAddress());
+    pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()))
+        .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket(), control))
+        .addLast(new DcpControlHandler(control));
+
+    if (control.noopEnabled()) {
+      pipeline.addLast(new IdleStateHandler(2 * control.noopIntervalSeconds(), 0, 0));
+
+      // Server only sends DCP_NOOP requests when at least one DCP stream is open. The client
+      // sends its own NOOP requests to keep the connection alive even if there are no open streams.
+      // Use slightly longer interval to avoid wasting bandwidth on redundant NOOPs.
+      final long serverNoopIntervalMillis = SECONDS.toMillis(control.noopIntervalSeconds());
+      final long clientNoopIntervalMillis = (long) (serverNoopIntervalMillis * 1.2);
+      pipeline.addLast(new ClientNoopHandler(clientNoopIntervalMillis, MILLISECONDS));
+    }
+
+    if (LOGGER.isTraceEnabled()) {
+      pipeline.addLast(new DcpLoggingHandler(LogLevel.TRACE));
+    }
+    DcpMessageHandler messageHandler = new DcpMessageHandler(ch, environment, controlHandler);
+    pipeline.addLast(messageHandler);
+
+    if (environment.persistencePollingEnabled()) {
+      pipeline.addLast(new PersistencePollingHandler(environment, configProvider, messageHandler));
+    }
+  }
 }

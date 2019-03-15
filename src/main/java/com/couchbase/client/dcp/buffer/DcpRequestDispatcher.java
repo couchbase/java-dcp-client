@@ -26,29 +26,29 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
  * Sends DCP requests to the server.
  */
 public interface DcpRequestDispatcher {
-    /**
-     * Assigns a value to the request's {@code opaque} field and writes
-     * the message to the channel. Returns a Future that is completed
-     * when the response is received or the channel is closed.
-     * <p>
-     * If the response is received, the Future is always considered
-     * successful regardless of the status code returned by the server;
-     * the caller is responsible for inspecting the status code.
-     * <p>
-     * If the channel is not currently active, or if the channel is closed
-     * before the response is received, the Future fails with
-     * {@link NotConnectedException} as the cause.
-     * <p>
-     * Callers are responsible for releasing the ByteBuf from successful
-     * Futures. This is true even if a call to {@code Future.get} or
-     * {@code Future.await} times out, in which case the caller should add
-     * a listener to release the buffer when the Future eventually completes.
-     * <p>
-     * Listeners are invoked by the channel's event loop thread, so they
-     * should return quickly.
-     * <p>
-     * Callers may wish to use the type alias {@link DcpResponseListener}
-     * when adding listeners.
-     */
-    Future<DcpResponse> sendRequest(ByteBuf message);
+  /**
+   * Assigns a value to the request's {@code opaque} field and writes
+   * the message to the channel. Returns a Future that is completed
+   * when the response is received or the channel is closed.
+   * <p>
+   * If the response is received, the Future is always considered
+   * successful regardless of the status code returned by the server;
+   * the caller is responsible for inspecting the status code.
+   * <p>
+   * If the channel is not currently active, or if the channel is closed
+   * before the response is received, the Future fails with
+   * {@link NotConnectedException} as the cause.
+   * <p>
+   * Callers are responsible for releasing the ByteBuf from successful
+   * Futures. This is true even if a call to {@code Future.get} or
+   * {@code Future.await} times out, in which case the caller should add
+   * a listener to release the buffer when the Future eventually completes.
+   * <p>
+   * Listeners are invoked by the channel's event loop thread, so they
+   * should return quickly.
+   * <p>
+   * Callers may wish to use the type alias {@link DcpResponseListener}
+   * when adding listeners.
+   */
+  Future<DcpResponse> sendRequest(ByteBuf message);
 }

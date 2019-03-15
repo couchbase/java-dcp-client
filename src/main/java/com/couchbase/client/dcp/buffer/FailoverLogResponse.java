@@ -25,32 +25,32 @@ import java.util.Collections;
 import java.util.List;
 
 class FailoverLogResponse {
-    private final List<FailoverLogEntry> logEntries;
+  private final List<FailoverLogEntry> logEntries;
 
-    public FailoverLogResponse(final ByteBuf response) {
-        final ByteBuf content = MessageUtil.getContent(response);
-        final int numEntries = content.readableBytes() / 16;
-        final List<FailoverLogEntry> entries = new ArrayList<>(numEntries);
+  public FailoverLogResponse(final ByteBuf response) {
+    final ByteBuf content = MessageUtil.getContent(response);
+    final int numEntries = content.readableBytes() / 16;
+    final List<FailoverLogEntry> entries = new ArrayList<>(numEntries);
 
-        for (int i = 0; i < numEntries; i++) {
-            final long vbuuid = content.readLong();
-            final long seqno = content.readLong();
-            entries.add(new FailoverLogEntry(seqno, vbuuid));
-        }
-
-        this.logEntries = Collections.unmodifiableList(entries);
+    for (int i = 0; i < numEntries; i++) {
+      final long vbuuid = content.readLong();
+      final long seqno = content.readLong();
+      entries.add(new FailoverLogEntry(seqno, vbuuid));
     }
 
-    public List<FailoverLogEntry> getFailoverLogEntries() {
-        return logEntries;
-    }
+    this.logEntries = Collections.unmodifiableList(entries);
+  }
 
-    public long getCurrentVbuuid() {
-        return logEntries.get(0).getUuid();
-    }
+  public List<FailoverLogEntry> getFailoverLogEntries() {
+    return logEntries;
+  }
 
-    @Override
-    public String toString() {
-        return logEntries.toString();
-    }
+  public long getCurrentVbuuid() {
+    return logEntries.get(0).getUuid();
+  }
+
+  @Override
+  public String toString() {
+    return logEntries.toString();
+  }
 }

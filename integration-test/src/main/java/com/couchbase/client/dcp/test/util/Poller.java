@@ -26,61 +26,61 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Useful for blocking the current thread until some condition is met.
  */
 public class Poller {
-    private long timeout = 2;
-    private TimeUnit timeoutUnit = MINUTES;
+  private long timeout = 2;
+  private TimeUnit timeoutUnit = MINUTES;
 
-    private long interval = 2;
-    private TimeUnit intervalUnit = SECONDS;
+  private long interval = 2;
+  private TimeUnit intervalUnit = SECONDS;
 
-    private boolean timeoutIsFatal = true;
+  private boolean timeoutIsFatal = true;
 
-    public static Poller poll() {
-        return new Poller();
-    }
+  public static Poller poll() {
+    return new Poller();
+  }
 
-    private Poller() {
-    }
+  private Poller() {
+  }
 
-    public Poller atInterval(long interval, TimeUnit unit) {
-        this.interval = interval;
-        this.intervalUnit = unit;
-        return this;
-    }
+  public Poller atInterval(long interval, TimeUnit unit) {
+    this.interval = interval;
+    this.intervalUnit = unit;
+    return this;
+  }
 
-    public Poller withTimeout(long timeout, TimeUnit unit) {
-        this.timeout = timeout;
-        this.timeoutUnit = unit;
-        return this;
-    }
+  public Poller withTimeout(long timeout, TimeUnit unit) {
+    this.timeout = timeout;
+    this.timeoutUnit = unit;
+    return this;
+  }
 
-    public void untilTimeExpiresOr(Supplier<Boolean> condition) {
-        timeoutIsFatal = false;
-        until(condition);
-    }
+  public void untilTimeExpiresOr(Supplier<Boolean> condition) {
+    timeoutIsFatal = false;
+    until(condition);
+  }
 
-    public void until(Supplier<Boolean> condition) {
-        final long deadline = System.nanoTime() + timeoutUnit.toNanos(timeout);
+  public void until(Supplier<Boolean> condition) {
+    final long deadline = System.nanoTime() + timeoutUnit.toNanos(timeout);
 
-        do {
-            if (System.nanoTime() > deadline) {
-                if (timeoutIsFatal) {
-                    throw new RuntimeException("timed out");
-                }
-                return;
-            }
-
-            sleep();
-
-        } while (!condition.get());
-    }
-
-    private void sleep() {
-        try {
-            intervalUnit.sleep(interval);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
+    do {
+      if (System.nanoTime() > deadline) {
+        if (timeoutIsFatal) {
+          throw new RuntimeException("timed out");
         }
+        return;
+      }
+
+      sleep();
+
+    } while (!condition.get());
+  }
+
+  private void sleep() {
+    try {
+      intervalUnit.sleep(interval);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
     }
+  }
 }
 

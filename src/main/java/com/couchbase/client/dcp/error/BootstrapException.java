@@ -25,18 +25,18 @@ import com.couchbase.client.core.CouchbaseException;
  */
 public class BootstrapException extends CouchbaseException {
 
-    public BootstrapException() {
-    }
+  public BootstrapException() {
+  }
 
-    public BootstrapException(String message) {
-        super(message);
-    }
+  public BootstrapException(String message) {
+    super(message);
+  }
 
-    public BootstrapException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public BootstrapException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-    public BootstrapException(Throwable cause) {
-        super(cause);
-    }
+  public BootstrapException(Throwable cause) {
+    super(cause);
+  }
 }

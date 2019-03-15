@@ -37,41 +37,41 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * DCP_NOOP requests to the client when there is at least one stream open.
  */
 public class ClientNoopHandler extends IdleStateHandler {
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ClientNoopHandler.class);
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ClientNoopHandler.class);
 
-    public ClientNoopHandler(long readerIdleTime, TimeUnit unit) {
-        super(readerIdleTime, 0, 0, unit);
-    }
+  public ClientNoopHandler(long readerIdleTime, TimeUnit unit) {
+    super(readerIdleTime, 0, 0, unit);
+  }
 
-    @Override
-    protected void channelIdle(ChannelHandlerContext ctx, IdleStateEvent evt) throws Exception {
-        LOGGER.debug("Nothing read from channel {} for {} seconds; sending client-side NOOP request.",
-                ctx.channel(), MILLISECONDS.toSeconds(getReaderIdleTimeInMillis()));
+  @Override
+  protected void channelIdle(ChannelHandlerContext ctx, IdleStateEvent evt) throws Exception {
+    LOGGER.debug("Nothing read from channel {} for {} seconds; sending client-side NOOP request.",
+        ctx.channel(), MILLISECONDS.toSeconds(getReaderIdleTimeInMillis()));
 
-        ctx.pipeline().get(DcpMessageHandler.class)
-                .sendRequest(newNoopRequest())
-                .addListener((DcpResponseListener) future -> {
-                    if (future.isSuccess()) {
-                        final ByteBuf response = future.getNow().buffer();
-                        try {
-                            final ResponseStatus status = MessageUtil.getResponseStatus(response);
-                            if (status.isSuccess()) {
-                                LOGGER.debug("Got successful response to client-side NOOP for channel {}", ctx.channel());
-                            } else {
-                                LOGGER.warn("Got error response to client-side NOOP for channel {}: {}", ctx.channel(), status);
-                            }
-                        } finally {
-                            response.release();
-                        }
-                    } else {
-                        LOGGER.warn("Failed to send client-side NOOP for channel {}", ctx.channel(), future.cause());
-                    }
-                });
-    }
+    ctx.pipeline().get(DcpMessageHandler.class)
+        .sendRequest(newNoopRequest())
+        .addListener((DcpResponseListener) future -> {
+          if (future.isSuccess()) {
+            final ByteBuf response = future.getNow().buffer();
+            try {
+              final ResponseStatus status = MessageUtil.getResponseStatus(response);
+              if (status.isSuccess()) {
+                LOGGER.debug("Got successful response to client-side NOOP for channel {}", ctx.channel());
+              } else {
+                LOGGER.warn("Got error response to client-side NOOP for channel {}: {}", ctx.channel(), status);
+              }
+            } finally {
+              response.release();
+            }
+          } else {
+            LOGGER.warn("Failed to send client-side NOOP for channel {}", ctx.channel(), future.cause());
+          }
+        });
+  }
 
-    private static ByteBuf newNoopRequest() {
-        final ByteBuf buffer = Unpooled.buffer();
-        MessageUtil.initRequest(NOOP_OPCODE, buffer);
-        return buffer;
-    }
+  private static ByteBuf newNoopRequest() {
+    final ByteBuf buffer = Unpooled.buffer();
+    MessageUtil.initRequest(NOOP_OPCODE, buffer);
+    return buffer;
+  }
 }

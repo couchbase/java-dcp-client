@@ -27,25 +27,25 @@ import static org.junit.Assert.assertTrue;
 
 public class OpenConnectionRequestTest {
 
-    @Test
-    public void testInit() {
-        ByteBuf buffer = Unpooled.buffer();
-        assertFalse(DcpOpenConnectionRequest.is(buffer));
+  @Test
+  public void testInit() {
+    ByteBuf buffer = Unpooled.buffer();
+    assertFalse(DcpOpenConnectionRequest.is(buffer));
 
-        DcpOpenConnectionRequest.init(buffer);
+    DcpOpenConnectionRequest.init(buffer);
 
-        assertEquals(32, buffer.writerIndex());
-        assertTrue(DcpOpenConnectionRequest.is(buffer));
-    }
+    assertEquals(32, buffer.writerIndex());
+    assertTrue(DcpOpenConnectionRequest.is(buffer));
+  }
 
-    @Test
-    public void testSetConnectionName() {
-        ByteBuf buffer = Unpooled.buffer();
-        DcpOpenConnectionRequest.init(buffer);
+  @Test
+  public void testSetConnectionName() {
+    ByteBuf buffer = Unpooled.buffer();
+    DcpOpenConnectionRequest.init(buffer);
 
-        DcpOpenConnectionRequest.connectionName(buffer, "name");
+    DcpOpenConnectionRequest.connectionName(buffer, "name");
 
-        assertEquals("name", DcpOpenConnectionRequest.connectionName(buffer).toString(CharsetUtil.UTF_8));
-    }
+    assertEquals("name", DcpOpenConnectionRequest.connectionName(buffer).toString(CharsetUtil.UTF_8));
+  }
 
 }

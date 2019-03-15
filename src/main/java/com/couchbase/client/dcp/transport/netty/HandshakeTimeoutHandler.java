@@ -32,38 +32,38 @@ import static java.util.Objects.requireNonNull;
  * if the handshake takes too long.
  */
 public class HandshakeTimeoutHandler extends ChannelOutboundHandlerAdapter {
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HandshakeTimeoutHandler.class);
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HandshakeTimeoutHandler.class);
 
-    private static final HandshakeDeadlineEvent HANDSHAKE_DEADLINE_EVENT = new HandshakeDeadlineEvent();
+  private static final HandshakeDeadlineEvent HANDSHAKE_DEADLINE_EVENT = new HandshakeDeadlineEvent();
 
-    private final long timeout;
-    private final TimeUnit timeoutUnit;
+  private final long timeout;
+  private final TimeUnit timeoutUnit;
 
-    public HandshakeTimeoutHandler(long timeout, TimeUnit timeoutUnit) {
-        this.timeout = timeout;
-        this.timeoutUnit = requireNonNull(timeoutUnit);
-    }
+  public HandshakeTimeoutHandler(long timeout, TimeUnit timeoutUnit) {
+    this.timeout = timeout;
+    this.timeoutUnit = requireNonNull(timeoutUnit);
+  }
 
-    @Override
-    public void connect(final ChannelHandlerContext ctx, final SocketAddress remoteAddress,
-                        final SocketAddress localAddress, final ChannelPromise promise) throws Exception {
-        ctx.connect(remoteAddress, localAddress, promise);
-        ctx.pipeline().remove(this);
+  @Override
+  public void connect(final ChannelHandlerContext ctx, final SocketAddress remoteAddress,
+                      final SocketAddress localAddress, final ChannelPromise promise) throws Exception {
+    ctx.connect(remoteAddress, localAddress, promise);
+    ctx.pipeline().remove(this);
 
-        final Runnable fireDeadlineEvent = new Runnable() {
-            /**
-             * If there is a {@link ConnectInterceptingHandler} remaining in the pipeline,
-             * it will respond to this event by failing the connection. If there are none
-             * in the pipeline, the handshake is complete and this event is ignored.
-             */
-            @Override
-            public void run() {
-                LOGGER.debug("Firing handshake deadline event.");
-                ctx.fireUserEventTriggered(HANDSHAKE_DEADLINE_EVENT);
-            }
-        };
+    final Runnable fireDeadlineEvent = new Runnable() {
+      /**
+       * If there is a {@link ConnectInterceptingHandler} remaining in the pipeline,
+       * it will respond to this event by failing the connection. If there are none
+       * in the pipeline, the handshake is complete and this event is ignored.
+       */
+      @Override
+      public void run() {
+        LOGGER.debug("Firing handshake deadline event.");
+        ctx.fireUserEventTriggered(HANDSHAKE_DEADLINE_EVENT);
+      }
+    };
 
-        LOGGER.debug("Handshake timeout is {} {}.", timeout, timeoutUnit);
-        ctx.executor().schedule(fireDeadlineEvent, timeout, timeoutUnit);
-    }
+    LOGGER.debug("Handshake timeout is {} {}.", timeout, timeoutUnit);
+    ctx.executor().schedule(fireDeadlineEvent, timeout, timeoutUnit);
+  }
 }

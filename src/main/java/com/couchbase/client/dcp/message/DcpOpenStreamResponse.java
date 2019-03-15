@@ -21,21 +21,21 @@ import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_REQUEST_OP
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 
 public enum DcpOpenStreamResponse {
-    ;
+  ;
 
-    public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_STREAM_REQUEST_OPCODE;
-    }
+  public static boolean is(final ByteBuf buffer) {
+    return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_STREAM_REQUEST_OPCODE;
+  }
 
-    public static short vbucket(ByteBuf buffer) {
-        return MessageUtil.getVbucket(buffer);
-    }
+  public static short vbucket(ByteBuf buffer) {
+    return MessageUtil.getVbucket(buffer);
+  }
 
-    public static long rollbackSeqno(ByteBuf buffer) {
-        if (MessageUtil.getResponseStatus(buffer) == ROLLBACK_REQUIRED) {
-            return MessageUtil.getContent(buffer).getLong(0);
-        } else {
-            throw new IllegalStateException("Rollback sequence number accessible only for ROLLBACK (0x23) status code");
-        }
+  public static long rollbackSeqno(ByteBuf buffer) {
+    if (MessageUtil.getResponseStatus(buffer) == ROLLBACK_REQUIRED) {
+      return MessageUtil.getContent(buffer).getLong(0);
+    } else {
+      throw new IllegalStateException("Rollback sequence number accessible only for ROLLBACK (0x23) status code");
     }
+  }
 }

@@ -16,33 +16,33 @@ import java.util.Map;
 
 @Controller
 public class JsonRpcController extends AbstractSpringJsonRpcController {
-    private ObjectMapper objectMapper;
+  private ObjectMapper objectMapper;
 
-    @Autowired
-    @Qualifier("jsonRpcObjectMapper")
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+  @Autowired
+  @Qualifier("jsonRpcObjectMapper")
+  public void setObjectMapper(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
 
-    @Override
-    public ObjectMapper getObjectMapper() {
-        return objectMapper;
-    }
+  @Override
+  public ObjectMapper getObjectMapper() {
+    return objectMapper;
+  }
 
-    @Override
-    protected JsonRpcDispatcher newJsonRpcDispatcher(MethodRegistry registry) {
-        return JsonRpcDispatcher.builder(registry)
-                .exceptionTranslator(new DefaultExceptionTranslator() {
-                    @Override
-                    protected JsonRpcError translateCustom(Throwable t) {
-                        Map<String, Object> data = new HashMap<>();
-                        data.put("exceptionClass", t.getClass().getSimpleName());
-                        data.put("exceptionMessage", t.getMessage());
-                        JsonRpcError error = new JsonRpcError(2440, "Couchbase Error");
-                        error.setData(data);
-                        return error;
-                    }
-                })
-                .build();
-    }
+  @Override
+  protected JsonRpcDispatcher newJsonRpcDispatcher(MethodRegistry registry) {
+    return JsonRpcDispatcher.builder(registry)
+        .exceptionTranslator(new DefaultExceptionTranslator() {
+          @Override
+          protected JsonRpcError translateCustom(Throwable t) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("exceptionClass", t.getClass().getSimpleName());
+            data.put("exceptionMessage", t.getMessage());
+            JsonRpcError error = new JsonRpcError(2440, "Couchbase Error");
+            error.setData(data);
+            return error;
+          }
+        })
+        .build();
+  }
 }

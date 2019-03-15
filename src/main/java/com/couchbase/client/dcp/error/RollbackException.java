@@ -10,18 +10,18 @@ import com.couchbase.client.core.CouchbaseException;
  */
 public class RollbackException extends CouchbaseException {
 
-    public RollbackException() {
-    }
+  public RollbackException() {
+  }
 
-    public RollbackException(String message) {
-        super(message);
-    }
+  public RollbackException(String message) {
+    super(message);
+  }
 
-    public RollbackException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public RollbackException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-    public RollbackException(Throwable cause) {
-        super(cause);
-    }
+  public RollbackException(Throwable cause) {
+    super(cause);
+  }
 }

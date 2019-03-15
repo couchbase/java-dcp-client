@@ -22,13 +22,13 @@ package com.couchbase.client.dcp;
  * @since 1.0.0
  */
 public enum StreamTo {
-    /**
-     * Stop "now", where now is the time when the state is initialized that way.
-     */
-    NOW,
+  /**
+   * Stop "now", where now is the time when the state is initialized that way.
+   */
+  NOW,
 
-    /**
-     * Never stop streaming automatically, but manual stream stop is of course possible.
-     */
-    INFINITY
+  /**
+   * Never stop streaming automatically, but manual stream stop is of course possible.
+   */
+  INFINITY
 }

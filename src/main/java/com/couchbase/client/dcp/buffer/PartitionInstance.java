@@ -21,30 +21,30 @@ package com.couchbase.client.dcp.buffer;
  */
 class PartitionInstance {
 
-    // The vbucket number.
-    private final short partition;
+  // The vbucket number.
+  private final short partition;
 
-    // The "slot" is an index assigned to an instance of the partition.
-    // When replication is enabled, there are multiple copies of a partition,
-    // each hosted on a different node. Each copy (instance) has an index
-    // in the bucket config. The active instance has slot 0, the zero-th replica has slot 1, and so on.
-    private final int slot;
+  // The "slot" is an index assigned to an instance of the partition.
+  // When replication is enabled, there are multiple copies of a partition,
+  // each hosted on a different node. Each copy (instance) has an index
+  // in the bucket config. The active instance has slot 0, the zero-th replica has slot 1, and so on.
+  private final int slot;
 
-    PartitionInstance(final short partition, final int slot) {
-        this.partition = partition;
-        this.slot = slot;
-    }
+  PartitionInstance(final short partition, final int slot) {
+    this.partition = partition;
+    this.slot = slot;
+  }
 
-    short partition() {
-        return partition;
-    }
+  short partition() {
+    return partition;
+  }
 
-    int slot() {
-        return slot;
-    }
+  int slot() {
+    return slot;
+  }
 
-    @Override
-    public String toString() {
-        return partition + "/" + slot;
-    }
+  @Override
+  public String toString() {
+    return partition + "/" + slot;
+  }
 }

@@ -27,51 +27,51 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 public class DcpChannelControlHandler implements ControlEventHandler {
 
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpChannelControlHandler.class);
-    private final DcpChannel dcpChannel;
-    private final ControlEventHandler controlEventHandler;
-    private final EventBus eventBus;
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpChannelControlHandler.class);
+  private final DcpChannel dcpChannel;
+  private final ControlEventHandler controlEventHandler;
+  private final EventBus eventBus;
 
-    public DcpChannelControlHandler(DcpChannel dcpChannel) {
-        this.dcpChannel = dcpChannel;
-        this.controlEventHandler = dcpChannel.env.controlEventHandler();
-        this.eventBus = dcpChannel.env.eventBus();
+  public DcpChannelControlHandler(DcpChannel dcpChannel) {
+    this.dcpChannel = dcpChannel;
+    this.controlEventHandler = dcpChannel.env.controlEventHandler();
+    this.eventBus = dcpChannel.env.eventBus();
+  }
+
+  @Override
+  public void onEvent(ChannelFlowController flowController, ByteBuf buf) {
+    if (DcpStreamEndMessage.is(buf)) {
+      filterDcpStreamEndMessage(flowController, buf);
+    } else {
+      controlEventHandler.onEvent(flowController, buf);
     }
+  }
 
-    @Override
-    public void onEvent(ChannelFlowController flowController, ByteBuf buf) {
-        if (DcpStreamEndMessage.is(buf)) {
-            filterDcpStreamEndMessage(flowController, buf);
-        } else {
-            controlEventHandler.onEvent(flowController, buf);
-        }
+  private void filterDcpStreamEndMessage(ChannelFlowController flowController, ByteBuf buf) {
+    try {
+      final short vbid = DcpStreamEndMessage.vbucket(buf);
+      final StreamEndReason reason = DcpStreamEndMessage.reason(buf);
+      LOGGER.debug("Server closed Stream on vbid {} with reason {}", vbid, reason);
+
+      final StreamEndEvent event = new StreamEndEvent(vbid, reason);
+
+      if (dcpChannel.env.persistencePollingEnabled()) {
+        // stream event buffer will publish event at appropriate time
+        dcpChannel.env.streamEventBuffer().onStreamEnd(event);
+      } else {
+        eventBus.publish(event);
+      }
+
+      dcpChannel.streamIsOpen.set(vbid, false);
+      if (reason != StreamEndReason.OK) {
+        dcpChannel.conductor.maybeMovePartition(vbid);
+      }
+    } finally {
+      try {
+        flowController.ack(buf);
+      } finally {
+        buf.release();
+      }
     }
-
-    private void filterDcpStreamEndMessage(ChannelFlowController flowController, ByteBuf buf) {
-        try {
-            final short vbid = DcpStreamEndMessage.vbucket(buf);
-            final StreamEndReason reason = DcpStreamEndMessage.reason(buf);
-            LOGGER.debug("Server closed Stream on vbid {} with reason {}", vbid, reason);
-
-            final StreamEndEvent event = new StreamEndEvent(vbid, reason);
-
-            if (dcpChannel.env.persistencePollingEnabled()) {
-                // stream event buffer will publish event at appropriate time
-                dcpChannel.env.streamEventBuffer().onStreamEnd(event);
-            } else {
-                eventBus.publish(event);
-            }
-
-            dcpChannel.streamIsOpen.set(vbid, false);
-            if (reason != StreamEndReason.OK) {
-                dcpChannel.conductor.maybeMovePartition(vbid);
-            }
-        } finally {
-            try {
-                flowController.ack(buf);
-            } finally {
-                buf.release();
-            }
-        }
-    }
+  }
 }

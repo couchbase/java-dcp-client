@@ -18,31 +18,31 @@ package com.couchbase.client.dcp.test.agent;
 
 import com.github.therapi.core.annotation.Remotable;
 
-import java.util.Set;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 @Remotable("bucket")
 public interface BucketService {
-    /**
-     * Returns the names of all buckets.
-     */
-    Set<String> list();
+  /**
+   * Returns the names of all buckets.
+   */
+  Set<String> list();
 
-    /**
-     * Creates a bucket if it doesn't already exist.
-     *
-     * @param bucket Name of the bucket to create.
-     * @param password Password to associate with the bucket (pre-Spock only).
-     * @param quotaMb Memory quota in megabytes for the bucket.
-     * @param replicas Number of replicas, or 0 to disable replication.
-     * @param enableFlush Whether the bucket should support being flushed (reset to empty).
-     */
-    void create(String bucket, @Nullable String password, int quotaMb, int replicas, boolean enableFlush);
+  /**
+   * Creates a bucket if it doesn't already exist.
+   *
+   * @param bucket Name of the bucket to create.
+   * @param password Password to associate with the bucket (pre-Spock only).
+   * @param quotaMb Memory quota in megabytes for the bucket.
+   * @param replicas Number of replicas, or 0 to disable replication.
+   * @param enableFlush Whether the bucket should support being flushed (reset to empty).
+   */
+  void create(String bucket, @Nullable String password, int quotaMb, int replicas, boolean enableFlush);
 
-    /**
-     * Deletes the named bucket if it exists, otherwise does nothing.
-     *
-     * @param bucket Name of the bucket to delete.
-     */
-    void delete(String bucket);
+  /**
+   * Deletes the named bucket if it exists, otherwise does nothing.
+   *
+   * @param bucket Name of the bucket to delete.
+   */
+  void delete(String bucket);
 }

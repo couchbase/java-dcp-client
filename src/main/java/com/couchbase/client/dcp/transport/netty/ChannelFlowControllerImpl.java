@@ -30,72 +30,72 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 
 public class ChannelFlowControllerImpl implements ChannelFlowController {
-    /**
-     * The logger used.
-     */
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ChannelFlowControllerImpl.class);
-    /**
-     * The DCP channel
-     */
-    private final Channel channel;
-    /**
-     * Is ack enabled
-     */
-    private final boolean needsBufferAck;
-    /**
-     * Ack water mark
-     */
-    private final int bufferAckWatermark;
-    /**
-     * consumed data counter
-     */
-    private int bufferAckCounter;
+  /**
+   * The logger used.
+   */
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ChannelFlowControllerImpl.class);
+  /**
+   * The DCP channel
+   */
+  private final Channel channel;
+  /**
+   * Is ack enabled
+   */
+  private final boolean needsBufferAck;
+  /**
+   * Ack water mark
+   */
+  private final int bufferAckWatermark;
+  /**
+   * consumed data counter
+   */
+  private int bufferAckCounter;
 
-    public ChannelFlowControllerImpl(Channel channel, ClientEnvironment environment) {
-        this.channel = channel;
-        this.needsBufferAck = environment.dcpControl().bufferAckEnabled();
-        if (needsBufferAck) {
-            int bufferAckPercent = environment.bufferAckWatermark();
-            int bufferSize = Integer.parseInt(environment.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE));
-            this.bufferAckWatermark = (int) Math.round(bufferSize / 100.0 * bufferAckPercent);
-            LOGGER.debug("BufferAckWatermark absolute is {}", bufferAckWatermark);
-        } else {
-            this.bufferAckWatermark = 0;
-        }
-        this.bufferAckCounter = 0;
+  public ChannelFlowControllerImpl(Channel channel, ClientEnvironment environment) {
+    this.channel = channel;
+    this.needsBufferAck = environment.dcpControl().bufferAckEnabled();
+    if (needsBufferAck) {
+      int bufferAckPercent = environment.bufferAckWatermark();
+      int bufferSize = Integer.parseInt(environment.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE));
+      this.bufferAckWatermark = (int) Math.round(bufferSize / 100.0 * bufferAckPercent);
+      LOGGER.debug("BufferAckWatermark absolute is {}", bufferAckWatermark);
+    } else {
+      this.bufferAckWatermark = 0;
     }
+    this.bufferAckCounter = 0;
+  }
 
-    @Override
-    public void ack(ByteBuf message) {
-        if (needsBufferAck && (DcpSetVbucketStateMessage.is(message) || DcpSnapshotMarkerRequest.is(message)
-                || DcpStreamEndMessage.is(message)
-                || DcpMutationMessage.is(message) || DcpDeletionMessage.is(message)
-                || DcpExpirationMessage.is(message))) {
-            ack(message.readableBytes());
-        }
+  @Override
+  public void ack(ByteBuf message) {
+    if (needsBufferAck && (DcpSetVbucketStateMessage.is(message) || DcpSnapshotMarkerRequest.is(message)
+        || DcpStreamEndMessage.is(message)
+        || DcpMutationMessage.is(message) || DcpDeletionMessage.is(message)
+        || DcpExpirationMessage.is(message))) {
+      ack(message.readableBytes());
     }
+  }
 
-    @Override
-    public void ack(int numBytes) {
-        if (needsBufferAck) {
-            synchronized (this) {
-                bufferAckCounter += numBytes;
-                LOGGER.trace("BufferAckCounter is now {}", bufferAckCounter);
-                if (bufferAckCounter >= bufferAckWatermark) {
-                    if (channel.isActive()) {
-                        LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.",
-                                channel.remoteAddress());
-                        ByteBuf buffer = channel.alloc().buffer();
-                        DcpBufferAckRequest.init(buffer);
-                        DcpBufferAckRequest.ackBytes(buffer, bufferAckCounter);
-                        channel.writeAndFlush(buffer);
-                    } else {
-                        LOGGER.trace("Skipping flow control ACK because channel is no longer active.");
-                    }
-                    bufferAckCounter = 0;
-                }
-                LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
-            }
+  @Override
+  public void ack(int numBytes) {
+    if (needsBufferAck) {
+      synchronized (this) {
+        bufferAckCounter += numBytes;
+        LOGGER.trace("BufferAckCounter is now {}", bufferAckCounter);
+        if (bufferAckCounter >= bufferAckWatermark) {
+          if (channel.isActive()) {
+            LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.",
+                channel.remoteAddress());
+            ByteBuf buffer = channel.alloc().buffer();
+            DcpBufferAckRequest.init(buffer);
+            DcpBufferAckRequest.ackBytes(buffer, bufferAckCounter);
+            channel.writeAndFlush(buffer);
+          } else {
+            LOGGER.trace("Skipping flow control ACK because channel is no longer active.");
+          }
+          bufferAckCounter = 0;
         }
+        LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
+      }
     }
+  }
 }

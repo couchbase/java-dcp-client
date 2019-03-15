@@ -16,7 +16,6 @@
 
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 

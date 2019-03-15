@@ -14,25 +14,26 @@
  * limitations under the License.
  */
 package com.couchbase.client.dcp;
+
 import static java.util.Objects.requireNonNull;
 
 
 public class Credentials {
 
 
-    private final String username;
-    private final String password;
+  private final String username;
+  private final String password;
 
-    public Credentials(String username, String password) {
-        this.username = requireNonNull(username, "username can't be null");
-        this.password = requireNonNull(password, "password can't be null");
-    }
+  public Credentials(String username, String password) {
+    this.username = requireNonNull(username, "username can't be null");
+    this.password = requireNonNull(password, "password can't be null");
+  }
 
-    public String getUsername() {
-        return username;
-    }
+  public String getUsername() {
+    return username;
+  }
 
-    public String getPassword() {
-        return password;
-    }
+  public String getPassword() {
+    return password;
+  }
 }

@@ -27,40 +27,40 @@ import java.util.Map;
  * Event published when stream has stopped activity.
  */
 public class StreamEndEvent implements CouchbaseEvent {
-    private final short partition;
-    private final StreamEndReason reason;
+  private final short partition;
+  private final StreamEndReason reason;
 
-    public StreamEndEvent(short partition, StreamEndReason reason) {
-        this.partition = partition;
-        this.reason = reason;
-    }
+  public StreamEndEvent(short partition, StreamEndReason reason) {
+    this.partition = partition;
+    this.reason = reason;
+  }
 
-    @Override
-    public EventType type() {
-        return EventType.SYSTEM;
-    }
+  @Override
+  public EventType type() {
+    return EventType.SYSTEM;
+  }
 
-    public short partition() {
-        return partition;
-    }
+  public short partition() {
+    return partition;
+  }
 
-    public StreamEndReason reason() {
-        return reason;
-    }
+  public StreamEndReason reason() {
+    return reason;
+  }
 
-    @Override
-    public Map<String, Object> toMap() {
-        Map<String, Object> result = Events.identityMap(this);
-        result.put("partition", partition);
-        result.put("reason", reason);
-        return result;
-    }
+  @Override
+  public Map<String, Object> toMap() {
+    Map<String, Object> result = Events.identityMap(this);
+    result.put("partition", partition);
+    result.put("reason", reason);
+    return result;
+  }
 
-    @Override
-    public String toString() {
-        return "StreamEndEvent{" +
-                "partition=" + partition +
-                "reason=" + reason +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "StreamEndEvent{" +
+        "partition=" + partition +
+        "reason=" + reason +
+        '}';
+  }
 }

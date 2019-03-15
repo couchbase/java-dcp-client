@@ -38,63 +38,63 @@ import com.couchbase.client.deps.io.netty.util.CharsetUtil;
  */
 class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
 
-    private final String bucket;
-    private final String username;
-    private final String password;
+  private final String bucket;
+  private final String username;
+  private final String password;
 
-    public StartStreamHandler(String bucket, String username, String password) {
-        this.bucket = bucket;
-        this.username = username;
-        this.password = password;
+  public StartStreamHandler(String bucket, String username, String password) {
+    this.bucket = bucket;
+    this.username = username;
+    this.password = password;
+  }
+
+  /**
+   * Once the channel is active, start to send the HTTP request to begin chunking.
+   */
+  @Override
+  public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+    String terseUri = "/pools/default/bs/" + bucket;
+    FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, terseUri);
+    request.headers().add(HttpHeaders.Names.ACCEPT, "application/json");
+    addHttpBasicAuth(ctx, request);
+    ctx.writeAndFlush(request);
+  }
+
+  @Override
+  protected void channelRead0(final ChannelHandlerContext ctx, final HttpResponse msg) throws Exception {
+    int statusCode = msg.getStatus().code();
+    if (statusCode == 200) {
+      ctx.pipeline().remove(this);
+      originalPromise().setSuccess();
+      ctx.fireChannelActive();
+    } else {
+      CouchbaseException exception;
+      switch (statusCode) {
+        case 401:
+          exception = new CouchbaseException("Unauthorized (bucket/password invalid) - please check credentials!");
+          break;
+        case 404:
+          exception = new CouchbaseException("Got HTTP status code 404 (Not Found)." +
+              " Does bucket '" + RedactableArgument.meta(bucket) + "' exist?");
+          break;
+        default:
+          exception = new CouchbaseException("Unknown error code during connect: " + msg.getStatus());
+
+      }
+      originalPromise().setFailure(exception);
     }
+  }
 
-    /**
-     * Once the channel is active, start to send the HTTP request to begin chunking.
-     */
-    @Override
-    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-        String terseUri = "/pools/default/bs/" + bucket;
-        FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, terseUri);
-        request.headers().add(HttpHeaders.Names.ACCEPT, "application/json");
-        addHttpBasicAuth(ctx, request);
-        ctx.writeAndFlush(request);
-    }
-
-    @Override
-    protected void channelRead0(final ChannelHandlerContext ctx, final HttpResponse msg) throws Exception {
-        int statusCode = msg.getStatus().code();
-        if (statusCode == 200) {
-            ctx.pipeline().remove(this);
-            originalPromise().setSuccess();
-            ctx.fireChannelActive();
-        } else {
-            CouchbaseException exception;
-            switch (statusCode) {
-                case 401:
-                    exception = new CouchbaseException("Unauthorized (bucket/password invalid) - please check credentials!");
-                    break;
-                case 404:
-                    exception = new CouchbaseException("Got HTTP status code 404 (Not Found)." +
-                            " Does bucket '" + RedactableArgument.meta(bucket) + "' exist?");
-                    break;
-                default:
-                    exception = new CouchbaseException("Unknown error code during connect: " + msg.getStatus());
-
-            }
-            originalPromise().setFailure(exception);
-        }
-    }
-
-    /**
-     * Helper method to add authentication credentials to the config stream request.
-     */
-    private void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request) {
-        ByteBuf raw = ctx.alloc().buffer(username.length() + password.length() + 1);
-        raw.writeBytes((username + ":" + password).getBytes(CharsetUtil.UTF_8));
-        ByteBuf encoded = Base64.encode(raw, false);
-        request.headers().add(HttpHeaders.Names.AUTHORIZATION, "Basic " + encoded.toString(CharsetUtil.UTF_8));
-        encoded.release();
-        raw.release();
-    }
+  /**
+   * Helper method to add authentication credentials to the config stream request.
+   */
+  private void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request) {
+    ByteBuf raw = ctx.alloc().buffer(username.length() + password.length() + 1);
+    raw.writeBytes((username + ":" + password).getBytes(CharsetUtil.UTF_8));
+    ByteBuf encoded = Base64.encode(raw, false);
+    request.headers().add(HttpHeaders.Names.AUTHORIZATION, "Basic " + encoded.toString(CharsetUtil.UTF_8));
+    encoded.release();
+    raw.release();
+  }
 
 }

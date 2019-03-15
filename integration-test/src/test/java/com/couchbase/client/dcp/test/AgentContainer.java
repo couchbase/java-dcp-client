@@ -36,81 +36,81 @@ import java.util.concurrent.Future;
  * @see RemoteAgent
  */
 public class AgentContainer extends GenericContainer<AgentContainer> {
-    private static final Logger log = LoggerFactory.getLogger(AgentContainer.class);
+  private static final Logger log = LoggerFactory.getLogger(AgentContainer.class);
 
-    private static final int HOST_DEBUG_PORT = 5005;
+  private static final int HOST_DEBUG_PORT = 5005;
 
-    private static final int CONTAINER_HTTP_PORT = 8080;
-    private static final int CONTAINER_DEBUG_PORT = 5005;
+  private static final int CONTAINER_HTTP_PORT = 8080;
+  private static final int CONTAINER_DEBUG_PORT = 5005;
 
-    public AgentContainer(File agentJar, int fixedUiPort) throws FileNotFoundException {
-        super(createImage(agentJar));
+  public AgentContainer(File agentJar, int fixedUiPort) throws FileNotFoundException {
+    super(createImage(agentJar));
 
-        if (debuggerPresent()) {
-            withExposedPorts(CONTAINER_HTTP_PORT, CONTAINER_DEBUG_PORT);
-            addFixedExposedPort(HOST_DEBUG_PORT, CONTAINER_DEBUG_PORT);
+    if (debuggerPresent()) {
+      withExposedPorts(CONTAINER_HTTP_PORT, CONTAINER_DEBUG_PORT);
+      addFixedExposedPort(HOST_DEBUG_PORT, CONTAINER_DEBUG_PORT);
 
-            if (fixedUiPort != 0) {
-                addFixedExposedPort(fixedUiPort, CONTAINER_HTTP_PORT);
-            }
-        } else {
-            withExposedPorts(CONTAINER_HTTP_PORT);
-            if (fixedUiPort != 0) {
-                addFixedExposedPort(fixedUiPort, CONTAINER_HTTP_PORT);
-            }
-        }
+      if (fixedUiPort != 0) {
+        addFixedExposedPort(fixedUiPort, CONTAINER_HTTP_PORT);
+      }
+    } else {
+      withExposedPorts(CONTAINER_HTTP_PORT);
+      if (fixedUiPort != 0) {
+        addFixedExposedPort(fixedUiPort, CONTAINER_HTTP_PORT);
+      }
+    }
+  }
+
+  public int getHttpPort() {
+    return getMappedPort(CONTAINER_HTTP_PORT);
+  }
+
+  public int getDebuggerPort() {
+    return getMappedPort(CONTAINER_DEBUG_PORT);
+  }
+
+  @Override
+  public void start() {
+    super.start();
+
+    log.info("DCP Test Agent {} running at http://localhost:{}",
+        getContainerName(), getHttpPort());
+
+    if (debuggerPresent()) {
+      log.info("DCP Test Agent listening for debugger on port {}", getDebuggerPort());
+    }
+  }
+
+  private static Future<String> createImage(File appFile) throws FileNotFoundException {
+    if (!appFile.exists()) {
+      throw new FileNotFoundException(appFile.getAbsolutePath());
     }
 
-    public int getHttpPort() {
-        return getMappedPort(CONTAINER_HTTP_PORT);
+    final List<String> command = new ArrayList<>(Arrays.asList("java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app.jar"));
+    if (debuggerPresent()) {
+      // The integration tests are running in debug mode, so launch the agent in debug mode too.
+      command.add(1, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + CONTAINER_DEBUG_PORT);
     }
+    final String[] entryPoint = command.toArray(new String[0]);
 
-    public int getDebuggerPort() {
-        return getMappedPort(CONTAINER_DEBUG_PORT);
+    return new ImageFromDockerfile("dcp-test-agent", true)
+        .withDockerfileFromBuilder(dockerfileBuilder -> dockerfileBuilder
+            .from("openjdk:8-jdk-alpine")
+            .volume("/tmp")
+            .add("/app.jar", "app.jar")
+            .entryPoint(entryPoint))
+        .withFileFromFile("/app.jar", appFile);
+  }
+
+  /**
+   * Returns true if and only if the JVM was started with debugging enabled.
+   */
+  private static boolean debuggerPresent() {
+    for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+      if (arg.contains("-agentlib:jdwp")) {
+        return true;
+      }
     }
-
-    @Override
-    public void start() {
-        super.start();
-
-        log.info("DCP Test Agent {} running at http://localhost:{}",
-                getContainerName(), getHttpPort());
-
-        if (debuggerPresent()) {
-            log.info("DCP Test Agent listening for debugger on port {}", getDebuggerPort());
-        }
-    }
-
-    private static Future<String> createImage(File appFile) throws FileNotFoundException {
-        if (!appFile.exists()) {
-            throw new FileNotFoundException(appFile.getAbsolutePath());
-        }
-
-        final List<String> command = new ArrayList<>(Arrays.asList("java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app.jar"));
-        if (debuggerPresent()) {
-            // The integration tests are running in debug mode, so launch the agent in debug mode too.
-            command.add(1, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + CONTAINER_DEBUG_PORT);
-        }
-        final String[] entryPoint = command.toArray(new String[0]);
-
-        return new ImageFromDockerfile("dcp-test-agent", true)
-                .withDockerfileFromBuilder(dockerfileBuilder -> dockerfileBuilder
-                        .from("openjdk:8-jdk-alpine")
-                        .volume("/tmp")
-                        .add("/app.jar", "app.jar")
-                        .entryPoint(entryPoint))
-                .withFileFromFile("/app.jar", appFile);
-    }
-
-    /**
-     * Returns true if and only if the JVM was started with debugging enabled.
-     */
-    private static boolean debuggerPresent() {
-        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
-            if (arg.contains("-agentlib:jdwp")) {
-                return true;
-            }
-        }
-        return false;
-    }
+    return false;
+  }
 }

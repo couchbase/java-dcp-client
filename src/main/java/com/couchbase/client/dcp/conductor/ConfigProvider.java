@@ -23,7 +23,7 @@ import rx.Observable;
 
 /**
  * Describes the contract for a class that provides Couchbase Server configurations.
- *
+ * <p>
  * Note that it is assumed by contract that the configuration provider is "cluster aware" and
  * tries until stopped to find a new node to grab a configuration from if the current source
  * is not available anymore.
@@ -33,21 +33,21 @@ import rx.Observable;
  */
 public interface ConfigProvider extends Stateful<LifecycleState> {
 
-    /**
-     * Asynchronously starts the configuration provider.
-     */
-    Completable start();
+  /**
+   * Asynchronously starts the configuration provider.
+   */
+  Completable start();
 
-    /**
-     * Asynchronously stops the configuration provider.
-     */
-    Completable stop();
+  /**
+   * Asynchronously stops the configuration provider.
+   */
+  Completable stop();
 
-    /**
-     * Returns an {@link Observable} which emits a new config every time it arrives from
-     * the server side. The revision number of each emitted config is guaranteed to be greater
-     * than the revision number of the previously emitted config.
-     */
-    Observable<CouchbaseBucketConfig> configs();
+  /**
+   * Returns an {@link Observable} which emits a new config every time it arrives from
+   * the server side. The revision number of each emitted config is guaranteed to be greater
+   * than the revision number of the previously emitted config.
+   */
+  Observable<CouchbaseBucketConfig> configs();
 
 }

@@ -31,150 +31,150 @@ import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
  */
 public class PartitionState {
 
-    /**
-     * Stores the failover log for this partition.
-     */
-    @JsonProperty("flog")
-    private volatile List<FailoverLogEntry> failoverLog = new CopyOnWriteArrayList<>();
+  /**
+   * Stores the failover log for this partition.
+   */
+  @JsonProperty("flog")
+  private volatile List<FailoverLogEntry> failoverLog = new CopyOnWriteArrayList<>();
 
-    /**
-     * Stores the starting sequence number for this partition.
-     */
-    @JsonProperty("ss")
-    private volatile long startSeqno = 0;
+  /**
+   * Stores the starting sequence number for this partition.
+   */
+  @JsonProperty("ss")
+  private volatile long startSeqno = 0;
 
-    /**
-     * Stores the ending sequence number for this partition.
-     */
-    @JsonProperty("es")
-    private volatile long endSeqno = 0;
+  /**
+   * Stores the ending sequence number for this partition.
+   */
+  @JsonProperty("es")
+  private volatile long endSeqno = 0;
 
-    /**
-     * Stores the snapshot start sequence number for this partition.
-     */
-    @JsonProperty("sss")
-    private volatile long snapshotStartSeqno = 0;
+  /**
+   * Stores the snapshot start sequence number for this partition.
+   */
+  @JsonProperty("sss")
+  private volatile long snapshotStartSeqno = 0;
 
-    /**
-     * Stores the snapshot end sequence number for this partition.
-     */
-    @JsonProperty("ses")
-    private volatile long snapshotEndSeqno = 0;
+  /**
+   * Stores the snapshot end sequence number for this partition.
+   */
+  @JsonProperty("ses")
+  private volatile long snapshotEndSeqno = 0;
 
-    /**
-     * Returns the current end sequence number.
-     */
-    public long getEndSeqno() {
-        return endSeqno;
-    }
+  /**
+   * Returns the current end sequence number.
+   */
+  public long getEndSeqno() {
+    return endSeqno;
+  }
 
-    /**
-     * Returns the current start sequence number.
-     */
-    public long getStartSeqno() {
-        return startSeqno;
-    }
+  /**
+   * Returns the current start sequence number.
+   */
+  public long getStartSeqno() {
+    return startSeqno;
+  }
 
-    /**
-     * Allows to set the current start sequence number.
-     */
-    public void setStartSeqno(long startSeqno) {
-        this.startSeqno = startSeqno;
-    }
+  /**
+   * Allows to set the current start sequence number.
+   */
+  public void setStartSeqno(long startSeqno) {
+    this.startSeqno = startSeqno;
+  }
 
-    /**
-     * Allows to set the current end sequence number.
-     */
-    public void setEndSeqno(long endSeqno) {
-        this.endSeqno = endSeqno;
-    }
+  /**
+   * Allows to set the current end sequence number.
+   */
+  public void setEndSeqno(long endSeqno) {
+    this.endSeqno = endSeqno;
+  }
 
-    /**
-     * Returns the full failover log stored, in sorted order.
-     */
-    public List<FailoverLogEntry> getFailoverLog() {
-        return failoverLog;
-    }
+  /**
+   * Returns the full failover log stored, in sorted order.
+   */
+  public List<FailoverLogEntry> getFailoverLog() {
+    return failoverLog;
+  }
 
-    /**
-     * Sets the failover log.
-     */
-    public void setFailoverLog(List<FailoverLogEntry> log) {
-        failoverLog = new CopyOnWriteArrayList<>(log);
-    }
+  /**
+   * Sets the failover log.
+   */
+  public void setFailoverLog(List<FailoverLogEntry> log) {
+    failoverLog = new CopyOnWriteArrayList<>(log);
+  }
 
-    /**
-     * Add a new seqno/uuid combination to the failover log.
-     *
-     * @param seqno the sequence number.
-     * @param vbuuid the uuid for the sequence.
-     * @deprecated in favor of {@link #setFailoverLog(List)}
-     */
-    @Deprecated
-    public void addToFailoverLog(long seqno, long vbuuid) {
-        failoverLog.add(new FailoverLogEntry(seqno, vbuuid));
-    }
+  /**
+   * Add a new seqno/uuid combination to the failover log.
+   *
+   * @param seqno the sequence number.
+   * @param vbuuid the uuid for the sequence.
+   * @deprecated in favor of {@link #setFailoverLog(List)}
+   */
+  @Deprecated
+  public void addToFailoverLog(long seqno, long vbuuid) {
+    failoverLog.add(new FailoverLogEntry(seqno, vbuuid));
+  }
 
-    /**
-     * Returns the current snapshot start sequence number.
-     */
-    public long getSnapshotStartSeqno() {
-        return snapshotStartSeqno;
-    }
+  /**
+   * Returns the current snapshot start sequence number.
+   */
+  public long getSnapshotStartSeqno() {
+    return snapshotStartSeqno;
+  }
 
-    /**
-     * Allows to set the current snapshot start sequence number.
-     */
-    public void setSnapshotStartSeqno(long snapshotStartSeqno) {
-        this.snapshotStartSeqno = snapshotStartSeqno;
-    }
+  /**
+   * Allows to set the current snapshot start sequence number.
+   */
+  public void setSnapshotStartSeqno(long snapshotStartSeqno) {
+    this.snapshotStartSeqno = snapshotStartSeqno;
+  }
 
-    /**
-     * Returns the current snapshot end sequence number.
-     */
-    public long getSnapshotEndSeqno() {
-        return snapshotEndSeqno;
-    }
+  /**
+   * Returns the current snapshot end sequence number.
+   */
+  public long getSnapshotEndSeqno() {
+    return snapshotEndSeqno;
+  }
 
-    /**
-     * Allows to set the current snapshot end sequence number.
-     */
-    public void setSnapshotEndSeqno(long snapshotEndSeqno) {
-        this.snapshotEndSeqno = snapshotEndSeqno;
-    }
+  /**
+   * Allows to set the current snapshot end sequence number.
+   */
+  public void setSnapshotEndSeqno(long snapshotEndSeqno) {
+    this.snapshotEndSeqno = snapshotEndSeqno;
+  }
 
-    /**
-     * Check if the current partition is at the end (start >= end seqno).
-     */
-    @JsonIgnore
-    public boolean isAtEnd() {
-        // Because sequence numbers must be interpreted as unsigned, we can't use the built-in >= operator.
-        // For example, when streaming "to infinity" the end seqno consists of 64 "1" bits, which is either
-        // -1 or (2^64)-1 depending on whether it's interpreted as signed or unsigned.
-        return !lessThanUnsigned(startSeqno, endSeqno);
-    }
+  /**
+   * Check if the current partition is at the end (start >= end seqno).
+   */
+  @JsonIgnore
+  public boolean isAtEnd() {
+    // Because sequence numbers must be interpreted as unsigned, we can't use the built-in >= operator.
+    // For example, when streaming "to infinity" the end seqno consists of 64 "1" bits, which is either
+    // -1 or (2^64)-1 depending on whether it's interpreted as signed or unsigned.
+    return !lessThanUnsigned(startSeqno, endSeqno);
+  }
 
-    /**
-     * Convenience method to get the last UUID returned on the failover log.
-     * <p>
-     * Note that if the failover log is empty, 0 is sent out to indicate the start.
-     * <p>
-     * The server inserts failover records into the head of the list,
-     * so the first one is the most recent.
-     */
-    @JsonIgnore
-    public long getLastUuid() {
-        return failoverLog.isEmpty() ? 0 : failoverLog.get(0).getUuid();
-    }
+  /**
+   * Convenience method to get the last UUID returned on the failover log.
+   * <p>
+   * Note that if the failover log is empty, 0 is sent out to indicate the start.
+   * <p>
+   * The server inserts failover records into the head of the list,
+   * so the first one is the most recent.
+   */
+  @JsonIgnore
+  public long getLastUuid() {
+    return failoverLog.isEmpty() ? 0 : failoverLog.get(0).getUuid();
+  }
 
-    @Override
-    public String toString() {
-        return "{" +
-                "log=" + failoverLog +
-                ", ss=" + startSeqno +
-                ", es=" + endSeqno +
-                ", sss=" + snapshotStartSeqno +
-                ", ses=" + snapshotEndSeqno +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "{" +
+        "log=" + failoverLog +
+        ", ss=" + startSeqno +
+        ", es=" + endSeqno +
+        ", sss=" + snapshotStartSeqno +
+        ", ses=" + snapshotEndSeqno +
+        '}';
+  }
 }

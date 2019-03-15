@@ -18,10 +18,10 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 public enum BucketSelectRequest {
-    ;
+  ;
 
-    public static void init(ByteBuf buffer, String bucket) {
-        MessageUtil.initRequest(MessageUtil.SELECT_BUCKET_OPCODE, buffer);
-        MessageUtil.setKey(bucket, buffer);
-    }
+  public static void init(ByteBuf buffer, String bucket) {
+    MessageUtil.initRequest(MessageUtil.SELECT_BUCKET_OPCODE, buffer);
+    MessageUtil.setKey(bucket, buffer);
+  }
 }

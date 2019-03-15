@@ -25,24 +25,24 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ClientVersion {
 
-    private static final String CLIENT_VERSION = loadClientVersion();
+  private static final String CLIENT_VERSION = loadClientVersion();
 
-    private static String loadClientVersion() {
-        try (InputStream is = ClientVersion.class.getResourceAsStream("version.properties");
-             Reader r = new InputStreamReader(is, UTF_8)) {
+  private static String loadClientVersion() {
+    try (InputStream is = ClientVersion.class.getResourceAsStream("version.properties");
+         Reader r = new InputStreamReader(is, UTF_8)) {
 
-            Properties props = new Properties();
-            props.load(r);
+      Properties props = new Properties();
+      props.load(r);
 
-            return (String) props.getOrDefault("projectVersion", "unknown");
+      return (String) props.getOrDefault("projectVersion", "unknown");
 
-        } catch (Throwable t) {
-            t.printStackTrace();
-            return "unknown";
-        }
+    } catch (Throwable t) {
+      t.printStackTrace();
+      return "unknown";
     }
+  }
 
-    public static String clientVersion() {
-        return CLIENT_VERSION;
-    }
+  public static String clientVersion() {
+    return CLIENT_VERSION;
+  }
 }

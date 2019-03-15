@@ -18,9 +18,9 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 public enum VersionRequest {
-    ;
+  ;
 
-    public static void init(ByteBuf buffer) {
-        MessageUtil.initRequest(MessageUtil.VERSION_OPCODE, buffer);
-    }
+  public static void init(ByteBuf buffer) {
+    MessageUtil.initRequest(MessageUtil.VERSION_OPCODE, buffer);
+  }
 }

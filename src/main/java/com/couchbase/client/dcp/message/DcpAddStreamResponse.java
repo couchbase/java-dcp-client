@@ -21,27 +21,27 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_ADD_STREAM_OPCODE;
 
 public enum DcpAddStreamResponse {
-    ;
+  ;
 
-    public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_ADD_STREAM_OPCODE;
-    }
+  public static boolean is(final ByteBuf buffer) {
+    return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_ADD_STREAM_OPCODE;
+  }
 
-    public static void init(final ByteBuf buffer, int opaque) {
-        MessageUtil.initResponse(DCP_ADD_STREAM_OPCODE, buffer);
-        opaque(buffer, opaque);
-    }
+  public static void init(final ByteBuf buffer, int opaque) {
+    MessageUtil.initResponse(DCP_ADD_STREAM_OPCODE, buffer);
+    opaque(buffer, opaque);
+  }
 
-    /**
-     * The opaque field contains the opaque value used by messages passing for that VBucket.
-     */
-    public static int opaque(final ByteBuf buffer) {
-        return MessageUtil.getExtras(buffer).getInt(0);
-    }
+  /**
+   * The opaque field contains the opaque value used by messages passing for that VBucket.
+   */
+  public static int opaque(final ByteBuf buffer) {
+    return MessageUtil.getExtras(buffer).getInt(0);
+  }
 
-    public static void opaque(final ByteBuf buffer, int opaque) {
-        ByteBuf extras = Unpooled.buffer(4);
-        MessageUtil.setExtras(extras.writeInt(opaque), buffer);
-        extras.release();
-    }
+  public static void opaque(final ByteBuf buffer, int opaque) {
+    ByteBuf extras = Unpooled.buffer(4);
+    MessageUtil.setExtras(extras.writeInt(opaque), buffer);
+    extras.release();
+  }
 }

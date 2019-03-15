@@ -21,55 +21,55 @@ import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * Represents a single entry in a failover log per partition state.
  *
- * @since 1.0.0
  * @author Michael Nitschinger
+ * @since 1.0.0
  */
 public class FailoverLogEntry {
 
-    private final long seqno;
+  private final long seqno;
 
-    private final long uuid;
+  private final long uuid;
 
-    @JsonCreator
-    public FailoverLogEntry(@JsonProperty("seqno") long seqno, @JsonProperty("uuid") long uuid) {
-        this.seqno = seqno;
-        this.uuid = uuid;
+  @JsonCreator
+  public FailoverLogEntry(@JsonProperty("seqno") long seqno, @JsonProperty("uuid") long uuid) {
+    this.seqno = seqno;
+    this.uuid = uuid;
+  }
+
+  public long getSeqno() {
+    return seqno;
+  }
+
+  public long getUuid() {
+    return uuid;
+  }
+
+  @Override
+  public String toString() {
+    return uuid + "@" + seqno;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
     }
 
-    public long getSeqno() {
-        return seqno;
+    FailoverLogEntry that = (FailoverLogEntry) o;
+
+    if (seqno != that.seqno) {
+      return false;
     }
+    return uuid == that.uuid;
+  }
 
-    public long getUuid() {
-        return uuid;
-    }
-
-    @Override
-    public String toString() {
-        return uuid + "@" + seqno;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        FailoverLogEntry that = (FailoverLogEntry) o;
-
-        if (seqno != that.seqno) {
-            return false;
-        }
-        return uuid == that.uuid;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = (int) (seqno ^ (seqno >>> 32));
-        result = 31 * result + (int) (uuid ^ (uuid >>> 32));
-        return result;
-    }
+  @Override
+  public int hashCode() {
+    int result = (int) (seqno ^ (seqno >>> 32));
+    result = 31 * result + (int) (uuid ^ (uuid >>> 32));
+    return result;
+  }
 }

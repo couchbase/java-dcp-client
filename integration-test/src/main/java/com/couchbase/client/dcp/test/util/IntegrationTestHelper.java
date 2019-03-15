@@ -33,75 +33,75 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IntegrationTestHelper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(IntegrationTestHelper.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(IntegrationTestHelper.class);
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    static {
-        objectMapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+  static {
+    objectMapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+  }
+
+  public static String validateJson(String json) {
+    try {
+      objectMapper.readTree(json);
+      return json;
+    } catch (IOException e) {
+      throw new IllegalArgumentException(e);
     }
+  }
 
-    public static String validateJson(String json) {
-        try {
-            objectMapper.readTree(json);
-            return json;
-        } catch (IOException e) {
-            throw new IllegalArgumentException(e);
-        }
+  public static <D extends Document<?>> D upsertWithRetry(Bucket bucket, D document) throws Exception {
+    return callWithRetry(() -> bucket.upsert(document));
+  }
+
+  private static <R> R callWithRetry(Callable<R> callable) throws Exception {
+    final int maxAttempts = 10;
+    TemporaryFailureException deferred = null;
+    for (int attempt = 0; attempt <= maxAttempts; attempt++) {
+      if (attempt != 0) {
+        SECONDS.sleep(1);
+      }
+      try {
+        return callable.call();
+      } catch (TemporaryFailureException e) {
+        deferred = e;
+      }
     }
+    throw deferred;
+  }
 
-    public static <D extends Document<?>> D upsertWithRetry(Bucket bucket, D document) throws Exception {
-        return callWithRetry(() -> bucket.upsert(document));
+  /**
+   * Returns the given key with some characters appended so the new key hashes to the desired partition.
+   */
+  public static Optional<String> forceKeyToPartition(String key, int desiredPartition, int numPartitions) {
+    checkArgument(desiredPartition < numPartitions);
+    checkArgument(numPartitions > 0);
+    checkArgument(desiredPartition >= 0);
+
+    // Why use math when you can apply 💪 BRUTE FORCE!
+    final int MAX_ITERATIONS = 10_000_000;
+
+    final MarkableCrc32 crc32 = new MarkableCrc32();
+    final byte[] keyBytes = (key + "#").getBytes(UTF_8);
+    crc32.update(keyBytes, 0, keyBytes.length);
+    crc32.mark();
+
+    for (long salt = 0; salt < MAX_ITERATIONS; salt++) {
+      crc32.reset();
+
+      final String saltString = Long.toHexString(salt);
+      for (int i = 0, max = saltString.length(); i < max; i++) {
+        crc32.update(saltString.charAt(i));
+      }
+
+      final long rv = (crc32.getValue() >> 16) & 0x7fff;
+      final int actualPartition = (int) rv & numPartitions - 1;
+
+      if (actualPartition == desiredPartition) {
+        return Optional.of(new String(keyBytes, UTF_8) + saltString);
+      }
     }
-
-    private static <R> R callWithRetry(Callable<R> callable) throws Exception {
-        final int maxAttempts = 10;
-        TemporaryFailureException deferred = null;
-        for (int attempt = 0; attempt <= maxAttempts; attempt++) {
-            if (attempt != 0) {
-                SECONDS.sleep(1);
-            }
-            try {
-                return callable.call();
-            } catch (TemporaryFailureException e) {
-                deferred = e;
-            }
-        }
-        throw deferred;
-    }
-
-    /**
-     * Returns the given key with some characters appended so the new key hashes to the desired partition.
-     */
-    public static Optional<String> forceKeyToPartition(String key, int desiredPartition, int numPartitions) {
-        checkArgument(desiredPartition < numPartitions);
-        checkArgument(numPartitions > 0);
-        checkArgument(desiredPartition >= 0);
-
-        // Why use math when you can apply 💪 BRUTE FORCE!
-        final int MAX_ITERATIONS = 10_000_000;
-
-        final MarkableCrc32 crc32 = new MarkableCrc32();
-        final byte[] keyBytes = (key + "#").getBytes(UTF_8);
-        crc32.update(keyBytes, 0, keyBytes.length);
-        crc32.mark();
-
-        for (long salt = 0; salt < MAX_ITERATIONS; salt++) {
-            crc32.reset();
-
-            final String saltString = Long.toHexString(salt);
-            for (int i = 0, max = saltString.length(); i < max; i++) {
-                crc32.update(saltString.charAt(i));
-            }
-
-            final long rv = (crc32.getValue() >> 16) & 0x7fff;
-            final int actualPartition = (int) rv & numPartitions - 1;
-
-            if (actualPartition == desiredPartition) {
-                return Optional.of(new String(keyBytes, UTF_8) + saltString);
-            }
-        }
-        LOGGER.warn("Failed to force partition for {} after {} iterations.", key, MAX_ITERATIONS);
-        return Optional.empty();
-    }
+    LOGGER.warn("Failed to force partition for {} after {} iterations.", key, MAX_ITERATIONS);
+    return Optional.empty();
+  }
 }

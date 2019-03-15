@@ -32,23 +32,23 @@ import java.io.IOException;
  */
 public class SessionStateDeserializer extends JsonDeserializer<SessionState> {
 
-    @Override
-    public SessionState deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-        JsonToken current = p.getCurrentToken();
+  @Override
+  public SessionState deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+    JsonToken current = p.getCurrentToken();
 
-        // we ignore the version for now, since there is only one. go directly to the array of states.
-        while(current != JsonToken.START_ARRAY) {
-            current = p.nextToken();
-        }
-
-        current = p.nextToken();
-        int i = 0;
-        SessionState ss = new SessionState();
-        while (current != null && current != JsonToken.END_ARRAY) {
-            PartitionState ps = p.readValueAs(PartitionState.class);
-            ss.set(i++, ps);
-            current = p.nextToken();
-        }
-        return ss;
+    // we ignore the version for now, since there is only one. go directly to the array of states.
+    while (current != JsonToken.START_ARRAY) {
+      current = p.nextToken();
     }
+
+    current = p.nextToken();
+    int i = 0;
+    SessionState ss = new SessionState();
+    while (current != null && current != JsonToken.END_ARRAY) {
+      PartitionState ps = p.readValueAs(PartitionState.class);
+      ss.set(i++, ps);
+      current = p.nextToken();
+    }
+    return ss;
+  }
 }

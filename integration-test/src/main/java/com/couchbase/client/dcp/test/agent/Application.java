@@ -28,35 +28,35 @@ import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
 
 @SpringBootApplication
 public class Application {
-    private final String username;
-    private final String password;
-    private final String bootstrapHostnames;
+  private final String username;
+  private final String password;
+  private final String bootstrapHostnames;
 
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(Application.class, args);
+  }
 
-    public Application(@Value("${username}") String username,
-                       @Value("${password}") String password,
-                       @Value("${nodes}") String bootstrapHostnames) {
-        this.username = username;
-        this.password = password;
-        this.bootstrapHostnames = bootstrapHostnames;
-    }
+  public Application(@Value("${username}") String username,
+                     @Value("${password}") String password,
+                     @Value("${nodes}") String bootstrapHostnames) {
+    this.username = username;
+    this.password = password;
+    this.bootstrapHostnames = bootstrapHostnames;
+  }
 
-    @Bean
-    public CouchbaseCluster cluster() {
-        return CouchbaseCluster.create(bootstrapHostnames)
-                .authenticate(username, password);
-    }
+  @Bean
+  public CouchbaseCluster cluster() {
+    return CouchbaseCluster.create(bootstrapHostnames)
+        .authenticate(username, password);
+  }
 
-    @Bean
-    public ClusterManager clusterManager() {
-        return cluster().clusterManager(username, password);
-    }
+  @Bean
+  public ClusterManager clusterManager() {
+    return cluster().clusterManager(username, password);
+  }
 
-    @Bean
-    public ObjectMapper jsonRpcObjectMapper() {
-        return newLenientObjectMapper();
-    }
+  @Bean
+  public ObjectMapper jsonRpcObjectMapper() {
+    return newLenientObjectMapper();
+  }
 }

@@ -22,5 +22,5 @@ package com.couchbase.client.dcp.state;
  * @since 1.0.0
  */
 public enum StateFormat {
-    JSON
+  JSON
 }

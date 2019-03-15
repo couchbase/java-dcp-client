@@ -31,26 +31,26 @@ import java.io.IOException;
  */
 public class SessionStateSerializer extends JsonSerializer<SessionState> {
 
-    @Override
-    public void serialize(SessionState ss, final JsonGenerator gen, final SerializerProvider serializers)
-        throws IOException {
-        gen.writeStartObject();
+  @Override
+  public void serialize(SessionState ss, final JsonGenerator gen, final SerializerProvider serializers)
+      throws IOException {
+    gen.writeStartObject();
 
-        gen.writeFieldName("v");
-        gen.writeNumber(SessionState.CURRENT_VERSION);
+    gen.writeFieldName("v");
+    gen.writeNumber(SessionState.CURRENT_VERSION);
 
-        gen.writeFieldName("ps");
-        gen.writeStartArray();
-        ss.foreachPartition(partitionState -> {
-            try {
-                gen.writeObject(partitionState);
-            } catch (Exception ex) {
-                throw new RuntimeException("Could not serialize PartitionState to JSON: " + partitionState, ex);
-            }
-        });
-        gen.writeEndArray();
+    gen.writeFieldName("ps");
+    gen.writeStartArray();
+    ss.foreachPartition(partitionState -> {
+      try {
+        gen.writeObject(partitionState);
+      } catch (Exception ex) {
+        throw new RuntimeException("Could not serialize PartitionState to JSON: " + partitionState, ex);
+      }
+    });
+    gen.writeEndArray();
 
-        gen.writeEndObject();
-    }
+    gen.writeEndObject();
+  }
 
 }

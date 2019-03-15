@@ -15,13 +15,6 @@
  */
 package examples;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.io.IOUtils;
-
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -33,11 +26,17 @@ import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import org.apache.commons.io.IOUtils;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * In this example every minute the state is persisted to a file. If on startup the file is found it is used to
  * pick up from where it left off, otherwise it starts from the beginning.
- *
+ * <p>
  * This program works well together with the {@link WorkloadGenerator} which runs some constant workload and then
  * this file is stopped and resumed to showcase the pickup.
  *
@@ -46,73 +45,73 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
  */
 public class StatePersistence {
 
-    static String BUCKET = "travel-sample";
-    static String FILENAME = "state-" + BUCKET + ".json";
+  static String BUCKET = "travel-sample";
+  static String FILENAME = "state-" + BUCKET + ".json";
 
-    public static void main(String[] args) throws Exception {
-        // Connect to localhost and use the travel-sample bucket
-        final Client client = Client.configure()
-                .hostnames("localhost")
-                .bucket(BUCKET)
-                .build();
+  public static void main(String[] args) throws Exception {
+    // Connect to localhost and use the travel-sample bucket
+    final Client client = Client.configure()
+        .hostnames("localhost")
+        .bucket(BUCKET)
+        .build();
 
-        // Don't do anything with control events in this example
-        client.controlEventHandler(new ControlEventHandler() {
-            @Override
-            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-                if (DcpSnapshotMarkerRequest.is(event)) {
-                    flowController.ack(event);
-                }
-                event.release();
-            }
-        });
-
-        // Print out Mutations and Deletions
-        client.dataEventHandler(new DataEventHandler() {
-            @Override
-            public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-                if (DcpMutationMessage.is(event)) {
-                    System.out.println("Mutation: " + DcpMutationMessage.toString(event));
-                    // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
-                } else if (DcpDeletionMessage.is(event)) {
-                    System.out.println("Deletion: " + DcpDeletionMessage.toString(event));
-                }
-                event.release();
-            }
-        });
-
-        // Connect the sockets
-        client.connect().await();
-
-        // Try to load the persisted state from file if it exists
-        File file = new File(FILENAME);
-        byte[] persisted = null;
-        if (file.exists()) {
-            FileInputStream fis = new FileInputStream(FILENAME);
-            persisted = IOUtils.toByteArray(fis);
-            fis.close();
+    // Don't do anything with control events in this example
+    client.controlEventHandler(new ControlEventHandler() {
+      @Override
+      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+        if (DcpSnapshotMarkerRequest.is(event)) {
+          flowController.ack(event);
         }
+        event.release();
+      }
+    });
 
-        // if the persisted file exists recover, if not start from beginning
-        client.recoverOrInitializeState(StateFormat.JSON, persisted, StreamFrom.BEGINNING, StreamTo.INFINITY).await();
-
-        // Start streaming on all partitions
-        client.startStreaming().await();
-
-        // Persist the State ever 10 seconds
-        while (true) {
-            Thread.sleep(TimeUnit.SECONDS.toMillis(10));
-
-            // export the state as a JSON byte array
-            byte[] state = client.sessionState().export(StateFormat.JSON);
-
-            // Write it to a file
-            FileOutputStream output = new FileOutputStream(new File(FILENAME));
-            IOUtils.write(state, output);
-            output.close();
-
-            System.out.println(System.currentTimeMillis() + " - Persisted State!");
+    // Print out Mutations and Deletions
+    client.dataEventHandler(new DataEventHandler() {
+      @Override
+      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
+        if (DcpMutationMessage.is(event)) {
+          System.out.println("Mutation: " + DcpMutationMessage.toString(event));
+          // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
+        } else if (DcpDeletionMessage.is(event)) {
+          System.out.println("Deletion: " + DcpDeletionMessage.toString(event));
         }
+        event.release();
+      }
+    });
+
+    // Connect the sockets
+    client.connect().await();
+
+    // Try to load the persisted state from file if it exists
+    File file = new File(FILENAME);
+    byte[] persisted = null;
+    if (file.exists()) {
+      FileInputStream fis = new FileInputStream(FILENAME);
+      persisted = IOUtils.toByteArray(fis);
+      fis.close();
     }
+
+    // if the persisted file exists recover, if not start from beginning
+    client.recoverOrInitializeState(StateFormat.JSON, persisted, StreamFrom.BEGINNING, StreamTo.INFINITY).await();
+
+    // Start streaming on all partitions
+    client.startStreaming().await();
+
+    // Persist the State ever 10 seconds
+    while (true) {
+      Thread.sleep(TimeUnit.SECONDS.toMillis(10));
+
+      // export the state as a JSON byte array
+      byte[] state = client.sessionState().export(StateFormat.JSON);
+
+      // Write it to a file
+      FileOutputStream output = new FileOutputStream(new File(FILENAME));
+      IOUtils.write(state, output);
+      output.close();
+
+      System.out.println(System.currentTimeMillis() + " - Persisted State!");
+    }
+  }
 
 }

@@ -27,46 +27,46 @@ import java.util.Map;
  * Event published when the connector has failed to add new node during failover/rebalance.
  */
 public class FailedToAddNodeEvent implements CouchbaseEvent {
-    private final InetSocketAddress node;
-    private final Throwable error;
+  private final InetSocketAddress node;
+  private final Throwable error;
 
-    public FailedToAddNodeEvent(InetSocketAddress node, Throwable error) {
-        this.node = node;
-        this.error = error;
-    }
+  public FailedToAddNodeEvent(InetSocketAddress node, Throwable error) {
+    this.node = node;
+    this.error = error;
+  }
 
-    @Override
-    public EventType type() {
-        return EventType.SYSTEM;
-    }
+  @Override
+  public EventType type() {
+    return EventType.SYSTEM;
+  }
 
-    /**
-     * The address of the node
-     */
-    public InetSocketAddress node() {
-        return node;
-    }
+  /**
+   * The address of the node
+   */
+  public InetSocketAddress node() {
+    return node;
+  }
 
-    /**
-     * Error object, describing the issue
-     */
-    public Throwable error() {
-        return error;
-    }
+  /**
+   * Error object, describing the issue
+   */
+  public Throwable error() {
+    return error;
+  }
 
-    @Override
-    public Map<String, Object> toMap() {
-        Map<String, Object> result = Events.identityMap(this);
-        result.put("node", node);
-        result.put("error", error);
-        return result;
-    }
+  @Override
+  public Map<String, Object> toMap() {
+    Map<String, Object> result = Events.identityMap(this);
+    result.put("node", node);
+    result.put("error", error);
+    return result;
+  }
 
-    @Override
-    public String toString() {
-        return "FailedToAddNodeEvent{" +
-                "node=" + node +
-                "error=" + error +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "FailedToAddNodeEvent{" +
+        "node=" + node +
+        "error=" + error +
+        '}';
+  }
 }

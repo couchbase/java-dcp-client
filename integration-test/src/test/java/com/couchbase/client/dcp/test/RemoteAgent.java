@@ -39,78 +39,78 @@ import static org.junit.Assert.assertTrue;
  * Client for the JSON-RPC API exposed by the test agent.
  */
 public class RemoteAgent {
-    private final BucketService bucketService;
-    private final DocumentService documentService;
-    private final StreamerService streamerService;
+  private final BucketService bucketService;
+  private final DocumentService documentService;
+  private final StreamerService streamerService;
 
-    private static String getDockerHost() {
-        try {
-            final String env = System.getenv("DOCKER_HOST");
-            return Strings.isNullOrEmpty(env) ? "localhost" : new URI(env).getHost();
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+  private static String getDockerHost() {
+    try {
+      final String env = System.getenv("DOCKER_HOST");
+      return Strings.isNullOrEmpty(env) ? "localhost" : new URI(env).getHost();
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public RemoteAgent(AgentContainer agentContainer) {
+    this("http://" + getDockerHost() + ":" + agentContainer.getHttpPort() + "/jsonrpc");
+  }
+
+  public RemoteAgent(String jsonRpcEndpoint) {
+    try {
+      JdkHttpClient client = new JdkHttpClient(jsonRpcEndpoint);
+      client.setReadTimeout(120, TimeUnit.SECONDS);
+      ServiceFactory serviceFactory = new ServiceFactory(newLenientObjectMapper(), client);
+
+      this.bucketService = serviceFactory.createService(BucketService.class);
+      this.documentService = serviceFactory.createService(DocumentService.class);
+      this.streamerService = serviceFactory.createService(StreamerService.class);
+
+    } catch (MalformedURLException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  public BucketService bucket() {
+    return bucketService;
+  }
+
+  public StreamerService streamer() {
+    return streamerService;
+  }
+
+  public DocumentService document() {
+    return documentService;
+  }
+
+  public StreamBuilder newStreamer(String bucket) {
+    return new StreamBuilder(bucket);
+  }
+
+  public class StreamBuilder {
+    private final String bucket;
+    private StreamFrom from = StreamFrom.BEGINNING;
+    private StreamTo to = StreamTo.INFINITY;
+    private boolean mitigateRollbacks;
+
+    public StreamBuilder(String bucket) {
+      this.bucket = requireNonNull(bucket);
+      assertTrue(bucket().list().contains(bucket));
     }
 
-    public RemoteAgent(AgentContainer agentContainer) {
-        this("http://" + getDockerHost() + ":" + agentContainer.getHttpPort() + "/jsonrpc");
+    public StreamBuilder range(StreamFrom from, StreamTo to) {
+      this.from = requireNonNull(from);
+      this.to = requireNonNull(to);
+      return this;
     }
 
-    public RemoteAgent(String jsonRpcEndpoint) {
-        try {
-            JdkHttpClient client = new JdkHttpClient(jsonRpcEndpoint);
-            client.setReadTimeout(120, TimeUnit.SECONDS);
-            ServiceFactory serviceFactory = new ServiceFactory(newLenientObjectMapper(), client);
-
-            this.bucketService = serviceFactory.createService(BucketService.class);
-            this.documentService = serviceFactory.createService(DocumentService.class);
-            this.streamerService = serviceFactory.createService(StreamerService.class);
-
-        } catch (MalformedURLException e) {
-            throw new IllegalArgumentException(e);
-        }
+    public StreamBuilder mitigateRollbacks() {
+      this.mitigateRollbacks = true;
+      return this;
     }
 
-    public BucketService bucket() {
-        return bucketService;
+    public RemoteDcpStreamer start() {
+      return new RemoteDcpStreamer(streamer(), streamer().start(bucket, ALL_VBUCKETS, from, to, mitigateRollbacks));
     }
-
-    public StreamerService streamer() {
-        return streamerService;
-    }
-
-    public DocumentService document() {
-        return documentService;
-    }
-
-    public StreamBuilder newStreamer(String bucket) {
-        return new StreamBuilder(bucket);
-    }
-
-    public class StreamBuilder {
-        private final String bucket;
-        private StreamFrom from = StreamFrom.BEGINNING;
-        private StreamTo to = StreamTo.INFINITY;
-        private boolean mitigateRollbacks;
-
-        public StreamBuilder(String bucket) {
-            this.bucket = requireNonNull(bucket);
-            assertTrue(bucket().list().contains(bucket));
-        }
-
-        public StreamBuilder range(StreamFrom from, StreamTo to) {
-            this.from = requireNonNull(from);
-            this.to = requireNonNull(to);
-            return this;
-        }
-
-        public StreamBuilder mitigateRollbacks() {
-            this.mitigateRollbacks = true;
-            return this;
-        }
-
-        public RemoteDcpStreamer start() {
-            return new RemoteDcpStreamer(streamer(), streamer().start(bucket, ALL_VBUCKETS, from, to, mitigateRollbacks));
-        }
-    }
+  }
 }

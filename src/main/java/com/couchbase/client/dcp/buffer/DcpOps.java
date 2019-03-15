@@ -24,23 +24,23 @@ import static java.util.Objects.requireNonNull;
 
 public interface DcpOps {
 
-    /**
-     * Thrown when response status field is non-zero.
-     */
-    class BadResponseStatusException extends CouchbaseException {
-        private final ResponseStatus status;
+  /**
+   * Thrown when response status field is non-zero.
+   */
+  class BadResponseStatusException extends CouchbaseException {
+    private final ResponseStatus status;
 
-        public BadResponseStatusException(ResponseStatus status) {
-            super(status.toString());
-            this.status = requireNonNull(status);
-        }
-
-        ResponseStatus status() {
-            return status;
-        }
+    public BadResponseStatusException(ResponseStatus status) {
+      super(status.toString());
+      this.status = requireNonNull(status);
     }
 
-    Single<ObserveSeqnoResponse> observeSeqno(int partition, long vbuuid);
+    ResponseStatus status() {
+      return status;
+    }
+  }
 
-    Single<FailoverLogResponse> getFailoverLog(int partition);
+  Single<ObserveSeqnoResponse> observeSeqno(int partition, long vbuuid);
+
+  Single<FailoverLogResponse> getFailoverLog(int partition);
 }

@@ -21,13 +21,13 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import static java.util.Objects.requireNonNull;
 
 public class DcpResponse {
-    private final ByteBuf buffer;
+  private final ByteBuf buffer;
 
-    public DcpResponse(ByteBuf buffer) {
-        this.buffer = requireNonNull(buffer);
-    }
+  public DcpResponse(ByteBuf buffer) {
+    this.buffer = requireNonNull(buffer);
+  }
 
-    public ByteBuf buffer() {
-        return buffer;
-    }
+  public ByteBuf buffer() {
+    return buffer;
+  }
 }

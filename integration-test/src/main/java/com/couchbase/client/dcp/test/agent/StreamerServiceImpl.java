@@ -42,102 +42,102 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Service
 public class StreamerServiceImpl implements StreamerService {
-    private final EventLoopGroup eventLoopGroup = new NioEventLoopGroup(16);
-    private final AtomicLong nextStreamerId = new AtomicLong(0);
-    private final ConcurrentMap<String, DcpStreamer> idToStreamer = new ConcurrentHashMap<>();
+  private final EventLoopGroup eventLoopGroup = new NioEventLoopGroup(16);
+  private final AtomicLong nextStreamerId = new AtomicLong(0);
+  private final ConcurrentMap<String, DcpStreamer> idToStreamer = new ConcurrentHashMap<>();
 
-    private final String username;
-    private final String password;
-    private final String nodes;
+  private final String username;
+  private final String password;
+  private final String nodes;
 
-    public StreamerServiceImpl(@Value("${username}") String username,
-                               @Value("${password}") String password,
-                               @Value("${nodes}") String bootstrapHostnames) {
-        this.username = username;
-        this.password = password;
-        this.nodes = bootstrapHostnames;
+  public StreamerServiceImpl(@Value("${username}") String username,
+                             @Value("${password}") String password,
+                             @Value("${nodes}") String bootstrapHostnames) {
+    this.username = username;
+    this.password = password;
+    this.nodes = bootstrapHostnames;
+  }
+
+  @Override
+  public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks) {
+    String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
+
+    Client client = Client.configure()
+        .eventLoopGroup(eventLoopGroup)
+        .bucket(bucket)
+        .username(username)
+        .password(password)
+        .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
+        .flowControl(1024 * 128)
+        .hostnames(nodes.split(","))
+        .controlParam(DcpControl.Names.ENABLE_NOOP, true)
+        .connectionNameGenerator(() -> streamerId)
+        .build();
+
+    idToStreamer.put(streamerId, new DcpStreamer(client, vbuckets, from, to));
+    return streamerId;
+  }
+
+  @Override
+  public void stop(String streamerId) {
+    DcpStreamer streamer = idToStreamer.remove(streamerId);
+    if (streamer == null) {
+      return;
     }
+    streamer.stop();
 
-    @Override
-    public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks) {
-        String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
+  }
 
-        Client client = Client.configure()
-                .eventLoopGroup(eventLoopGroup)
-                .bucket(bucket)
-                .username(username)
-                .password(password)
-                .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
-                .flowControl(1024 * 128)
-                .hostnames(nodes.split(","))
-                .controlParam(DcpControl.Names.ENABLE_NOOP, true)
-                .connectionNameGenerator(() -> streamerId)
-                .build();
+  @Override
+  public Set<String> list() {
+    return idToStreamer.keySet();
+  }
 
-        idToStreamer.put(streamerId, new DcpStreamer(client, vbuckets, from, to));
-        return streamerId;
+  @Override
+  public String get(String streamerId) {
+    SessionState state = idToStreamer.get(streamerId).getSessionState();
+    return new String(state.export(StateFormat.JSON), UTF_8);
+  }
+
+  @Override
+  public DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException {
+    DcpStreamer.Status status = idToStreamer.get(streamerId).awaitStreamEnd(timeout, unit);
+    stop(streamerId);
+    return status;
+  }
+
+  @Override
+  public DcpStreamer.Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit) {
+    DcpStreamer.Status status = idToStreamer.get(streamerId).awaitMutationCount(mutationCount, timeout, unit);
+    return status;
+  }
+
+  @PreDestroy
+  public void shutdown() throws InterruptedException {
+    list().forEach(this::stop);
+    eventLoopGroup.shutdownGracefully().await(3, TimeUnit.SECONDS);
+  }
+
+  @Override
+  public Status status(String streamerId) {
+    return idToStreamer.get(streamerId).status();
+  }
+
+  @Override
+  public int getNumberOfPartitions(String bucket) {
+    final Client client = Client.configure()
+        .eventLoopGroup(eventLoopGroup)
+        .bucket(bucket)
+        .username(username)
+        .password(password)
+        .hostnames(nodes.split(","))
+        .build();
+
+    client.connect().await();
+    try {
+      return client.numPartitions();
+    } finally {
+      client.disconnect().await();
     }
-
-    @Override
-    public void stop(String streamerId) {
-        DcpStreamer streamer = idToStreamer.remove(streamerId);
-        if (streamer == null) {
-            return;
-        }
-        streamer.stop();
-
-    }
-
-    @Override
-    public Set<String> list() {
-        return idToStreamer.keySet();
-    }
-
-    @Override
-    public String get(String streamerId) {
-        SessionState state = idToStreamer.get(streamerId).getSessionState();
-        return new String(state.export(StateFormat.JSON), UTF_8);
-    }
-
-    @Override
-    public DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException {
-        DcpStreamer.Status status = idToStreamer.get(streamerId).awaitStreamEnd(timeout, unit);
-        stop(streamerId);
-        return status;
-    }
-
-    @Override
-    public DcpStreamer.Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit) {
-        DcpStreamer.Status status = idToStreamer.get(streamerId).awaitMutationCount(mutationCount, timeout, unit);
-        return status;
-    }
-
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
-        list().forEach(this::stop);
-        eventLoopGroup.shutdownGracefully().await(3, TimeUnit.SECONDS);
-    }
-
-    @Override
-    public Status status(String streamerId) {
-        return idToStreamer.get(streamerId).status();
-    }
-
-    @Override
-    public int getNumberOfPartitions(String bucket) {
-        final Client client = Client.configure()
-                .eventLoopGroup(eventLoopGroup)
-                .bucket(bucket)
-                .username(username)
-                .password(password)
-                .hostnames(nodes.split(","))
-                .build();
-
-        client.connect().await();
-        try {
-            return client.numPartitions();
-        } finally {
-            client.disconnect().await();
-        }
-    }
+  }
 }

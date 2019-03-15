@@ -27,46 +27,46 @@ import java.util.Map;
  */
 public class FailedToMovePartitionEvent implements CouchbaseEvent {
 
-    private final short partition;
-    private final Throwable error;
+  private final short partition;
+  private final Throwable error;
 
-    public FailedToMovePartitionEvent(short partition, Throwable error) {
-        this.partition = partition;
-        this.error = error;
-    }
+  public FailedToMovePartitionEvent(short partition, Throwable error) {
+    this.partition = partition;
+    this.error = error;
+  }
 
-    @Override
-    public EventType type() {
-        return EventType.SYSTEM;
-    }
+  @Override
+  public EventType type() {
+    return EventType.SYSTEM;
+  }
 
-    @Override
-    public Map<String, Object> toMap() {
-        Map<String, Object> result = Events.identityMap(this);
-        result.put("partition", partition);
-        result.put("error", error);
-        return result;
-    }
+  @Override
+  public Map<String, Object> toMap() {
+    Map<String, Object> result = Events.identityMap(this);
+    result.put("partition", partition);
+    result.put("error", error);
+    return result;
+  }
 
-    /**
-     * The partition ID which has caused issue
-     */
-    public short partition() {
-        return partition;
-    }
+  /**
+   * The partition ID which has caused issue
+   */
+  public short partition() {
+    return partition;
+  }
 
-    /**
-     * Error object, describing the issue
-     */
-    public Throwable error() {
-        return error;
-    }
+  /**
+   * Error object, describing the issue
+   */
+  public Throwable error() {
+    return error;
+  }
 
-    @Override
-    public String toString() {
-        return "FailedToMovePartitionEvent{" +
-                "partition=" + partition +
-                "error=" + error +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "FailedToMovePartitionEvent{" +
+        "partition=" + partition +
+        "error=" + error +
+        '}';
+  }
 }

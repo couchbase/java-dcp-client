@@ -18,15 +18,15 @@ package com.couchbase.client.dcp;
 import java.net.InetSocketAddress;
 
 public class StaticCredentialsProvider implements CredentialsProvider {
-    private final Credentials credentials;
+  private final Credentials credentials;
 
-    public StaticCredentialsProvider(String username, String password) {
-        credentials = new Credentials(username, password);
-    }
+  public StaticCredentialsProvider(String username, String password) {
+    credentials = new Credentials(username, password);
+  }
 
-    @Override
-    public Credentials get(InetSocketAddress address) {
-        return credentials;
-    }
+  @Override
+  public Credentials get(InetSocketAddress address) {
+    return credentials;
+  }
 
 }

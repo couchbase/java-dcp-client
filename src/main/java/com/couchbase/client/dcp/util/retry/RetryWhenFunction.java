@@ -25,23 +25,22 @@ import rx.functions.Func1;
  * a flatmap that {@link RetryWithDelayHandler induces a retry delay} into a function that can be passed to
  * an Observable's {@link Observable#retryWhen(Func1) retryWhen operation}.
  *
- * @see RetryBuilder how to construct such a function in a fluent manner.
- *
  * @author Simon Baslé
+ * @see RetryBuilder how to construct such a function in a fluent manner.
  * @since 1.0.0
  */
 @InterfaceStability.Committed
 @InterfaceAudience.Public
 public class RetryWhenFunction implements Func1<Observable<? extends Throwable>, Observable<?>> {
 
-    protected RetryWithDelayHandler handler;
+  protected RetryWithDelayHandler handler;
 
-    public RetryWhenFunction(RetryWithDelayHandler handler) {
-        this.handler = handler;
-    }
+  public RetryWhenFunction(RetryWithDelayHandler handler) {
+    this.handler = handler;
+  }
 
-    public Observable<?> call(Observable<? extends Throwable> errors) {
-        return Retry.errorsWithAttempts(errors, handler.maxAttempts + 1)
-                    .flatMap(handler);
-    }
+  public Observable<?> call(Observable<? extends Throwable> errors) {
+    return Retry.errorsWithAttempts(errors, handler.maxAttempts + 1)
+        .flatMap(handler);
+  }
 }

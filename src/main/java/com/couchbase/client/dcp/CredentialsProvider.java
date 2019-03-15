@@ -18,11 +18,11 @@ package com.couchbase.client.dcp;
 import java.net.InetSocketAddress;
 
 public interface CredentialsProvider {
-    /**
-     * Get the username/password pair to use for authentication/authorization
-     *
-     * @param address
-     * @return credentials
-     */
-    Credentials get(InetSocketAddress address);
+  /**
+   * Get the username/password pair to use for authentication/authorization
+   *
+   * @param address
+   * @return credentials
+   */
+  Credentials get(InetSocketAddress address);
 }

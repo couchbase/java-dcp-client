@@ -29,78 +29,78 @@ import java.io.UncheckedIOException;
  * Inspired by https://stackoverflow.com/a/46805652/611819
  */
 public class ExecUtils {
-    public static class ExecResultWithExitCode extends Container.ExecResult {
-        private final int exitCode;
+  public static class ExecResultWithExitCode extends Container.ExecResult {
+    private final int exitCode;
 
-        public ExecResultWithExitCode(String stdout, String stderr, int exitCode) {
-            super(stdout, stderr);
-            this.exitCode = exitCode;
-        }
-
-        public int getExitCode() {
-            return exitCode;
-        }
-
-        public String toString() {
-            final StringBuilder sb = new StringBuilder();
-            if (!getStdout().isEmpty()) {
-                sb.append("stdout: ").append(getStdout());
-            }
-            if (!getStderr().isEmpty()) {
-                sb.append("stderr: ").append(getStderr());
-            }
-            if (exitCode != 0) {
-                sb.append("exit code: ").append(exitCode);
-            }
-            return sb.toString().trim();
-        }
+    public ExecResultWithExitCode(String stdout, String stderr, int exitCode) {
+      super(stdout, stderr);
+      this.exitCode = exitCode;
     }
 
-    private ExecUtils() {
-        throw new AssertionError("not instantiable");
+    public int getExitCode() {
+      return exitCode;
     }
 
-    public static ExecResultWithExitCode execOrDie(Container container, String shellCommand) {
-        return checkExitCode(exec(container, shellCommand));
+    public String toString() {
+      final StringBuilder sb = new StringBuilder();
+      if (!getStdout().isEmpty()) {
+        sb.append("stdout: ").append(getStdout());
+      }
+      if (!getStderr().isEmpty()) {
+        sb.append("stderr: ").append(getStderr());
+      }
+      if (exitCode != 0) {
+        sb.append("exit code: ").append(exitCode);
+      }
+      return sb.toString().trim();
     }
+  }
 
-    private static ExecResultWithExitCode checkExitCode(ExecResultWithExitCode result) {
-        if (result.exitCode != 0) {
-            throw new UncheckedIOException(new IOException(result.toString()));
-        }
-        return result;
+  private ExecUtils() {
+    throw new AssertionError("not instantiable");
+  }
+
+  public static ExecResultWithExitCode execOrDie(Container container, String shellCommand) {
+    return checkExitCode(exec(container, shellCommand));
+  }
+
+  private static ExecResultWithExitCode checkExitCode(ExecResultWithExitCode result) {
+    if (result.exitCode != 0) {
+      throw new UncheckedIOException(new IOException(result.toString()));
     }
+    return result;
+  }
 
-    public static ExecResultWithExitCode exec(Container container, String shellCommand) {
-        final Logger log = LoggerFactory.getLogger("[" + container.getContainerName() + "]");
-        log.info("Executing command: {}", shellCommand);
+  public static ExecResultWithExitCode exec(Container container, String shellCommand) {
+    final Logger log = LoggerFactory.getLogger("[" + container.getContainerName() + "]");
+    log.info("Executing command: {}", shellCommand);
 
-        final String exitCodeMarker = "ExitCode=";
-        final Container.ExecResult result = execInContainerUnchecked(container,
-                "sh", "-c", shellCommand + "; echo \"" + exitCodeMarker + "$?\""
-        );
-        final String stdout = result.getStdout();
-        final int i = stdout.lastIndexOf(exitCodeMarker);
-        if (i < 0) {
-            throw new RuntimeException("failed to determine exit code: " + result.getStdout() + "/" + result.getStderr());
-        }
-        final int exitCode = Integer.parseInt(stdout.substring(i + exitCodeMarker.length()).trim());
-        final ExecResultWithExitCode resultWithExitCode = new ExecResultWithExitCode(stdout.substring(0, i), result.getStderr(), exitCode);
-        if (resultWithExitCode.exitCode != 0) {
-            log.warn("{}", resultWithExitCode);
-        } else {
-            log.info("{}", resultWithExitCode);
-        }
-        return resultWithExitCode;
+    final String exitCodeMarker = "ExitCode=";
+    final Container.ExecResult result = execInContainerUnchecked(container,
+        "sh", "-c", shellCommand + "; echo \"" + exitCodeMarker + "$?\""
+    );
+    final String stdout = result.getStdout();
+    final int i = stdout.lastIndexOf(exitCodeMarker);
+    if (i < 0) {
+      throw new RuntimeException("failed to determine exit code: " + result.getStdout() + "/" + result.getStderr());
     }
-
-    private static Container.ExecResult execInContainerUnchecked(Container container, String... command) {
-        try {
-            return container.execInContainer(command);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        } catch (InterruptedException e) {
-            throw new UncheckedIOException(new InterruptedIOException(e.getMessage()));
-        }
+    final int exitCode = Integer.parseInt(stdout.substring(i + exitCodeMarker.length()).trim());
+    final ExecResultWithExitCode resultWithExitCode = new ExecResultWithExitCode(stdout.substring(0, i), result.getStderr(), exitCode);
+    if (resultWithExitCode.exitCode != 0) {
+      log.warn("{}", resultWithExitCode);
+    } else {
+      log.info("{}", resultWithExitCode);
     }
+    return resultWithExitCode;
+  }
+
+  private static Container.ExecResult execInContainerUnchecked(Container container, String... command) {
+    try {
+      return container.execInContainer(command);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (InterruptedException e) {
+      throw new UncheckedIOException(new InterruptedIOException(e.getMessage()));
+    }
+  }
 }

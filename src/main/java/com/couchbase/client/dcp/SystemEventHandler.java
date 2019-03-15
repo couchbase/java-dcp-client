@@ -23,11 +23,11 @@ import com.couchbase.client.core.event.CouchbaseEvent;
  */
 public interface SystemEventHandler {
 
-    /**
-     * Called every time when a system event happens that should be handled by
-     * consumers of the {@link Client}.
-     *
-     * @param event the system event happening.
-     */
-    void onEvent(CouchbaseEvent event);
+  /**
+   * Called every time when a system event happens that should be handled by
+   * consumers of the {@link Client}.
+   *
+   * @param event the system event happening.
+   */
+  void onEvent(CouchbaseEvent event);
 }

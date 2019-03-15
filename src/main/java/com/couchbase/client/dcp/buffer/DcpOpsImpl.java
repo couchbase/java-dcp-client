@@ -35,113 +35,113 @@ import static com.couchbase.client.dcp.buffer.DcpOpsImpl.DcpRequestBuilder.reque
 import static java.util.Objects.requireNonNull;
 
 public class DcpOpsImpl implements DcpOps {
-    private final DcpRequestDispatcher dispatcher;
+  private final DcpRequestDispatcher dispatcher;
 
-    public DcpOpsImpl(final DcpRequestDispatcher dispatcher) {
-        this.dispatcher = requireNonNull(dispatcher);
-    }
+  public DcpOpsImpl(final DcpRequestDispatcher dispatcher) {
+    this.dispatcher = requireNonNull(dispatcher);
+  }
 
-    @Override
-    public Single<ObserveSeqnoResponse> observeSeqno(final int partition, final long vbuuid) {
-        return doRequest(
-                () -> request(MessageUtil.OBSERVE_SEQNO_OPCODE)
-                        .vbucket(partition)
-                        .content(Unpooled.buffer(8).writeLong(vbuuid)),
-                ObserveSeqnoResponse::new);
-    }
+  @Override
+  public Single<ObserveSeqnoResponse> observeSeqno(final int partition, final long vbuuid) {
+    return doRequest(
+        () -> request(MessageUtil.OBSERVE_SEQNO_OPCODE)
+            .vbucket(partition)
+            .content(Unpooled.buffer(8).writeLong(vbuuid)),
+        ObserveSeqnoResponse::new);
+  }
 
-    @Override
-    public Single<FailoverLogResponse> getFailoverLog(final int partition) {
-        return doRequest(
-                () -> request(MessageUtil.DCP_FAILOVER_LOG_OPCODE)
-                        .vbucket(partition),
-                FailoverLogResponse::new);
-    }
+  @Override
+  public Single<FailoverLogResponse> getFailoverLog(final int partition) {
+    return doRequest(
+        () -> request(MessageUtil.DCP_FAILOVER_LOG_OPCODE)
+            .vbucket(partition),
+        FailoverLogResponse::new);
+  }
 
-    private <R> Single<R> doRequest(final Supplier<DcpRequestBuilder> requestBuilder, final Function<ByteBuf, R> resultExtractor) {
-        return Single.fromEmitter(new Action1<SingleEmitter<R>>() {
+  private <R> Single<R> doRequest(final Supplier<DcpRequestBuilder> requestBuilder, final Function<ByteBuf, R> resultExtractor) {
+    return Single.fromEmitter(new Action1<SingleEmitter<R>>() {
+      @Override
+      public void call(final SingleEmitter<R> singleEmitter) {
+        try {
+          final ByteBuf request = requestBuilder.get().build();
+
+          dispatcher.sendRequest(request).addListener(new DcpResponseListener() {
             @Override
-            public void call(final SingleEmitter<R> singleEmitter) {
-                try {
-                    final ByteBuf request = requestBuilder.get().build();
+            public void operationComplete(Future<DcpResponse> future) throws Exception {
+              if (!future.isSuccess()) {
+                singleEmitter.onError(future.cause());
+                return;
+              }
 
-                    dispatcher.sendRequest(request).addListener(new DcpResponseListener() {
-                        @Override
-                        public void operationComplete(Future<DcpResponse> future) throws Exception {
-                            if (!future.isSuccess()) {
-                                singleEmitter.onError(future.cause());
-                                return;
-                            }
-
-                            final ByteBuf buf = future.getNow().buffer();
-                            try {
-                                final ResponseStatus status = MessageUtil.getResponseStatus(buf);
-                                if (!status.isSuccess()) {
-                                    throw new BadResponseStatusException(status);
-                                }
-
-                                final R result = resultExtractor.apply(buf);
-                                singleEmitter.onSuccess(result);
-
-                            } catch (Throwable t) {
-                                singleEmitter.onError(t);
-
-                            } finally {
-                                buf.release();
-                            }
-                        }
-                    });
-
-                } catch (Throwable t) {
-                    singleEmitter.onError(t);
+              final ByteBuf buf = future.getNow().buffer();
+              try {
+                final ResponseStatus status = MessageUtil.getResponseStatus(buf);
+                if (!status.isSuccess()) {
+                  throw new BadResponseStatusException(status);
                 }
+
+                final R result = resultExtractor.apply(buf);
+                singleEmitter.onSuccess(result);
+
+              } catch (Throwable t) {
+                singleEmitter.onError(t);
+
+              } finally {
+                buf.release();
+              }
             }
-        });
+          });
+
+        } catch (Throwable t) {
+          singleEmitter.onError(t);
+        }
+      }
+    });
+  }
+
+  /**
+   * NOT REUSABLE
+   */
+  static class DcpRequestBuilder {
+    private final byte opcode;
+    private short vbucket;
+    private ByteBuf content;
+    private boolean used;
+
+    private DcpRequestBuilder(byte opcode) {
+      this.opcode = opcode;
     }
 
-    /**
-     * NOT REUSABLE
-     */
-    static class DcpRequestBuilder {
-        private final byte opcode;
-        private short vbucket;
-        private ByteBuf content;
-        private boolean used;
-
-        private DcpRequestBuilder(byte opcode) {
-            this.opcode = opcode;
-        }
-
-        static DcpRequestBuilder request(byte opcode) {
-            return new DcpRequestBuilder(opcode);
-        }
-
-        DcpRequestBuilder vbucket(int vbucket) {
-            this.vbucket = (short) vbucket;
-            return this;
-        }
-
-        DcpRequestBuilder content(ByteBuf content) {
-            this.content = content;
-            return this;
-        }
-
-        ByteBuf build() {
-            if (used) {
-                throw new IllegalStateException("Not reusable");
-            }
-            try {
-                ByteBuf buf = Unpooled.buffer();
-                MessageUtil.initRequest(opcode, buf);
-                MessageUtil.setVbucket(vbucket, buf);
-                if (content != null) {
-                    MessageUtil.setContent(content, buf);
-                }
-                return buf;
-            } finally {
-                used = true;
-                ReferenceCountUtil.release(content);
-            }
-        }
+    static DcpRequestBuilder request(byte opcode) {
+      return new DcpRequestBuilder(opcode);
     }
+
+    DcpRequestBuilder vbucket(int vbucket) {
+      this.vbucket = (short) vbucket;
+      return this;
+    }
+
+    DcpRequestBuilder content(ByteBuf content) {
+      this.content = content;
+      return this;
+    }
+
+    ByteBuf build() {
+      if (used) {
+        throw new IllegalStateException("Not reusable");
+      }
+      try {
+        ByteBuf buf = Unpooled.buffer();
+        MessageUtil.initRequest(opcode, buf);
+        MessageUtil.setVbucket(vbucket, buf);
+        if (content != null) {
+          MessageUtil.setContent(content, buf);
+        }
+        return buf;
+      } finally {
+        used = true;
+        ReferenceCountUtil.release(content);
+      }
+    }
+  }
 }

@@ -22,18 +22,18 @@ import com.couchbase.client.core.CouchbaseException;
  */
 public class NotMyVbucketException extends CouchbaseException {
 
-    public NotMyVbucketException() {
-    }
+  public NotMyVbucketException() {
+  }
 
-    public NotMyVbucketException(String message) {
-        super(message);
-    }
+  public NotMyVbucketException(String message) {
+    super(message);
+  }
 
-    public NotMyVbucketException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public NotMyVbucketException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-    public NotMyVbucketException(Throwable cause) {
-        super(cause);
-    }
+  public NotMyVbucketException(Throwable cause) {
+    super(cause);
+  }
 }

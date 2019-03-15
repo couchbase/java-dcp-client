@@ -20,63 +20,63 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 class ObserveSeqnoResponse {
-    private final boolean didFailover;
-    private final short vbid;
-    private final long vbuuid;
-    private final long persistSeqno;
-    private final long currentSeqno;
-    private final long oldVbuuid;
-    private final long lastSeqno;
+  private final boolean didFailover;
+  private final short vbid;
+  private final long vbuuid;
+  private final long persistSeqno;
+  private final long currentSeqno;
+  private final long oldVbuuid;
+  private final long lastSeqno;
 
-    ObserveSeqnoResponse(final ByteBuf response) {
-        ByteBuf content = MessageUtil.getContent(response);
-        this.didFailover = content.readBoolean();
-        this.vbid = content.readShort();
-        this.vbuuid = content.readLong();
-        this.persistSeqno = content.readLong();
-        this.currentSeqno = content.readLong();
-        this.oldVbuuid = this.didFailover ? content.readLong() : 0;
-        this.lastSeqno = this.didFailover ? content.readLong() : 0;
-    }
+  ObserveSeqnoResponse(final ByteBuf response) {
+    ByteBuf content = MessageUtil.getContent(response);
+    this.didFailover = content.readBoolean();
+    this.vbid = content.readShort();
+    this.vbuuid = content.readLong();
+    this.persistSeqno = content.readLong();
+    this.currentSeqno = content.readLong();
+    this.oldVbuuid = this.didFailover ? content.readLong() : 0;
+    this.lastSeqno = this.didFailover ? content.readLong() : 0;
+  }
 
-    public boolean didFailover() {
-        return didFailover;
-    }
+  public boolean didFailover() {
+    return didFailover;
+  }
 
-    public short vbid() {
-        return vbid;
-    }
+  public short vbid() {
+    return vbid;
+  }
 
-    public long vbuuid() {
-        return vbuuid;
-    }
+  public long vbuuid() {
+    return vbuuid;
+  }
 
-    public long persistSeqno() {
-        return persistSeqno;
-    }
+  public long persistSeqno() {
+    return persistSeqno;
+  }
 
-    public long currentSeqno() {
-        return currentSeqno;
-    }
+  public long currentSeqno() {
+    return currentSeqno;
+  }
 
-    public long oldVbuuid() {
-        return oldVbuuid;
-    }
+  public long oldVbuuid() {
+    return oldVbuuid;
+  }
 
-    public long lastSeqno() {
-        return lastSeqno;
-    }
+  public long lastSeqno() {
+    return lastSeqno;
+  }
 
-    @Override
-    public String toString() {
-        return "ObserveSeqnoResponse{" +
-                "didFailover=" + didFailover +
-                ", vbid=" + vbid +
-                ", vbuuid=" + vbuuid +
-                ", persistSeqno=" + persistSeqno +
-                ", currentSeqno=" + currentSeqno +
-                ", oldVbuuid=" + oldVbuuid +
-                ", lastSeqno=" + lastSeqno +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "ObserveSeqnoResponse{" +
+        "didFailover=" + didFailover +
+        ", vbid=" + vbid +
+        ", vbuuid=" + vbuuid +
+        ", persistSeqno=" + persistSeqno +
+        ", currentSeqno=" + currentSeqno +
+        ", oldVbuuid=" + oldVbuuid +
+        ", lastSeqno=" + lastSeqno +
+        '}';
+  }
 }

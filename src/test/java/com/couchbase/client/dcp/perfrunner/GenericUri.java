@@ -20,45 +20,45 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 class GenericUri {
-    // From https://tools.ietf.org/html/rfc3986#appendix-B
-    private static final Pattern URI_PATTERN = Pattern.compile(
-            "^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?");
+  // From https://tools.ietf.org/html/rfc3986#appendix-B
+  private static final Pattern URI_PATTERN = Pattern.compile(
+      "^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?");
 
-    private final String scheme;
-    private final String authority;
-    private final String path;
-    private final String query;
-    private final String fragment;
+  private final String scheme;
+  private final String authority;
+  private final String path;
+  private final String query;
+  private final String fragment;
 
-    GenericUri(String uri) throws IllegalArgumentException {
-        Matcher m = URI_PATTERN.matcher(uri);
-        if (!m.matches()) {
-            throw new IllegalArgumentException("Failed to parse URI: " + uri);
-        }
-        this.scheme = m.group(2);
-        this.authority = m.group(4);
-        this.path = m.group(5);
-        this.query = m.group(7);
-        this.fragment = m.group(9);
+  GenericUri(String uri) throws IllegalArgumentException {
+    Matcher m = URI_PATTERN.matcher(uri);
+    if (!m.matches()) {
+      throw new IllegalArgumentException("Failed to parse URI: " + uri);
     }
+    this.scheme = m.group(2);
+    this.authority = m.group(4);
+    this.path = m.group(5);
+    this.query = m.group(7);
+    this.fragment = m.group(9);
+  }
 
-    public String scheme() {
-        return scheme;
-    }
+  public String scheme() {
+    return scheme;
+  }
 
-    public String authority() {
-        return authority;
-    }
+  public String authority() {
+    return authority;
+  }
 
-    public String path() {
-        return path;
-    }
+  public String path() {
+    return path;
+  }
 
-    public String query() {
-        return query;
-    }
+  public String query() {
+    return query;
+  }
 
-    public String fragment() {
-        return fragment;
-    }
+  public String fragment() {
+    return fragment;
+  }
 }

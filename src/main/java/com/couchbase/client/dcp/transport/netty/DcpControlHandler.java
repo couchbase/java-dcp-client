@@ -39,75 +39,75 @@ import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServ
  */
 public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
 
-    /**
-     * The logger used.
-     */
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpControlHandler.class);
+  /**
+   * The logger used.
+   */
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpControlHandler.class);
 
-    /**
-     * Stores an iterator over the control settings that need to be negotiated.
-     */
-    private Iterator<Map.Entry<String, String>> controlSettings;
+  /**
+   * Stores an iterator over the control settings that need to be negotiated.
+   */
+  private Iterator<Map.Entry<String, String>> controlSettings;
 
-    /**
-     * The control settings provider. Will tell us the appropriate control settings
-     * once we discover the the Couchbase Server version.
-     */
-    private final DcpControl dcpControl;
+  /**
+   * The control settings provider. Will tell us the appropriate control settings
+   * once we discover the the Couchbase Server version.
+   */
+  private final DcpControl dcpControl;
 
-    /**
-     * Create a new dcp control handler.
-     *
-     * @param dcpControl the options set by the caller which should be negotiated.
-     */
-    DcpControlHandler(final DcpControl dcpControl) {
-        this.dcpControl = dcpControl;
+  /**
+   * Create a new dcp control handler.
+   *
+   * @param dcpControl the options set by the caller which should be negotiated.
+   */
+  DcpControlHandler(final DcpControl dcpControl) {
+    this.dcpControl = dcpControl;
+  }
+
+  /**
+   * Helper method to walk the iterator and create a new request that defines which control param
+   * should be negotiated right now.
+   */
+  private void negotiate(final ChannelHandlerContext ctx) {
+    if (controlSettings.hasNext()) {
+      Map.Entry<String, String> setting = controlSettings.next();
+
+      LOGGER.debug("Negotiating DCP Control {}: {}", setting.getKey(), setting.getValue());
+      ByteBuf request = ctx.alloc().buffer();
+      DcpControlRequest.init(request);
+      DcpControlRequest.key(setting.getKey(), request);
+      DcpControlRequest.value(Unpooled.copiedBuffer(setting.getValue(), CharsetUtil.UTF_8), request);
+
+      ctx.writeAndFlush(request);
+    } else {
+      originalPromise().setSuccess();
+      ctx.pipeline().remove(this);
+      ctx.fireChannelActive();
+      LOGGER.debug("Negotiated all DCP Control settings against Node {}", ctx.channel().remoteAddress());
     }
+  }
 
-    /**
-     * Helper method to walk the iterator and create a new request that defines which control param
-     * should be negotiated right now.
-     */
-    private void negotiate(final ChannelHandlerContext ctx) {
-        if (controlSettings.hasNext()) {
-            Map.Entry<String, String> setting = controlSettings.next();
+  /**
+   * Once the channel becomes active, start negotiating the dcp control params.
+   */
+  @Override
+  public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+    controlSettings = dcpControl.getControls(getServerVersion(ctx.channel())).entrySet().iterator();
+    negotiate(ctx);
+  }
 
-            LOGGER.debug("Negotiating DCP Control {}: {}", setting.getKey(), setting.getValue());
-            ByteBuf request = ctx.alloc().buffer();
-            DcpControlRequest.init(request);
-            DcpControlRequest.key(setting.getKey(), request);
-            DcpControlRequest.value(Unpooled.copiedBuffer(setting.getValue(), CharsetUtil.UTF_8), request);
-
-            ctx.writeAndFlush(request);
-        } else {
-            originalPromise().setSuccess();
-            ctx.pipeline().remove(this);
-            ctx.fireChannelActive();
-            LOGGER.debug("Negotiated all DCP Control settings against Node {}", ctx.channel().remoteAddress());
-        }
+  /**
+   * Since only one feature per req/res can be negotiated, repeat the process once a response comes
+   * back until the iterator is complete or a non-success response status is received.
+   */
+  @Override
+  protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
+    ResponseStatus status = MessageUtil.getResponseStatus(msg);
+    if (status.isSuccess()) {
+      negotiate(ctx);
+    } else {
+      originalPromise().setFailure(new IllegalStateException("Could not configure DCP Controls: " + status));
     }
-
-    /**
-     * Once the channel becomes active, start negotiating the dcp control params.
-     */
-    @Override
-    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-        controlSettings = dcpControl.getControls(getServerVersion(ctx.channel())).entrySet().iterator();
-        negotiate(ctx);
-    }
-
-    /**
-     * Since only one feature per req/res can be negotiated, repeat the process once a response comes
-     * back until the iterator is complete or a non-success response status is received.
-     */
-    @Override
-    protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
-        ResponseStatus status = MessageUtil.getResponseStatus(msg);
-        if (status.isSuccess()) {
-            negotiate(ctx);
-        } else {
-            originalPromise().setFailure(new IllegalStateException("Could not configure DCP Controls: " + status));
-        }
-    }
+  }
 
 }

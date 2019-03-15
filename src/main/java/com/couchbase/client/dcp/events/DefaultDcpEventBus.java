@@ -33,33 +33,33 @@ import rx.subjects.SerializedSubject;
  */
 public class DefaultDcpEventBus implements EventBus {
 
-    private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DefaultDcpEventBus.class);
+  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DefaultDcpEventBus.class);
 
-    private final SerializedSubject<CouchbaseEvent, CouchbaseEvent> bus = PublishSubject.<CouchbaseEvent>create().toSerialized();
-    private final Scheduler scheduler;
+  private final SerializedSubject<CouchbaseEvent, CouchbaseEvent> bus = PublishSubject.<CouchbaseEvent>create().toSerialized();
+  private final Scheduler scheduler;
 
-    public DefaultDcpEventBus(final Scheduler scheduler) {
-        this.scheduler = scheduler;
+  public DefaultDcpEventBus(final Scheduler scheduler) {
+    this.scheduler = scheduler;
+  }
+
+  @Override
+  public Observable<CouchbaseEvent> get() {
+    return bus.onBackpressureBuffer().observeOn(scheduler);
+  }
+
+  @Override
+  public void publish(final CouchbaseEvent event) {
+    if (bus.hasObservers()) {
+      try {
+        bus.onNext(event);
+      } catch (Exception ex) {
+        LOGGER.warn("Caught exception during event emission, moving on.", ex);
+      }
     }
+  }
 
-    @Override
-    public Observable<CouchbaseEvent> get() {
-        return bus.onBackpressureBuffer().observeOn(scheduler);
-    }
-
-    @Override
-    public void publish(final CouchbaseEvent event) {
-        if (bus.hasObservers()) {
-            try {
-                bus.onNext(event);
-            } catch (Exception ex) {
-                LOGGER.warn("Caught exception during event emission, moving on.", ex);
-            }
-        }
-    }
-
-    @Override
-    public boolean hasSubscribers() {
-        return bus.hasObservers();
-    }
+  @Override
+  public boolean hasSubscribers() {
+    return bus.hasObservers();
+  }
 }

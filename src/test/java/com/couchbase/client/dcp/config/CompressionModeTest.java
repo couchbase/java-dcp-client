@@ -29,57 +29,57 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 public class CompressionModeTest {
-    private static final Version OLDER = new Version(4, 0, 0);
-    private static final Version WATSON = new Version(4, 5, 0);
-    private static final Version VULCAN = new Version(5, 5, 0);
+  private static final Version OLDER = new Version(4, 0, 0);
+  private static final Version WATSON = new Version(4, 5, 0);
+  private static final Version VULCAN = new Version(5, 5, 0);
 
-    @Test
-    public void effectiveMode() throws Exception {
-        assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(OLDER));
-        assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(WATSON));
-        assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(VULCAN));
+  @Test
+  public void effectiveMode() throws Exception {
+    assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(OLDER));
+    assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(WATSON));
+    assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(VULCAN));
 
-        assertEquals(DISABLED, FORCED.effectiveMode(OLDER));
-        assertEquals(DISABLED, FORCED.effectiveMode(WATSON));
-        assertEquals(FORCED, FORCED.effectiveMode(VULCAN));
+    assertEquals(DISABLED, FORCED.effectiveMode(OLDER));
+    assertEquals(DISABLED, FORCED.effectiveMode(WATSON));
+    assertEquals(FORCED, FORCED.effectiveMode(VULCAN));
 
-        assertEquals(DISABLED, ENABLED.effectiveMode(OLDER));
-        assertEquals(DISABLED, ENABLED.effectiveMode(WATSON));
-        assertEquals(ENABLED, ENABLED.effectiveMode(VULCAN));
-    }
+    assertEquals(DISABLED, ENABLED.effectiveMode(OLDER));
+    assertEquals(DISABLED, ENABLED.effectiveMode(WATSON));
+    assertEquals(ENABLED, ENABLED.effectiveMode(VULCAN));
+  }
 
-    @Test
-    public void vulcanDisabled() throws Exception {
-        assertArrayEquals(new short[0], DISABLED.getHelloFeatures(VULCAN));
-        assertEquals(emptyMap(), DISABLED.getDcpControls(VULCAN));
-    }
+  @Test
+  public void vulcanDisabled() throws Exception {
+    assertArrayEquals(new short[0], DISABLED.getHelloFeatures(VULCAN));
+    assertEquals(emptyMap(), DISABLED.getDcpControls(VULCAN));
+  }
 
-    @Test
-    public void vulcanForced() throws Exception {
-        assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, FORCED.getHelloFeatures(VULCAN));
-        assertEquals(singletonMap("force_value_compression", "true"), FORCED.getDcpControls(VULCAN));
-    }
+  @Test
+  public void vulcanForced() throws Exception {
+    assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, FORCED.getHelloFeatures(VULCAN));
+    assertEquals(singletonMap("force_value_compression", "true"), FORCED.getDcpControls(VULCAN));
+  }
 
-    @Test
-    public void vulcanDiscretionary() throws Exception {
-        assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, ENABLED.getHelloFeatures(VULCAN));
-        assertEquals(emptyMap(), ENABLED.getDcpControls(VULCAN));
-    }
+  @Test
+  public void vulcanDiscretionary() throws Exception {
+    assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, ENABLED.getHelloFeatures(VULCAN));
+    assertEquals(emptyMap(), ENABLED.getDcpControls(VULCAN));
+  }
 
-    @Test
-    public void watsonDisabled() throws Exception {
-        // Don't care about hello, doesn't affect server compression behavior
-        assertEquals(emptyMap(), DISABLED.getDcpControls(WATSON));
-    }
+  @Test
+  public void watsonDisabled() throws Exception {
+    // Don't care about hello, doesn't affect server compression behavior
+    assertEquals(emptyMap(), DISABLED.getDcpControls(WATSON));
+  }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void watsonForced() throws Exception {
-        FORCED.getDcpControls(WATSON);
-    }
+  @Test(expected = IllegalArgumentException.class)
+  public void watsonForced() throws Exception {
+    FORCED.getDcpControls(WATSON);
+  }
 
-    @Test
-    public void olderDisabled() throws Exception {
-        // Don't care about hello, doesn't affect server compression behavior
-        assertEquals(emptyMap(), DISABLED.getDcpControls(OLDER));
-    }
+  @Test
+  public void olderDisabled() throws Exception {
+    // Don't care about hello, doesn't affect server compression behavior
+    assertEquals(emptyMap(), DISABLED.getDcpControls(OLDER));
+  }
 }

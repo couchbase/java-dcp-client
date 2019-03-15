@@ -22,29 +22,29 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
  * A {@code boolean} array in which elements may be updated atomically.
  */
 public class AtomicBooleanArray {
-    private final AtomicIntegerArray array;
+  private final AtomicIntegerArray array;
 
-    /**
-     * Creates a new AtomicBooleanArray of the given length, with all
-     * elements initially false.
-     *
-     * @param length the length of the array
-     */
-    public AtomicBooleanArray(int length) {
-        // A more efficient implementation could pack 32 booleans into a each integer,
-        // but for now let's do something simple so there's nowhere for bugs to hide.
-        array = new AtomicIntegerArray(length);
-    }
+  /**
+   * Creates a new AtomicBooleanArray of the given length, with all
+   * elements initially false.
+   *
+   * @param length the length of the array
+   */
+  public AtomicBooleanArray(int length) {
+    // A more efficient implementation could pack 32 booleans into a each integer,
+    // but for now let's do something simple so there's nowhere for bugs to hide.
+    array = new AtomicIntegerArray(length);
+  }
 
-    public boolean get(int index) {
-        return array.get(index) == 1;
-    }
+  public boolean get(int index) {
+    return array.get(index) == 1;
+  }
 
-    public void set(int index, boolean value) {
-        array.set(index, value ? 1 : 0);
-    }
+  public void set(int index, boolean value) {
+    array.set(index, value ? 1 : 0);
+  }
 
-    public int length() {
-        return array.length();
-    }
+  public int length() {
+    return array.length();
+  }
 }

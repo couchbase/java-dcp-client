@@ -22,14 +22,14 @@ package com.couchbase.client.dcp;
  * @since 1.0.0
  */
 public enum StreamFrom {
-    /**
-     * Start at the very beginning - will stream all docs in the bucket.
-     */
-    BEGINNING,
+  /**
+   * Start at the very beginning - will stream all docs in the bucket.
+   */
+  BEGINNING,
 
-    /**
-     * Start "now", where now is a time point of execution in the running program where the state
-     * is gathered from each partition. Mutations will be streamed after this point.
-     */
-    NOW
+  /**
+   * Start "now", where now is a time point of execution in the running program where the state
+   * is gathered from each partition. Mutations will be streamed after this point.
+   */
+  NOW
 }

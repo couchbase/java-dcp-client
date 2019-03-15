@@ -35,146 +35,146 @@ import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertEquals;
 
 public abstract class DcpIntegrationTestBase {
-    private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
+  private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
 
-    private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0";
+  private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0";
 
-    // Use dynamic ports in CI environment to avoid port conflicts
-    private static final boolean DYNAMIC_PORTS = System.getenv("JENKINS_URL") != null;
+  // Use dynamic ports in CI environment to avoid port conflicts
+  private static final boolean DYNAMIC_PORTS = System.getenv("JENKINS_URL") != null;
 
-    // Supply a non-zero value to use a fixed port for Couchbase web UI.
-    private static final int HOST_COUCHBASE_UI_PORT = DYNAMIC_PORTS ? 0 : 8891;
+  // Supply a non-zero value to use a fixed port for Couchbase web UI.
+  private static final int HOST_COUCHBASE_UI_PORT = DYNAMIC_PORTS ? 0 : 8891;
 
-    // Supply a non-zero value to use a fixed port for Agent web UI.
-    private static final int AGENT_UI_PORT = DYNAMIC_PORTS ? 0 : 8880;
+  // Supply a non-zero value to use a fixed port for Agent web UI.
+  private static final int AGENT_UI_PORT = DYNAMIC_PORTS ? 0 : 8880;
 
-    private static CouchbaseContainer couchbase;
-    private static AgentContainer agentContainer;
-    private static RemoteAgent agent;
+  private static CouchbaseContainer couchbase;
+  private static AgentContainer agentContainer;
+  private static RemoteAgent agent;
 
-    @BeforeClass
-    public static void setup() throws Exception {
-        final Network network = Network.builder().id("dcp-test-network").build();
-        couchbase = CouchbaseContainer.newCluster(COUCHBASE_DOCKER_IMAGE, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
-        agentContainer = startAgent(network);
-        agent = new RemoteAgent(agentContainer);
+  @BeforeClass
+  public static void setup() throws Exception {
+    final Network network = Network.builder().id("dcp-test-network").build();
+    couchbase = CouchbaseContainer.newCluster(COUCHBASE_DOCKER_IMAGE, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
+    agentContainer = startAgent(network);
+    agent = new RemoteAgent(agentContainer);
+  }
+
+  @AfterClass
+  public static void cleanup() throws Exception {
+    stop(agentContainer, couchbase);
+  }
+
+  protected static AgentContainer startAgent(Network network) throws Exception {
+    File appFile = new File("target/dcp-test-agent-0.1.0.jar");
+
+    AgentContainer agentContainer = new AgentContainer(appFile, AGENT_UI_PORT).withNetwork(network)
+        .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("container.agent")));
+    agentContainer.start();
+
+    return agentContainer;
+  }
+
+  protected static CouchbaseContainer couchbase() {
+    return couchbase;
+  }
+
+  protected RemoteAgent agent() {
+    return agent;
+  }
+
+  protected static void assertStatus(DcpStreamer.Status status, long expectedMutations, long expectedDeletions, long expectedExpirations) {
+    assertEquals(expectedDeletions, status.getDeletions());
+    assertEquals(expectedExpirations, status.getExpirations());
+    assertEquals(expectedMutations, status.getMutations());
+  }
+
+  protected RemoteAgent.StreamBuilder newStreamer(String bucket) {
+    return agent.newStreamer(bucket);
+  }
+
+  protected static void stop(GenericContainer first, GenericContainer... others) {
+    if (first != null) {
+      first.stop();
+    }
+    for (GenericContainer c : others) {
+      if (c != null) {
+        c.stop();
+      }
+    }
+  }
+
+  private static final AtomicLong bucketCounter = new AtomicLong();
+
+  protected BucketBuilder newBucket() {
+    return newBucket("test-" + bucketCounter.getAndIncrement());
+  }
+
+  protected BucketBuilder newBucket(String name) {
+    return new BucketBuilder(name);
+  }
+
+  protected static class BucketBuilder {
+    private final String name;
+    private int ramMb = 100;
+    private int replicas = 0;
+
+    public BucketBuilder(String name) {
+      this.name = requireNonNull(name);
     }
 
-    @AfterClass
-    public static void cleanup() throws Exception {
-        stop(agentContainer, couchbase);
+    public BucketBuilder ramMb(int ramMb) {
+      this.ramMb = ramMb;
+      return this;
     }
 
-    protected static AgentContainer startAgent(Network network) throws Exception {
-        File appFile = new File("target/dcp-test-agent-0.1.0.jar");
-
-        AgentContainer agentContainer = new AgentContainer(appFile, AGENT_UI_PORT).withNetwork(network)
-                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("container.agent")));
-        agentContainer.start();
-
-        return agentContainer;
+    public BucketBuilder replicas(int replicas) {
+      this.replicas = replicas;
+      return this;
     }
 
-    protected static CouchbaseContainer couchbase() {
-        return couchbase;
+    public TestBucket create() {
+      couchbase().createBucket(name, ramMb, replicas, true);
+      return new TestBucket(name);
     }
 
-    protected RemoteAgent agent() {
-        return agent;
+    public TestBucket createWithoutWaiting() {
+      couchbase().createBucket(name, ramMb, replicas, false);
+      return new TestBucket(name);
+    }
+  }
+
+  protected static class TestBucket implements Closeable {
+    private final String name;
+
+    public TestBucket(String name) {
+      this.name = requireNonNull(name);
     }
 
-    protected static void assertStatus(DcpStreamer.Status status, long expectedMutations, long expectedDeletions, long expectedExpirations) {
-        assertEquals(expectedDeletions, status.getDeletions());
-        assertEquals(expectedExpirations, status.getExpirations());
-        assertEquals(expectedMutations, status.getMutations());
+    protected Set<String> createOneDocumentInEachVbucket(String documentIdPrefix) {
+      log.info("Creating one document in each vbucket of bucket '{}' with ID prefix '{}'", name, documentIdPrefix);
+      return agent.document().upsertOneDocumentToEachVbucket(name, documentIdPrefix);
     }
 
-    protected RemoteAgent.StreamBuilder newStreamer(String bucket) {
-        return agent.newStreamer(bucket);
+    @Override
+    public void close() throws IOException {
+      couchbase().deleteBucket(name);
     }
 
-    protected static void stop(GenericContainer first, GenericContainer... others) {
-        if (first != null) {
-            first.stop();
-        }
-        for (GenericContainer c : others) {
-            if (c != null) {
-                c.stop();
-            }
-        }
+    public RemoteAgent.StreamBuilder newStreamer() {
+      return agent.newStreamer(name);
     }
 
-    private static final AtomicLong bucketCounter = new AtomicLong();
-
-    protected BucketBuilder newBucket() {
-        return newBucket("test-" + bucketCounter.getAndIncrement());
+    public String name() {
+      return name;
     }
 
-    protected BucketBuilder newBucket(String name) {
-        return new BucketBuilder(name);
+    public void stopPersistence() {
+      couchbase().stopPersistence(name);
     }
 
-    protected static class BucketBuilder {
-        private final String name;
-        private int ramMb = 100;
-        private int replicas = 0;
-
-        public BucketBuilder(String name) {
-            this.name = requireNonNull(name);
-        }
-
-        public BucketBuilder ramMb(int ramMb) {
-            this.ramMb = ramMb;
-            return this;
-        }
-
-        public BucketBuilder replicas(int replicas) {
-            this.replicas = replicas;
-            return this;
-        }
-
-        public TestBucket create() {
-            couchbase().createBucket(name, ramMb, replicas, true);
-            return new TestBucket(name);
-        }
-
-        public TestBucket createWithoutWaiting() {
-            couchbase().createBucket(name, ramMb, replicas, false);
-            return new TestBucket(name);
-        }
+    public void startPersistence() {
+      couchbase().startPersistence(name);
     }
-
-    protected static class TestBucket implements Closeable {
-        private final String name;
-
-        public TestBucket(String name) {
-            this.name = requireNonNull(name);
-        }
-
-        protected Set<String> createOneDocumentInEachVbucket(String documentIdPrefix) {
-            log.info("Creating one document in each vbucket of bucket '{}' with ID prefix '{}'", name, documentIdPrefix);
-            return agent.document().upsertOneDocumentToEachVbucket(name, documentIdPrefix);
-        }
-
-        @Override
-        public void close() throws IOException {
-            couchbase().deleteBucket(name);
-        }
-
-        public RemoteAgent.StreamBuilder newStreamer() {
-            return agent.newStreamer(name);
-        }
-
-        public String name() {
-            return name;
-        }
-
-        public void stopPersistence() {
-            couchbase().stopPersistence(name);
-        }
-
-        public void startPersistence() {
-            couchbase().startPersistence(name);
-        }
-    }
+  }
 }

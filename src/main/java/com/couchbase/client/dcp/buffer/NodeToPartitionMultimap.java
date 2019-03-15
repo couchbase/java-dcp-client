@@ -33,50 +33,50 @@ import static java.util.Collections.unmodifiableList;
  */
 class NodeToPartitionMultimap {
 
-    private final Map<Integer, List<PartitionInstance>> nodeIndexToHostedPartitions =
-            new HashMap<>();
+  private final Map<Integer, List<PartitionInstance>> nodeIndexToHostedPartitions =
+      new HashMap<>();
 
-    NodeToPartitionMultimap(final CouchbaseBucketConfig bucketConfig) {
-        for (short partition = 0; partition < bucketConfig.numberOfPartitions(); partition++) {
-            put(bucketConfig.nodeIndexForMaster(partition, false), new PartitionInstance(partition, 0));
-            for (int r = 0; r < bucketConfig.numberOfReplicas(); r++) {
-                put(bucketConfig.nodeIndexForReplica(partition, r, false), new PartitionInstance(partition, r + 1));
-            }
-        }
-
-        freezeValues(nodeIndexToHostedPartitions);
+  NodeToPartitionMultimap(final CouchbaseBucketConfig bucketConfig) {
+    for (short partition = 0; partition < bucketConfig.numberOfPartitions(); partition++) {
+      put(bucketConfig.nodeIndexForMaster(partition, false), new PartitionInstance(partition, 0));
+      for (int r = 0; r < bucketConfig.numberOfReplicas(); r++) {
+        put(bucketConfig.nodeIndexForReplica(partition, r, false), new PartitionInstance(partition, r + 1));
+      }
     }
 
-    private static <K, V> void freezeValues(final Map<K, List<V>> map) {
-        for (Map.Entry<K, List<V>> entry : map.entrySet()) {
-            entry.setValue(unmodifiableList(entry.getValue()));
-        }
-    }
+    freezeValues(nodeIndexToHostedPartitions);
+  }
 
-    private void put(final int nodeIndex, final PartitionInstance partition) {
-        List<PartitionInstance> hostedPartitions = nodeIndexToHostedPartitions.computeIfAbsent(nodeIndex, k -> new ArrayList<>(4));
-        hostedPartitions.add(partition);
+  private static <K, V> void freezeValues(final Map<K, List<V>> map) {
+    for (Map.Entry<K, List<V>> entry : map.entrySet()) {
+      entry.setValue(unmodifiableList(entry.getValue()));
     }
+  }
 
-    List<PartitionInstance> get(final int nodeIndex) {
-        return nodeIndexToHostedPartitions.getOrDefault(nodeIndex, emptyList());
-    }
+  private void put(final int nodeIndex, final PartitionInstance partition) {
+    List<PartitionInstance> hostedPartitions = nodeIndexToHostedPartitions.computeIfAbsent(nodeIndex, k -> new ArrayList<>(4));
+    hostedPartitions.add(partition);
+  }
 
-    /**
-     * Returns the partition instances whose node indexes are < 0.
-     */
-    List<PartitionInstance> getAbsent() {
-        List<PartitionInstance> absentPartitions = new ArrayList<>();
-        for (Map.Entry<Integer, List<PartitionInstance>> e : nodeIndexToHostedPartitions.entrySet()) {
-            if (e.getKey() < 0) {
-                absentPartitions.addAll(e.getValue());
-            }
-        }
-        return absentPartitions;
-    }
+  List<PartitionInstance> get(final int nodeIndex) {
+    return nodeIndexToHostedPartitions.getOrDefault(nodeIndex, emptyList());
+  }
 
-    @Override
-    public String toString() {
-        return nodeIndexToHostedPartitions.toString();
+  /**
+   * Returns the partition instances whose node indexes are < 0.
+   */
+  List<PartitionInstance> getAbsent() {
+    List<PartitionInstance> absentPartitions = new ArrayList<>();
+    for (Map.Entry<Integer, List<PartitionInstance>> e : nodeIndexToHostedPartitions.entrySet()) {
+      if (e.getKey() < 0) {
+        absentPartitions.addAll(e.getValue());
+      }
     }
+    return absentPartitions;
+  }
+
+  @Override
+  public String toString() {
+    return nodeIndexToHostedPartitions.toString();
+  }
 }

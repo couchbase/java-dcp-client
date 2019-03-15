@@ -20,23 +20,23 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import static com.couchbase.client.dcp.message.MessageUtil.SASL_LIST_MECHS_OPCODE;
 
 public enum SaslListMechsResponse {
-    ;
+  ;
 
-    /**
-     * If the given buffer is a {@link SaslListMechsResponse} message.
-     */
-    public static boolean is(final ByteBuf buffer) {
-        return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == SASL_LIST_MECHS_OPCODE;
-    }
+  /**
+   * If the given buffer is a {@link SaslListMechsResponse} message.
+   */
+  public static boolean is(final ByteBuf buffer) {
+    return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == SASL_LIST_MECHS_OPCODE;
+  }
 
-    /**
-     * Extracts the supported SASL mechanisms as a string array.
-     *
-     * @param buffer the buffer to extract from.
-     * @return the array of supported mechs, or an empty array if none found.
-     */
-    public static String[] supportedMechs(final ByteBuf buffer) {
-        String spaceDelimitedMechanisms = MessageUtil.getContentAsString(buffer);
-        return spaceDelimitedMechanisms.isEmpty() ? new String[0] : spaceDelimitedMechanisms.split(" ");
-    }
+  /**
+   * Extracts the supported SASL mechanisms as a string array.
+   *
+   * @param buffer the buffer to extract from.
+   * @return the array of supported mechs, or an empty array if none found.
+   */
+  public static String[] supportedMechs(final ByteBuf buffer) {
+    String spaceDelimitedMechanisms = MessageUtil.getContentAsString(buffer);
+    return spaceDelimitedMechanisms.isEmpty() ? new String[0] : spaceDelimitedMechanisms.split(" ");
+  }
 }
