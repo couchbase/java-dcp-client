@@ -38,9 +38,8 @@ public class FailoverIntegrationTest extends DcpIntegrationTestBase {
     @Test
     public void failover() throws Exception {
         final TestBucket bucket = newBucket().replicas(1).create();
-        final int batchSize = 3000;
 
-        bucket.createDocuments(batchSize, "a");
+        final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
         try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
             streamer.assertMutationCount(batchSize);
@@ -48,7 +47,7 @@ public class FailoverIntegrationTest extends DcpIntegrationTestBase {
             secondNode.failover();
             couchbase().rebalance();
 
-            bucket.createDocuments(batchSize, "b");
+            bucket.createOneDocumentInEachVbucket("b");
             streamer.assertMutationCount(batchSize * 2);
         }
     }

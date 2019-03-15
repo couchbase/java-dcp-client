@@ -18,28 +18,36 @@ package com.couchbase.client.dcp.test.agent;
 
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.CouchbaseCluster;
+import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.RawJsonDocument;
+import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.DocumentDoesNotExistException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import static com.couchbase.client.dcp.test.util.IntegrationTestHelper.forceKeyToPartition;
+import static com.couchbase.client.dcp.test.util.IntegrationTestHelper.upsertWithRetry;
+import static com.couchbase.client.dcp.test.util.IntegrationTestHelper.validateJson;
 import static java.util.Objects.requireNonNull;
 
 @Service
 public class DocumentServiceImpl implements DocumentService {
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentServiceImpl.class);
 
     private final CouchbaseCluster cluster;
+    private final StreamerService streamerService;
+    volatile int cachedPartitionCount;
 
     @Autowired
-    public DocumentServiceImpl(CouchbaseCluster cluster) {
+    public DocumentServiceImpl(CouchbaseCluster cluster, StreamerService streamerService) {
         this.cluster = requireNonNull(cluster);
+        this.streamerService = requireNonNull(streamerService);
     }
 
     @Override
@@ -49,18 +57,30 @@ public class DocumentServiceImpl implements DocumentService {
                 .upsert(RawJsonDocument.create(documentId, validateJson(documentBodyJson)));
     }
 
-    private static String validateJson(String json) {
-        try {
-            try (JsonParser jp = objectMapper.getFactory().createParser(json)) {
-                objectMapper.readTree(jp);
-                if (jp.nextToken() != null) {
-                    throw new IllegalArgumentException("JSON syntax error; trailing garbage detected");
-                }
-                return json;
+    @Override
+    public Set<String> upsertOneDocumentToEachVbucket(String bucket, String documentIdPrefix) {
+        final Bucket b = cluster.openBucket(bucket);
+        final Set<String> ids = new HashSet<>();
+
+        final int partitionCount = getNumberOfPartitions(bucket);
+        for (int i = 0; i < partitionCount; i++) {
+            final int partition = i;
+            final String id = forceKeyToPartition(documentIdPrefix, partition, partitionCount)
+                    .orElseThrow(() -> new RuntimeException("Failed to force id " + documentIdPrefix + " to partition " + partition));
+            ids.add(id);
+            try {
+                upsertWithRetry(b, JsonDocument.create(id, JsonObject.create().put("id", id)));
+            } catch (Exception e) {
+                LOGGER.error("failed to upsert {}", id, e);
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new IllegalArgumentException(e);
         }
+
+        LOGGER.info("Upserted {} documents, one to each vbucket", ids.size());
+        if (ids.isEmpty()) {
+            throw new AssertionError("Didn't upsert any documents; bad partition count?");
+        }
+        return ids;
     }
 
     @Override
@@ -73,5 +93,13 @@ public class DocumentServiceImpl implements DocumentService {
             } catch (DocumentDoesNotExistException ignore) {
             }
         }
+    }
+
+    // assumes all buckets are configured with same number of partitions
+    private int getNumberOfPartitions(String bucket) {
+        if (cachedPartitionCount == 0) {
+            cachedPartitionCount = streamerService.getNumberOfPartitions(bucket);
+        }
+        return cachedPartitionCount;
     }
 }

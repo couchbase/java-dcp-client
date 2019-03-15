@@ -9,9 +9,7 @@ public class BasicRebalanceIntegrationTest extends DcpIntegrationTestBase {
         // Don't try to clean up the bucket, since the cluster will be broken
         // after the second node is stopped.
         final TestBucket bucket = newBucket().replicas(1).create();
-        final int batchSize = 1024;
-
-        bucket.createDocuments(batchSize, "a");
+        final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
         try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
             streamer.assertMutationCount(batchSize);
@@ -19,7 +17,7 @@ public class BasicRebalanceIntegrationTest extends DcpIntegrationTestBase {
 
             try (CouchbaseContainer secondNode = couchbase().addNode()) {
                 couchbase().rebalance();
-                bucket.createDocuments(batchSize, "b");
+                bucket.createOneDocumentInEachVbucket("b");
 
                 streamer.assertMutationCount(batchSize * 2);
                 assertStatus(streamer.status(), batchSize * 2, 0, 0);

@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.test.agent;
 import com.github.therapi.core.annotation.Remotable;
 
 import java.util.List;
+import java.util.Set;
 
 @Remotable("document")
 public interface DocumentService {
@@ -28,6 +29,13 @@ public interface DocumentService {
      * @param documentBodyJson Body to assign to the document.
      */
     void upsert(String bucket, String documentId, String documentBodyJson);
+
+    /**
+     * @param bucket Name of the bucket to upsert into.
+     * @param documentIdPrefix The prefix to use for ID generation.
+     * @return The IDs of the upserted documents.
+     */
+    Set<String> upsertOneDocumentToEachVbucket(String bucket, String documentIdPrefix);
 
     /**
      * Deletes documents if they exist, otherwise does nothing.

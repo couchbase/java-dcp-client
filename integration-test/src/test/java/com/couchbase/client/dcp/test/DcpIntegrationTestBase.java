@@ -23,10 +23,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
@@ -66,7 +68,8 @@ public abstract class DcpIntegrationTestBase {
     protected static AgentContainer startAgent(Network network) throws Exception {
         File appFile = new File("target/dcp-test-agent-0.1.0.jar");
 
-        AgentContainer agentContainer = new AgentContainer(appFile, AGENT_UI_PORT).withNetwork(network);
+        AgentContainer agentContainer = new AgentContainer(appFile, AGENT_UI_PORT).withNetwork(network)
+                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("container.agent")));
         agentContainer.start();
 
         return agentContainer;
@@ -148,16 +151,9 @@ public abstract class DcpIntegrationTestBase {
             this.name = requireNonNull(name);
         }
 
-        protected void createDocuments(int count, String documentIdPrefix) {
-            log.info("Creating {} documents in bucket '{}' with ID prefix '{}'", count, name, documentIdPrefix);
-            for (int i = 0; i < count; i++) {
-                final String id = documentIdPrefix + "-" + i;
-                agent.document().upsert(name, id, "{\"id\":\"" + id + "\"}");
-            }
-        }
-
-        protected void createDocuments(int count) {
-            createDocuments(count, "document");
+        protected Set<String> createOneDocumentInEachVbucket(String documentIdPrefix) {
+            log.info("Creating one document in each vbucket of bucket '{}' with ID prefix '{}'", name, documentIdPrefix);
+            return agent.document().upsertOneDocumentToEachVbucket(name, documentIdPrefix);
         }
 
         @Override
