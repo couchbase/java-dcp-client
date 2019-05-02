@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.state.json;
 
+import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
@@ -24,6 +25,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
+import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
 public class SessionStateSerializerTest {
@@ -34,7 +36,8 @@ public class SessionStateSerializerTest {
     // Populate a session state with dummy data for a single partition
     SessionState sessionState = new SessionState();
     PartitionState partitionState = new PartitionState();
-    partitionState.addToFailoverLog(5, 12345);
+    partitionState.setFailoverLog(singletonList(
+        new FailoverLogEntry(5, 12345)));
     partitionState.setStartSeqno(1);
     partitionState.setEndSeqno(1000);
     partitionState.setSnapshotStartSeqno(2);
