@@ -31,6 +31,7 @@ import rx.schedulers.Schedulers;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +43,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   private final ConfigProvider configProvider;
   private final DcpOps dcpOps;
   private final PersistedSeqnos persistedSeqnos;
+  private final AtomicBoolean loggedClosureWarning = new AtomicBoolean();
 
   private Subscription configSubscription;
 
@@ -105,14 +107,10 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
             .subscribe(failoverLog -> {
               long vbuuid = failoverLog.getCurrentVbuuid();
               observeAndRepeat(ctx, pas, vbuuid, groupId);
-            }, throwable -> {
-              LOGGER.warn("Failed to fetch failover log for {}. Closing channel.", pas, throwable);
-              ctx.close();
-            });
+            }, throwable -> logWarningAndClose(ctx, "Failed to fetch failover log for {}.", pas, throwable));
       }
     } catch (Throwable t) {
-      LOGGER.error("Failed to reconfigure persistence poller; closing channel.", t);
-      ctx.close();
+      logWarningAndClose(ctx, "Failed to reconfigure persistence poller.", t);
     }
   }
 
@@ -130,8 +128,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
           env.persistencePollingIntervalMillis() * intervalMultiplier, TimeUnit.MILLISECONDS);
 
     } catch (Throwable t) {
-      LOGGER.error("Failed to schedule observeSeqno. Closing channel.", t);
-      ctx.close();
+      logWarningAndClose(ctx, "Failed to schedule observeSeqno.", t);
     }
   }
 
@@ -161,8 +158,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
           scheduleObserveAndRepeat(ctx, partitionInstance, newVbuuid, groupId, 1);
 
         } catch (Throwable t) {
-          LOGGER.error("Fatal error. Closing channel.", t);
-          ctx.close();
+          logWarningAndClose(ctx, "Fatal error in observeAndRepeat handling observeSeqno response.", t);
         }
       }
 
@@ -182,14 +178,21 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
             // schedule with an extended delay
             scheduleObserveAndRepeat(ctx, partitionInstance, vbuuid, groupId, 10);
           } else {
-            LOGGER.error("observeSeqno failed with status code " + e.status() + " ; Closing channel.");
-            ctx.close();
+            logWarningAndClose(ctx, "observeSeqno failed with status code " + e.status());
           }
         } else {
-          LOGGER.error("observeSeqno failed. Closing channel.", t);
-          ctx.close();
+          logWarningAndClose(ctx, "observeSeqno failed.", t);
         }
       }
     });
+  }
+
+  private void logWarningAndClose(ChannelHandlerContext ctx, String msg, Object... params) {
+    if (loggedClosureWarning.compareAndSet(false, true)) {
+      LOGGER.warn("Closing channel; " + msg, params);
+      ctx.close();
+    } else {
+      LOGGER.trace("Closing channel; " + msg, params);
+    }
   }
 }
