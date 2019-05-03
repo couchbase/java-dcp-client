@@ -39,6 +39,7 @@ import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
 import com.couchbase.client.dcp.transport.netty.DcpPipeline;
 import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.dcp.transport.netty.DcpResponseListener;
+import com.couchbase.client.dcp.util.AdaptiveDelay;
 import com.couchbase.client.dcp.util.AtomicBooleanArray;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -62,6 +63,7 @@ import rx.functions.Action4;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
@@ -70,6 +72,7 @@ import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Logical representation of a DCP cluster connection.
@@ -98,6 +101,15 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   private volatile boolean isShutdown;
   private volatile Channel channel;
   private volatile ChannelFuture connectFuture;
+
+  /**
+   * Limits how frequently the client may attempt to reconnect after a successful connection.
+   * Prevents tight reconnect loops if the connection is immediately closed by
+   * {@link com.couchbase.client.dcp.buffer.PersistencePollingHandler}.
+   */
+  private final AdaptiveDelay reconnectDelay = new AdaptiveDelay(
+      Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32),
+      Duration.ofSeconds(10));
 
   final ClientEnvironment env;
   final InetSocketAddress inetAddress;
@@ -224,14 +236,21 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     }
     LOGGER.info("Node {} socket closed, initiating reconnect.", system(inetAddress));
 
-    connect()
-        .retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32))
+    final long delayMillis = reconnectDelay.calculate().toMillis();
+    if (delayMillis > 0) {
+      LOGGER.info("Delaying reconnection attempt by {}ms", delayMillis);
+    }
+
+    // Always start with timer even if delay is zero; that way the scheduler executing the rest of the flow is the same
+    // regardless of whether the reconnect attempt was delayed. One less thing to think about when debugging.
+    Completable.timer(delayMillis, MILLISECONDS).andThen(
+        connect().retryWhen(any().max(Integer.MAX_VALUE).delay(Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32))
             .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
               @Override
               public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
                 LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", inetAddress);
               }
-            }).build())
+            }).build()))
         .subscribe(new CompletableSubscriber() {
           @Override
           public void onCompleted() {
