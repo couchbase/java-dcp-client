@@ -18,8 +18,8 @@
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
 
-        <!-- When deploying, don't promote artifacts from staging repository unless 'release' profile is active -->
-        <autoReleaseAfterClose>false</autoReleaseAfterClose>
+        <!-- When deploying, automatically promote artifacts from staging repository -->
+        <autoReleaseAfterClose>true</autoReleaseAfterClose>
     </properties>
 
     <name>Couchbase Java DCP Client</name>
@@ -240,16 +240,73 @@
     <profiles>
         <profile>
             <id>release</id>
+            <activation>
+                <property>
+                    <name>release</name>
+                </property>
+            </activation>
             <properties>
                 <gpg.skip>false</gpg.skip>
-                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.0.0-M2</version>
+                        <executions>
+                            <execution>
+                                <id>enforce-release</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireReleaseVersion>
+                                            <message>Not a release version (remove -SNAPSHOT suffix!)</message>
+                                        </requireReleaseVersion>
+                                        <requireReleaseDeps>
+                                            <message>Can't release with snapshot dependencies!</message>
+                                        </requireReleaseDeps>
+                                    </rules>
+                                    <fail>true</fail>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
         <profile>
-            <id>stage</id>
+            <id>snapshot</id>
             <properties>
                 <gpg.skip>false</gpg.skip>
             </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.0.0-M2</version>
+                        <executions>
+                            <execution>
+                                <id>enforce-no-releases</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireSnapshotVersion>
+                                            <message>Not a snapshot version</message>
+                                        </requireSnapshotVersion>
+                                    </rules>
+                                    <fail>true</fail>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

@@ -16,7 +16,7 @@ to a public keyserver. For bonus points, have a few co-workers sign your key.
 (replace `DEADBEEF` with the id of your PGP key).
 * A Sonatype account authorized to publish to the `com.couchbase` namespace.
 * A `~/.m2/settings.xml` file with a
-[User Token](http://blog.sonatype.com/2012/08/securing-repository-credentials-with-nexus-pro-user-tokens/).
+[User Token](https://blog.sonatype.com/2012/08/securing-repository-credentials-with-nexus-pro-user-tokens/).
 To generate a token, go to https://oss.sonatype.org and log in with your Sonatype account.
 Click on your username (upper right) and select "Profile". From the drop-down menu,
 select "User Token". Press "Access User Token" to see a snippet of XML with server credentials.
@@ -75,10 +75,10 @@ Here it is, the moment of truth. When you're ready to deploy to the Maven Centra
     mvn clean deploy -Prelease
 
 Alternatively, if you prefer to inspect the staging repository and
-[complete the release manually](http://central.sonatype.org/pages/releasing-the-deployment.html),
-you can use the `stage` profile instead of the `release` profile:
+[complete the release manually](https://central.sonatype.org/pages/releasing-the-deployment.html),
+set this additional property:
 
-    mvn clean deploy -Pstage
+    mvn clean deploy -Prelease -DautoReleaseAfterClose=false
 
 Remember, you can add `-DskipITs` to either command to skip integration tests if appropriate.
 
@@ -100,7 +100,7 @@ Commit and push to Gerrit. Breathe in. Breathe out.
 
 After every passing nightly build, a snapshot should be published to the Sonatype OSS snapshot repository by running this command:
 
-    mvn clean deploy -Pstage
+    mvn clean deploy -Psnapshot
 
 ## Troubleshooting
 
