@@ -65,6 +65,11 @@
             <name>Sergey Avseyev</name>
             <email>sergey@couchbase.com</email>
         </developer>
+        <developer>
+            <id>dnault</id>
+            <name>David Nault</name>
+            <email>david.nault@couchbase.com</email>
+        </developer>
     </developers>
 
     <dependencies>
