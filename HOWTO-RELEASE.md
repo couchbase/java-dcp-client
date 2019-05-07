@@ -49,7 +49,7 @@ When you're satisfied with the test results, it's time to...
 
 ## Bump the project version number
 
-1. Edit `pom.xml` and remove the `-SNAPSHOT` prefix from the version string.
+1. Edit `pom.xml` and remove the `-SNAPSHOT` suffix from the version string.
 2. Edit `integration-test/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
 3. Edit `README.md` and bump the version numbers. There may be references to
 the next snapshot release, so remember to edit those too.
@@ -96,14 +96,17 @@ Update the `dcp.client.version` property in `integration-test/pom.xml` to refer 
 new snapshot version.
 Commit and push to Gerrit. Breathe in. Breathe out.
 
+## Publishing a snapshot
+
+After every passing nightly build, a snapshot should be published to the Sonatype OSS snapshot repository by running this command:
+
+    mvn clean deploy -Pstage
+
 ## Troubleshooting
 
 * Take another look at the Prerequisites section. Did you miss anything?
 * [This gist](https://gist.github.com/danieleggert/b029d44d4a54b328c0bac65d46ba4c65) has
 some tips for making git and gpg play nice together.
-* If you see `Deployment failed: repository element was not specified in the POM inside distributionManagement element`
-it probably means you forgot to remove the `-SNAPSHOT` suffix from the version,
-and Maven is complaining because there's no repository configured for snapshots.
 * If deployment fails because the artifacts are missing PGP signatures, make sure your Maven
 command line includes `-Prelease` (or `-Pstage`) when running `mvn deploy`.
 Note that this is a *profile* so it's specified with `-P`.
