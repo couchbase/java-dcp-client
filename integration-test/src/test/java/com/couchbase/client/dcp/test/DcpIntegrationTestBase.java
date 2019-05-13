@@ -28,6 +28,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -36,8 +37,6 @@ import static org.junit.Assert.assertEquals;
 
 public abstract class DcpIntegrationTestBase {
   private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
-
-  private static final String COUCHBASE_DOCKER_IMAGE = "couchbase/server:5.5.0";
 
   // Use dynamic ports in CI environment to avoid port conflicts
   private static final boolean DYNAMIC_PORTS = System.getenv("JENKINS_URL") != null;
@@ -55,7 +54,9 @@ public abstract class DcpIntegrationTestBase {
   @BeforeClass
   public static void setup() throws Exception {
     final Network network = Network.builder().id("dcp-test-network").build();
-    couchbase = CouchbaseContainer.newCluster(COUCHBASE_DOCKER_IMAGE, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
+    final String couchbaseVersion = Optional.ofNullable(System.getenv("COUCHBASE")).orElse("6.0.1");
+    final String dockerImage = "couchbase/server:" + couchbaseVersion;
+    couchbase = CouchbaseContainer.newCluster(dockerImage, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
     agentContainer = startAgent(network);
     agent = new RemoteAgent(agentContainer);
   }
