@@ -38,8 +38,10 @@ import static org.junit.Assert.assertEquals;
 public abstract class DcpIntegrationTestBase {
   private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
 
+  private static final boolean runningInJenkins = System.getenv("JENKINS_URL") != null;
+
   // Use dynamic ports in CI environment to avoid port conflicts
-  private static final boolean DYNAMIC_PORTS = System.getenv("JENKINS_URL") != null;
+  private static final boolean DYNAMIC_PORTS = runningInJenkins;
 
   // Supply a non-zero value to use a fixed port for Couchbase web UI.
   private static final int HOST_COUCHBASE_UI_PORT = DYNAMIC_PORTS ? 0 : 8891;
@@ -54,7 +56,16 @@ public abstract class DcpIntegrationTestBase {
   @BeforeClass
   public static void setup() throws Exception {
     final Network network = Network.builder().id("dcp-test-network").build();
-    final String couchbaseVersion = Optional.ofNullable(System.getenv("COUCHBASE")).orElse("6.0.1");
+    final String couchbaseVersionEnvar = "COUCHBASE";
+    String couchbaseVersion = System.getenv(couchbaseVersionEnvar);
+    if (couchbaseVersion == null) {
+      if (runningInJenkins) {
+        throw new RuntimeException("Environment variable " + couchbaseVersionEnvar + " must be set when running in Jenkins." +
+            " Value should be the version of the 'couchbase/server' docker image to test against.");
+      } else {
+        couchbaseVersion = "6.0.1";
+      }
+    }
     final String dockerImage = "couchbase/server:" + couchbaseVersion;
     couchbase = CouchbaseContainer.newCluster(dockerImage, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
     agentContainer = startAgent(network);
