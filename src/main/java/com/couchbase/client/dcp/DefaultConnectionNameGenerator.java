@@ -66,16 +66,23 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
     // The JSON form of the user agent string may use no more than 202 of the maximum key size of 250 bytes.
     // That's 200 bytes for the user agent (including any JSON escape chars) and 2 bytes for the enclosing quotes.
     // We can assume 1 byte per character, since the User Agent builder only outputs ASCII characters.
-    this.userAgent = truncateAsJson(userAgentBuilder.build(), 202);
+    //
+    // HOWEVER! Let's work around a bug Couchbase Server 6.0.0 (and possibly other versions) where rebalance fails
+    // if the name is too long (see JDCP-126). We don't really *need* the Java and OS info anyway.
+    final boolean WORKAROUND_CBSE_6804 = true;
+    final int userAgentMaxLength = WORKAROUND_CBSE_6804 ? 102 : 202;
+    this.userAgent = truncateAsJson(userAgentBuilder.build(), userAgentMaxLength);
   }
 
   @Override
   public String name() {
     final String connectionId = paddedHex(randomLong());
 
+    // Output the connection ID first so it's more likely to be retained
+    // if someone needs to truncate the name for whatever reason.
     final Map<String, String> name = new LinkedHashMap<>();
-    name.put("a", userAgent);
     name.put("i", clientId + "/" + connectionId);
+    name.put("a", userAgent);
 
     try {
       return DefaultObjectMapper.writeValueAsString(name);
