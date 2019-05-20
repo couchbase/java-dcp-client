@@ -18,11 +18,6 @@
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
 
-        <!-- Read signing configuration from environment -->
-        <gpg.keyname>${env.GPG_KEYNAME}</gpg.keyname>
-        <gpg.secretKeyring>${env.GPG_SECRET_KEYRING}</gpg.secretKeyring>
-        <gpg.defaultKeyring>false</gpg.defaultKeyring>
-
         <!-- When deploying, automatically promote artifacts from staging repository -->
         <autoReleaseAfterClose>true</autoReleaseAfterClose>
     </properties>
@@ -219,8 +214,6 @@
                             <goal>sign</goal>
                         </goals>
                         <configuration>
-                            <keyname>${gpg.keyname}</keyname>
-                            <passphraseServerId>${gpg.keyname}</passphraseServerId>
                             <gpgArguments>
                                 <!-- Bypass gpg agent -->
                                 <arg>--pinentry-mode</arg>
