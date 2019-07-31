@@ -102,7 +102,7 @@ public class BucketConfigHelper {
 
   public InetSocketAddress getAddress(final NodeInfo node) {
     int port = getServicePortMap(node).get(ServiceType.BINARY);
-    return new InetSocketAddress(node.rawHostname(), port);
+    return new InetSocketAddress(node.hostname(), port);
   }
 
   private Map<ServiceType, Integer> getServicePortMap(final NodeInfo node) {

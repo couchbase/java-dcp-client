@@ -43,10 +43,11 @@ import rx.Scheduler;
 import rx.Subscriber;
 import rx.Subscription;
 
-import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * The {@link ClientEnvironment} is responsible to carry various configuration and
@@ -70,7 +71,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   /**
    * Stores the list of bootstrap nodes (where the cluster is).
    */
-  private final List<InetSocketAddress> clusterAt;
+  private final List<HostAndPort> clusterAt;
 
   /**
    * Stores the generator for each DCP connection name.
@@ -240,7 +241,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   /**
    * Lists the bootstrap nodes.
    */
-  public List<InetSocketAddress> clusterAt() {
+  public List<HostAndPort> clusterAt() {
     return clusterAt;
   }
 
@@ -486,7 +487,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   }
 
   public static class Builder {
-    private List<InetSocketAddress> clusterAt;
+    private List<HostAndPort> clusterAt;
     private ConnectionNameGenerator connectionNameGenerator;
     private String bucket;
     private CredentialsProvider credentialsProvider;
@@ -512,8 +513,8 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     private KeyStore sslKeystore;
     private long persistencePollingIntervalMillis;
 
-    public Builder setClusterAt(List<InetSocketAddress> clusterAt) {
-      this.clusterAt = clusterAt;
+    public Builder setClusterAt(List<HostAndPort> clusterAt) {
+      this.clusterAt = requireNonNull(clusterAt);
       return this;
     }
 
@@ -671,9 +672,9 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     public ClientEnvironment build() {
       int defaultConfigPort = sslEnabled ? bootstrapHttpSslPort : bootstrapHttpDirectPort;
       for (int i = 0; i < clusterAt.size(); i++) {
-        InetSocketAddress node = clusterAt.get(i);
-        if (node.getPort() == 0) {
-          clusterAt.set(i, new InetSocketAddress(node.getHostName(), defaultConfigPort));
+        HostAndPort node = clusterAt.get(i);
+        if (node.port() == 0) {
+          clusterAt.set(i, node.withPort(defaultConfigPort));
         }
       }
       return new ClientEnvironment(this);

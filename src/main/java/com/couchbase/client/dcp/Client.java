@@ -25,6 +25,7 @@ import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
@@ -50,15 +51,16 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
-import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.couchbase.client.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static java.util.Collections.singletonList;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -757,7 +759,7 @@ public class Client {
    * Builder object to customize the {@link Client} creation.
    */
   public static class Builder {
-    private List<InetSocketAddress> clusterAt = Arrays.asList(InetSocketAddress.createUnresolved("127.0.0.1", 0));
+    private List<HostAndPort> clusterAt = singletonList(new HostAndPort("127.0.0.1", 0));
     private EventLoopGroup eventLoopGroup;
     private String bucket = "default";
     private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
@@ -802,7 +804,7 @@ public class Client {
      * @return this {@link Builder} for nice chainability.
      */
     public Builder hostnames(final List<String> hostnames) {
-      this.clusterAt = ConnectionString.fromHostnames(hostnames).hosts();
+      this.clusterAt = getSeedNodes(ConnectionString.fromHostnames(hostnames));
       return this;
     }
 
@@ -828,9 +830,14 @@ public class Client {
      * @return this {@link Builder} for nice chainability.
      */
     public Builder connectionString(String connectionString) {
-      ConnectionString cs = ConnectionString.create(connectionString);
-      this.clusterAt = cs.hosts();
+      this.clusterAt = getSeedNodes(ConnectionString.create(connectionString));
       return this;
+    }
+
+    private static List<HostAndPort> getSeedNodes(ConnectionString cs) {
+      return cs.hosts().stream()
+          .map(s -> new HostAndPort(s.hostname(), s.port()))
+          .collect(Collectors.toList());
     }
 
     /**

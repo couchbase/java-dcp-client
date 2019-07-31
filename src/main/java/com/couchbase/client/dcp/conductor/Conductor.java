@@ -211,7 +211,7 @@ public class Conductor {
     int index = config.nodeIndexForMaster(partition, false);
     NodeInfo node = config.nodeAtIndex(index);
     int port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY);
-    InetSocketAddress address = new InetSocketAddress(node.hostname().nameOrAddress(), port);
+    InetSocketAddress address = new InetSocketAddress(node.hostname(), port);
     for (DcpChannel ch : channels) {
       if (ch.address().equals(address)) {
         return ch;

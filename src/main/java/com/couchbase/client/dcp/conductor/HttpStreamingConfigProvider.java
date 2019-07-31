@@ -23,6 +23,7 @@ import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
@@ -58,7 +59,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
   private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HttpStreamingConfigProvider.class);
 
-  private final AtomicReference<List<InetSocketAddress>> remoteHosts;
+  private final AtomicReference<List<HostAndPort>> remoteHosts;
   private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
   private final AtomicLong currentBucketConfigRev = new AtomicLong(-1);
   private volatile boolean stopped = false;
@@ -84,10 +85,10 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
 
       @Override
       public void onNext(CouchbaseBucketConfig config) {
-        List<InetSocketAddress> newNodes = new ArrayList<>();
+        List<HostAndPort> newNodes = new ArrayList<>();
         for (NodeInfo node : config.nodes()) {
           Integer port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.CONFIG);
-          newNodes.add(new InetSocketAddress(node.rawHostname(), port));
+          newNodes.add(new HostAndPort(node.hostname(), port));
         }
 
         LOGGER.trace("Updated config stream node list to {}.", newNodes);
@@ -145,10 +146,10 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
     }
 
     transitionState(LifecycleState.CONNECTING);
-    List<InetSocketAddress> hosts = remoteHosts.get();
+    List<HostAndPort> hosts = remoteHosts.get();
     Completable chain = tryConnectHost(hosts.get(0));
     for (int i = 1; i < hosts.size(); i++) {
-      final InetSocketAddress h = hosts.get(i);
+      final HostAndPort h = hosts.get(i);
       chain = chain.onErrorResumeNext(throwable -> {
         LOGGER.warn("Could not get config from Node, trying next in list.", throwable);
         return tryConnectHost(h);
@@ -157,9 +158,10 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
     return chain;
   }
 
-  private Completable tryConnectHost(final InetSocketAddress address) {
+  private Completable tryConnectHost(final HostAndPort hostAndPort) {
     ByteBufAllocator allocator = env.poolBuffers()
         ? PooledByteBufAllocator.DEFAULT : UnpooledByteBufAllocator.DEFAULT;
+    final InetSocketAddress address = hostAndPort.toAddress();
     final Bootstrap bootstrap = new Bootstrap()
         .remoteAddress(address)
         .option(ChannelOption.ALLOCATOR, allocator)
