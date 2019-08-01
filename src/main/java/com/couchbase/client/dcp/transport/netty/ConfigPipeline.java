@@ -15,11 +15,11 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.CredentialsProvider;
+import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.deps.io.netty.channel.Channel;
@@ -65,7 +65,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
   /**
    * The config stream where the configs are emitted into.
    */
-  private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+  private final Subject<DcpBucketConfig, DcpBucketConfig> configStream;
 
   /**
    * The revision of the last config emitted. Only emit a config
@@ -83,7 +83,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
    * @param configStream config stream where to send the configs.
    */
   public ConfigPipeline(final ClientEnvironment environment, final InetSocketAddress address,
-                        final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
+                        final Subject<DcpBucketConfig, DcpBucketConfig> configStream,
                         final AtomicLong currentBucketConfigRev) {
     this.address = address;
     this.bucket = environment.bucket();

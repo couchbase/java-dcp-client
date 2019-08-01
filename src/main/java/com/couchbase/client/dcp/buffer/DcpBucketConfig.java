@@ -16,37 +16,50 @@
 
 package com.couchbase.client.dcp.buffer;
 
+import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.core.config.AlternateAddress;
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
+import com.couchbase.client.core.config.DefaultNodeInfo;
 import com.couchbase.client.core.config.NodeInfo;
-import com.couchbase.client.core.logging.RedactableArgument;
 import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.dcp.config.HostAndPort;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
+import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public class BucketConfigHelper {
+/**
+ * A wrapper around a {@link CouchbaseBucketConfig} that automatically resolves alternate addresses
+ * and analyzes the partition map to support persistence polling.
+ */
+public class DcpBucketConfig {
   private final boolean sslEnabled;
   private final CouchbaseBucketConfig config;
   private final NodeToPartitionMultimap map;
   private final List<NodeInfo> dataNodesWithAnyPartitions;
   private final List<NodeInfo> dataNodesWithActivePartitions;
+  private final List<NodeInfo> allNodes;
 
-  public BucketConfigHelper(final CouchbaseBucketConfig config, final boolean sslEnabled) {
+  public DcpBucketConfig(final CouchbaseBucketConfig config, final boolean sslEnabled) {
     this.config = requireNonNull(config);
     this.sslEnabled = sslEnabled;
     this.map = new NodeToPartitionMultimap(config);
+    this.allNodes = resolveAlternateAddresses(config);
 
     final List<NodeInfo> active = new ArrayList<>();
     final List<NodeInfo> activeOrReplica = new ArrayList<>();
 
-    for (int i = 0, len = config.nodes().size(); i < len; i++) {
-      final NodeInfo node = config.nodes().get(i);
+    for (int i = 0, len = allNodes.size(); i < len; i++) {
+      final NodeInfo node = allNodes.get(i);
       final boolean hasAnyPartitions = !map.get(i).isEmpty();
 
       if (hasAnyPartitions) {
@@ -69,6 +82,43 @@ public class BucketConfigHelper {
     this.dataNodesWithActivePartitions = unmodifiableList(active);
   }
 
+  public long rev() {
+    return config.rev();
+  }
+
+  public int numberOfPartitions() {
+    return config.numberOfPartitions();
+  }
+
+  public List<NodeInfo> nodes() {
+    return allNodes;
+  }
+
+  private static List<NodeInfo> resolveAlternateAddresses(CouchbaseBucketConfig config) {
+    return config.nodes().stream()
+        .map(DcpBucketConfig::resolveAlternateAddress)
+        .collect(Collectors.toList());
+  }
+
+  private static NodeInfo resolveAlternateAddress(NodeInfo nodeInfo) {
+    final String networkName = nodeInfo.useAlternateNetwork();
+    if (networkName == null) {
+      return nodeInfo; // don't use alternate
+    }
+
+    final AlternateAddress alternate = nodeInfo.alternateAddresses().get(networkName);
+    if (alternate == null) {
+      throw new CouchbaseException("Node " + system(nodeInfo.hostname()) + " has no alternate hostname for network [" + networkName + "]");
+    }
+
+    final Map<ServiceType, Integer> services = new HashMap<>(nodeInfo.services());
+    final Map<ServiceType, Integer> sslServices = new HashMap<>(nodeInfo.sslServices());
+    services.putAll(alternate.services());
+    sslServices.putAll(alternate.sslServices());
+
+    return new DefaultNodeInfo(alternate.hostname(), services, sslServices, emptyMap());
+  }
+
   public List<PartitionInstance> getHostedPartitions(final InetSocketAddress nodeAddress) throws NoSuchElementException {
     int nodeIndex = getNodeIndex(nodeAddress);
     return map.get(nodeIndex);
@@ -87,13 +137,20 @@ public class BucketConfigHelper {
 
   public int getNodeIndex(final InetSocketAddress nodeAddress) throws NoSuchElementException {
     int nodeIndex = 0;
-    for (NodeInfo node : config.nodes()) {
+    for (NodeInfo node : nodes()) {
       if (nodeAddress.equals(getAddress(node))) {
         return nodeIndex;
       }
       nodeIndex++;
     }
-    throw new NoSuchElementException("Failed to locate " + RedactableArgument.system(nodeAddress) + " in bucket config.");
+    throw new NoSuchElementException("Failed to locate " + system(nodeAddress) + " in bucket config.");
+  }
+
+  public HostAndPort getMasterNodeKvAddress(int partition) {
+    final int index = config.nodeIndexForMaster(partition, false);
+    final NodeInfo node = nodes().get(index);
+    final int port = getServicePortMap(node).get(ServiceType.BINARY);
+    return new HostAndPort(node.hostname(), port);
   }
 
   public List<PartitionInstance> getAbsentPartitionInstances() {
@@ -111,5 +168,9 @@ public class BucketConfigHelper {
 
   private boolean hasBinaryService(final NodeInfo node) {
     return getServicePortMap(node).containsKey(ServiceType.BINARY);
+  }
+
+  public int numberOfReplicas() {
+    return config.numberOfReplicas();
   }
 }

@@ -15,15 +15,13 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
-import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
-import com.couchbase.client.dcp.buffer.BucketConfigHelper;
+import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
@@ -60,7 +58,7 @@ public class Conductor {
   private final Set<DcpChannel> channels = new ConcurrentSet<>();
   private volatile boolean stopped = true;
   private final ClientEnvironment env;
-  private final AtomicReference<CouchbaseBucketConfig> currentConfig = new AtomicReference<>();
+  private final AtomicReference<DcpBucketConfig> currentConfig = new AtomicReference<>();
   private final boolean ownsConfigProvider;
   private final SessionState sessionState = new SessionState();
 
@@ -132,8 +130,7 @@ public class Conductor {
    * Returns the total number of partitions.
    */
   public int numberOfPartitions() {
-    CouchbaseBucketConfig config = currentConfig.get();
-    return config.numberOfPartitions();
+    return currentConfig.get().numberOfPartitions();
   }
 
   public Observable<ByteBuf> getSeqnos() {
@@ -142,7 +139,6 @@ public class Conductor {
         .flatMap(this::getSeqnosForChannel);
   }
 
-  @SuppressWarnings("unchecked")
   private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
     return Observable
         .just(channel)
@@ -155,7 +151,6 @@ public class Conductor {
         );
   }
 
-  @SuppressWarnings("unchecked")
   public Single<ByteBuf> getFailoverLog(final short partition) {
     return Observable
         .just(partition)
@@ -169,7 +164,6 @@ public class Conductor {
         ).toSingle();
   }
 
-  @SuppressWarnings("unchecked")
   public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno,
                                              final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
     return Observable
@@ -207,11 +201,7 @@ public class Conductor {
    * mapping.
    */
   private DcpChannel masterChannelByPartition(short partition) {
-    CouchbaseBucketConfig config = currentConfig.get();
-    int index = config.nodeIndexForMaster(partition, false);
-    NodeInfo node = config.nodeAtIndex(index);
-    int port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.BINARY);
-    InetSocketAddress address = new InetSocketAddress(node.hostname(), port);
+    final InetSocketAddress address = currentConfig.get().getMasterNodeKvAddress(partition).toAddress();
     for (DcpChannel ch : channels) {
       if (ch.address().equals(address)) {
         return ch;
@@ -221,8 +211,7 @@ public class Conductor {
     throw new IllegalStateException("No DcpChannel found for partition " + partition);
   }
 
-  private void reconfigure(CouchbaseBucketConfig config) {
-    final BucketConfigHelper configHelper = new BucketConfigHelper(config, env.sslEnabled());
+  private void reconfigure(DcpBucketConfig configHelper) {
     final boolean onlyConnectToPrimaryPartition = !env.persistencePollingEnabled();
     final List<NodeInfo> nodes = configHelper.getDataNodes(onlyConnectToPrimaryPartition);
 
@@ -321,7 +310,6 @@ public class Conductor {
    *
    * @param partition the partition to move if needed
    */
-  @SuppressWarnings("unchecked")
   void maybeMovePartition(final short partition) {
     Observable
         .timer(50, TimeUnit.MILLISECONDS)

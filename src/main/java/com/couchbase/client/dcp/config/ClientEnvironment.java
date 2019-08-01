@@ -17,6 +17,7 @@ package com.couchbase.client.dcp.config;
 
 import com.couchbase.client.core.env.ConfigParserEnvironment;
 import com.couchbase.client.core.env.CoreScheduler;
+import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.env.resources.NoOpShutdownHook;
 import com.couchbase.client.core.env.resources.ShutdownHook;
 import com.couchbase.client.core.event.CouchbaseEvent;
@@ -72,6 +73,11 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
    * Stores the list of bootstrap nodes (where the cluster is).
    */
   private final List<HostAndPort> clusterAt;
+
+  /**
+   * Specifies which network to use if the cluster advertises alternate hostnames.
+   */
+  private final NetworkResolution networkResolution;
 
   /**
    * Stores the generator for each DCP connection name.
@@ -218,6 +224,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     sslKeystorePassword = builder.sslKeystorePassword;
     sslKeystore = builder.sslKeystore;
     clusterAt = builder.clusterAt;
+    networkResolution = builder.networkResolution;
     persistencePollingIntervalMillis = builder.persistencePollingIntervalMillis;
 
     if (persistencePollingIntervalMillis > 0) {
@@ -243,6 +250,13 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
    */
   public List<HostAndPort> clusterAt() {
     return clusterAt;
+  }
+
+  /**
+   * Returns the configured hostname selection strategy.
+   */
+  public NetworkResolution networkResolution() {
+    return networkResolution;
   }
 
   /**
@@ -488,6 +502,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
 
   public static class Builder {
     private List<HostAndPort> clusterAt;
+    private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private ConnectionNameGenerator connectionNameGenerator;
     private String bucket;
     private CredentialsProvider credentialsProvider;
@@ -515,6 +530,11 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
 
     public Builder setClusterAt(List<HostAndPort> clusterAt) {
       this.clusterAt = requireNonNull(clusterAt);
+      return this;
+    }
+
+    public Builder setNetworkResolution(NetworkResolution nr) {
+      this.networkResolution = requireNonNull(nr);
       return this;
     }
 

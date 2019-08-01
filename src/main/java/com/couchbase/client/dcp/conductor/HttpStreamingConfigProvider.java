@@ -15,13 +15,13 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.NodeInfo;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
+import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
@@ -60,7 +60,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
   private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HttpStreamingConfigProvider.class);
 
   private final AtomicReference<List<HostAndPort>> remoteHosts;
-  private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+  private final Subject<DcpBucketConfig, DcpBucketConfig> configStream;
   private final AtomicLong currentBucketConfigRev = new AtomicLong(-1);
   private volatile boolean stopped = false;
   private volatile Channel channel;
@@ -70,9 +70,9 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
     super(LifecycleState.DISCONNECTED);
     this.env = env;
     this.remoteHosts = new AtomicReference<>(env.clusterAt());
-    this.configStream = BehaviorSubject.<CouchbaseBucketConfig>create().toSerialized();
+    this.configStream = BehaviorSubject.<DcpBucketConfig>create().toSerialized();
 
-    configStream.subscribe(new Subscriber<CouchbaseBucketConfig>() {
+    configStream.subscribe(new Subscriber<DcpBucketConfig>() {
       @Override
       public void onCompleted() {
         LOGGER.debug("Config stream completed.");
@@ -84,7 +84,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
       }
 
       @Override
-      public void onNext(CouchbaseBucketConfig config) {
+      public void onNext(DcpBucketConfig config) {
         List<HostAndPort> newNodes = new ArrayList<>();
         for (NodeInfo node : config.nodes()) {
           Integer port = (env.sslEnabled() ? node.sslServices() : node.services()).get(ServiceType.CONFIG);
@@ -135,7 +135,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
   }
 
   @Override
-  public Observable<CouchbaseBucketConfig> configs() {
+  public Observable<DcpBucketConfig> configs() {
     return configStream;
   }
 

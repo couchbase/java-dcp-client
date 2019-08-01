@@ -15,9 +15,9 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.Stateful;
+import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import rx.Completable;
 import rx.Observable;
 
@@ -48,6 +48,6 @@ public interface ConfigProvider extends Stateful<LifecycleState> {
    * the server side. The revision number of each emitted config is guaranteed to be greater
    * than the revision number of the previously emitted config.
    */
-  Observable<CouchbaseBucketConfig> configs();
+  Observable<DcpBucketConfig> configs();
 
 }

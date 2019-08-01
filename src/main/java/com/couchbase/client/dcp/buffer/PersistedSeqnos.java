@@ -16,8 +16,6 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
-
 import java.util.Arrays;
 
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
@@ -147,7 +145,7 @@ public class PersistedSeqnos {
     partitionInfo[absentInstance.partition()].get(absentInstance.slot()).absent = true;
   }
 
-  public synchronized void reset(final CouchbaseBucketConfig bucketConfig) {
+  public synchronized void reset(final DcpBucketConfig bucketConfig) {
     reset(bucketConfig.numberOfPartitions(), bucketConfig.numberOfReplicas());
   }
 

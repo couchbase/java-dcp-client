@@ -17,10 +17,13 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
+import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.logging.RedactableArgument;
+import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
@@ -30,7 +33,12 @@ import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+
+import static com.couchbase.client.core.config.DefaultConfigurationProvider.determineNetworkResolution;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This handler is responsible to consume chunks of JSON configs via HTTP, aggregate them and once a complete
@@ -45,7 +53,7 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
   /**
    * The config stream where the configs are emitted into.
    */
-  private final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream;
+  private final Subject<DcpBucketConfig, DcpBucketConfig> configStream;
 
   /**
    * The revision of the last config emitted. Only emit a config
@@ -60,6 +68,10 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
    */
   private ByteBuf responseContent;
 
+  private boolean hasDeterminedAlternateNetworkName = false;
+
+  private String alternateNetworkName; // null means use primary
+
   /**
    * Creates a new config handler.
    *
@@ -68,12 +80,12 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
    * @param environment the environment.
    */
   ConfigHandler(
-      final Subject<CouchbaseBucketConfig, CouchbaseBucketConfig> configStream,
+      final Subject<DcpBucketConfig, DcpBucketConfig> configStream,
       final AtomicLong currentBucketConfigRev,
       final ClientEnvironment environment) {
-    this.configStream = configStream;
-    this.currentBucketConfigRev = currentBucketConfigRev;
-    this.environment = environment;
+    this.configStream = requireNonNull(configStream);
+    this.currentBucketConfigRev = requireNonNull(currentBucketConfigRev);
+    this.environment = requireNonNull(environment);
   }
 
   /**
@@ -107,9 +119,10 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
       CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, environment, origin);
       synchronized (currentBucketConfigRev) {
         if (config.rev() > currentBucketConfigRev.get()) {
+          selectAlternateNetwork(config);
           LOGGER.trace("Publishing bucket config: {}", RedactableArgument.system(rawConfig));
           currentBucketConfigRev.set(config.rev());
-          configStream.onNext(config);
+          configStream.onNext(new DcpBucketConfig(config, environment.sslEnabled()));
         } else {
           LOGGER.trace("Ignoring config, since rev has not changed.");
         }
@@ -118,6 +131,23 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
       responseContent.clear();
       responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(CharsetUtil.UTF_8));
     }
+  }
+
+  private void selectAlternateNetwork(CouchbaseBucketConfig config) {
+    if (!hasDeterminedAlternateNetworkName) {
+      final Set<String> seedHosts = environment.clusterAt().stream()
+          .map(HostAndPort::host)
+          .collect(Collectors.toSet());
+      alternateNetworkName = determineNetworkResolution(config, environment.networkResolution(), seedHosts);
+      hasDeterminedAlternateNetworkName = true;
+
+      String displayName = alternateNetworkName == null ? "<default>" : alternateNetworkName;
+      if (NetworkResolution.AUTO.equals(environment.networkResolution())) {
+        displayName = "auto -> " + displayName;
+      }
+      LOGGER.info("Selected network: {}", displayName);
+    }
+    config.useAlternateNetwork(alternateNetworkName);
   }
 
   /**

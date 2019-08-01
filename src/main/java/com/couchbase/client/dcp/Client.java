@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.event.EventBus;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
@@ -61,6 +62,7 @@ import java.util.stream.Collectors;
 import static com.couchbase.client.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.core.logging.RedactableArgument.system;
 import static java.util.Collections.singletonList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -101,6 +103,7 @@ public class Client {
 
     env = ClientEnvironment.builder()
         .setClusterAt(builder.clusterAt)
+        .setNetworkResolution(builder.networkResolution)
         .setConnectionNameGenerator(builder.connectionNameGenerator)
         .setBucket(builder.bucket)
         .setCredentialsProvider(builder.credentialsProvider)
@@ -760,6 +763,7 @@ public class Client {
    */
   public static class Builder {
     private List<HostAndPort> clusterAt = singletonList(new HostAndPort("127.0.0.1", 0));
+    private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private EventLoopGroup eventLoopGroup;
     private String bucket = "default";
     private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
@@ -838,6 +842,19 @@ public class Client {
       return cs.hosts().stream()
           .map(s -> new HostAndPort(s.hostname(), s.port()))
           .collect(Collectors.toList());
+    }
+
+    /**
+     * Network selection strategy for connecting to clusters whose nodes have alternate hostnames.
+     * This usually only matters if Couchbase is running in a containerized environment
+     * and you're connecting from outside that environment.
+     * <p>
+     * Defaults to {@link NetworkResolution#AUTO} which attempts to infer the correct network name
+     * by comparing the hostnames reported by Couchbase against the hostnames used to connect to the cluster.
+     */
+    public Builder networkResolution(NetworkResolution nr) {
+      this.networkResolution = requireNonNull(nr);
+      return this;
     }
 
     /**

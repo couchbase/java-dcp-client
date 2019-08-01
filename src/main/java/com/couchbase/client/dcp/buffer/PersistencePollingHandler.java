@@ -16,7 +16,6 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.logging.CouchbaseLogger;
 import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.NotConnectedException;
@@ -79,7 +78,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
         .subscribe(bucketConfig -> reconfigure(ctx, bucketConfig));
   }
 
-  private void reconfigure(final ChannelHandlerContext ctx, final CouchbaseBucketConfig bucketConfig) {
+  private void reconfigure(final ChannelHandlerContext ctx, final DcpBucketConfig bucketConfig) {
     LOGGER.debug("Reconfiguring persistence pollers.");
 
     // stops active group
@@ -90,14 +89,13 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
     LOGGER.debug("Starting persistence polling group {}", groupId);
 
     try {
-      final BucketConfigHelper bucketConfigHelper = new BucketConfigHelper(bucketConfig, env.sslEnabled());
-      for (PartitionInstance absentInstance : bucketConfigHelper.getAbsentPartitionInstances()) {
+      for (PartitionInstance absentInstance : bucketConfig.getAbsentPartitionInstances()) {
         LOGGER.debug("Partition instance {} is absent, will assume all seqnos persisted.", absentInstance);
         this.persistedSeqnos.markAsAbsent(absentInstance);
       }
 
       final InetSocketAddress nodeAddress = (InetSocketAddress) ctx.channel().remoteAddress();
-      final List<PartitionInstance> partitions = bucketConfigHelper.getHostedPartitions(nodeAddress);
+      final List<PartitionInstance> partitions = bucketConfig.getHostedPartitions(nodeAddress);
 
       LOGGER.debug("Node {} hosts partitions {}", nodeAddress, partitions);
 
