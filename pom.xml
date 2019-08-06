@@ -12,8 +12,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.8</java-compat.version>
-        <core.version>1.7.8-SNAPSHOT</core.version>
-        <client.version>2.7.8-SNAPSHOT</client.version>
+        <core.version>1.7.9</core.version>
+        <client.version>2.7.9</client.version>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
