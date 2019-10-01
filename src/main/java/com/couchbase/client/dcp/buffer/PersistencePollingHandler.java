@@ -105,7 +105,14 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
             .subscribe(failoverLog -> {
               long vbuuid = failoverLog.getCurrentVbuuid();
               observeAndRepeat(ctx, pas, vbuuid, groupId);
-            }, throwable -> logWarningAndClose(ctx, "Failed to fetch failover log for {}.", pas, throwable));
+            }, throwable -> {
+              if (throwable instanceof DcpOps.BadResponseStatusException) {
+                // Common during rebalance. No need to spam the log with useless async stack trace.
+                logWarningAndClose(ctx, "Failed to fetch failover log for {}. Server response: {}", pas, throwable.getMessage());
+              } else {
+                logWarningAndClose(ctx, "Failed to fetch failover log for {}.", pas, throwable);
+              }
+            });
       }
     } catch (Throwable t) {
       logWarningAndClose(ctx, "Failed to reconfigure persistence poller.", t);
