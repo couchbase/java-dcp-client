@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
 public interface ChannelFlowController {
@@ -22,7 +23,7 @@ public interface ChannelFlowController {
    * Acknowledge bytes read if DcpControl.Names.CONNECTION_BUFFER_SIZE is set on bootstrap.
    * <p>
    * Note that acknowledgement will be stored but most likely not sent to the server immediately to save network
-   * overhead. Instead, depending on the value set through {@link Builder#bufferAckWatermark(int)} in percent
+   * overhead. Instead, depending on the value set through {@link Client.Builder#bufferAckWatermark(int)} in percent
    * the client will automatically determine when to send the message (when the watermark is reached).
    * <p>
    * This method can always be called even if not enabled, if not enabled on bootstrap it will short-circuit.

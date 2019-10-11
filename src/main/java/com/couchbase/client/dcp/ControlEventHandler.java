@@ -28,7 +28,7 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
  * to the persisted session state.
  * <p>
  * Keep in mind that the callback is called on the IO event loops, so you should never block or run
- * expensive computations in the callback! Use queues and other synchronization primities!
+ * expensive computations in the callback! Use queues and other synchronization primitives!
  *
  * @author Michael Nitschinger
  * @since 1.0.0
