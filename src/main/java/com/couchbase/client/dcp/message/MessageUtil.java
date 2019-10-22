@@ -69,6 +69,8 @@ public enum MessageUtil {
   public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
 
   private static final String[] OPCODE_NAMES = initOpcodeNames();
+  private static final String[] FORMATTED_OPCODE_NAMES = initFormattedOpcodeNames();
+
 
   private static String[] initOpcodeNames() {
     final String[] names = new String[256];
@@ -87,6 +89,27 @@ public enum MessageUtil {
       // Running in a restrictive environment? Oh well, opcode names are a luxury we can live without.
     }
     return names;
+  }
+
+  private static String[] initFormattedOpcodeNames() {
+    final String[] names = new String[256];
+    for (int i = 0; i < names.length; i++) {
+      String name = OPCODE_NAMES[i];
+      names[i] = name == null ? String.format("0x%02x", i) : name;
+    }
+    return names;
+  }
+
+  public static int getOpcode(ByteBuf buf) {
+    return buf.getByte(1) & 0xff;
+  }
+
+  public static String getShortOpcodeName(int opcode) {
+    try {
+      return FORMATTED_OPCODE_NAMES[opcode];
+    } catch (IndexOutOfBoundsException badRequestOrOpcodeArrayNotSizedCorrectly) {
+      return "?";
+    }
   }
 
   /**
@@ -310,7 +333,11 @@ public enum MessageUtil {
   }
 
   public static ResponseStatus getResponseStatus(ByteBuf buffer) {
-    return ResponseStatus.valueOf(buffer.getShort(VBUCKET_OFFSET));
+    try {
+      return ResponseStatus.valueOf(buffer.getShort(VBUCKET_OFFSET));
+    } catch (IndexOutOfBoundsException malformedResponse) {
+      return ResponseStatus.MALFORMED_RESPONSE;
+    }
   }
 
   public static byte getDataType(ByteBuf buffer) {
@@ -349,6 +376,7 @@ public enum MessageUtil {
       return unknownName;
     }
   }
+
 
   private static String formatMagic(byte magic) {
     String name = magic == MAGIC_REQ

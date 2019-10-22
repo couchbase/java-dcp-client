@@ -29,7 +29,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpContent;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpObject;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import io.micrometer.core.instrument.Metrics;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.couchbase.client.core.config.DefaultConfigurationProvider.determineNetworkResolution;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -107,9 +108,14 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
   private void decodeChunk(InetSocketAddress address, final ByteBuf chunk) {
     responseContent.writeBytes(chunk);
 
-    String currentChunk = responseContent.toString(CharsetUtil.UTF_8);
-    int separatorIndex = currentChunk.indexOf("\n\n\n\n");
-    if (separatorIndex > 0) {
+    final String currentChunk = responseContent.toString(UTF_8);
+    final int separatorIndex = currentChunk.indexOf("\n\n\n\n");
+
+    if (separatorIndex <= 0) {
+      return;
+    }
+
+    Metrics.timer("dcp.parse.config").record(() -> {
       String rawConfig = currentChunk
           .substring(0, separatorIndex)
           .trim()
@@ -129,8 +135,8 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
       }
 
       responseContent.clear();
-      responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(CharsetUtil.UTF_8));
-    }
+      responseContent.writeBytes(currentChunk.substring(separatorIndex + 4).getBytes(UTF_8));
+    });
   }
 
   private void selectAlternateNetwork(CouchbaseBucketConfig config) {

@@ -25,6 +25,8 @@ import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
+import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelInitializer;
 import com.couchbase.client.deps.io.netty.channel.ChannelPipeline;
@@ -65,6 +67,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
   private final DcpChannelControlHandler controlHandler;
   private final SSLEngineFactory sslEngineFactory;
   private final ConfigProvider configProvider;
+  private final DcpChannelMetrics metrics;
 
   /**
    * Creates the pipeline.
@@ -73,10 +76,12 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
    * @param controlHandler the control event handler.
    */
   public DcpPipeline(final ClientEnvironment environment,
-                     final DcpChannelControlHandler controlHandler, ConfigProvider configProvider) {
+                     final DcpChannelControlHandler controlHandler, ConfigProvider configProvider,
+                     DcpChannelMetrics metrics) {
     this.configProvider = requireNonNull(configProvider);
     this.environment = requireNonNull(environment);
     this.controlHandler = requireNonNull(controlHandler);
+    this.metrics = requireNonNull(metrics);
     if (environment.sslEnabled()) {
       this.sslEngineFactory = new SSLEngineFactory(environment);
     } else {
@@ -129,7 +134,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     if (LOGGER.isTraceEnabled()) {
       pipeline.addLast(new DcpLoggingHandler(LogLevel.TRACE));
     }
-    DcpMessageHandler messageHandler = new DcpMessageHandler(ch, environment, controlHandler);
+    DcpMessageHandler messageHandler = new DcpMessageHandler(ch, environment, controlHandler, metrics);
     pipeline.addLast(messageHandler);
 
     if (environment.persistencePollingEnabled()) {

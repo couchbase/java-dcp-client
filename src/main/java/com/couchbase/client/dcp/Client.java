@@ -35,6 +35,8 @@ import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.metrics.DcpClientMetrics;
+import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
@@ -44,6 +46,7 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import io.micrometer.core.instrument.Tags;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -61,6 +64,7 @@ import java.util.stream.Collectors;
 
 import static com.couchbase.client.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -134,30 +138,25 @@ public class Client {
     }
 
     // Provide minimal default event handlers
-    controlEventHandler(new ControlEventHandler() {
-      @Override
-      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        try {
-          if (DcpSnapshotMarkerRequest.is(event)) {
-            flowController.ack(event);
-          }
-        } finally {
-          event.release();
+    controlEventHandler((flowController, event) -> {
+      try {
+        if (DcpSnapshotMarkerRequest.is(event)) {
+          flowController.ack(event);
         }
+      } finally {
+        event.release();
       }
     });
-    dataEventHandler(new DataEventHandler() {
-      @Override
-      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        try {
-          flowController.ack(event);
-        } finally {
-          event.release();
-        }
+    dataEventHandler((flowController, event) -> {
+      try {
+        flowController.ack(event);
+      } finally {
+        event.release();
       }
     });
 
-    conductor = new Conductor(env, builder.configProvider);
+    MetricsContext metricsContext = new MetricsContext("dcp");
+    conductor = new Conductor(env, builder.configProvider, new DcpClientMetrics(metricsContext));
     LOGGER.info("Environment Configuration Used: {}", system(env));
   }
 

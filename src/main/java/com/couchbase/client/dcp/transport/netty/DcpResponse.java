@@ -16,18 +16,28 @@
 
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 
+import static com.couchbase.client.dcp.message.MessageUtil.getResponseStatus;
 import static java.util.Objects.requireNonNull;
 
 public class DcpResponse {
   private final ByteBuf buffer;
 
+  // cache the status so it can still be retrieved after the buffer is released
+  private final ResponseStatus status;
+
   public DcpResponse(ByteBuf buffer) {
     this.buffer = requireNonNull(buffer);
+    this.status = getResponseStatus(buffer);
   }
 
   public ByteBuf buffer() {
     return buffer;
+  }
+
+  public ResponseStatus status() {
+    return status;
   }
 }

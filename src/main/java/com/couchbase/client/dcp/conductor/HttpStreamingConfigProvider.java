@@ -24,6 +24,7 @@ import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
 import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
@@ -65,6 +66,7 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
   private volatile boolean stopped = false;
   private volatile Channel channel;
   private final ClientEnvironment env;
+  private final MetricsContext metrics = new MetricsContext("dcp.config");
 
   public HttpStreamingConfigProvider(final ClientEnvironment env) {
     super(LifecycleState.DISCONNECTED);
@@ -170,17 +172,29 @@ public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleS
         .handler(new ConfigPipeline(env, address, configStream, currentBucketConfigRev))
         .group(env.eventLoopGroup());
 
+    final String remote = hostAndPort.host() + ":" + hostAndPort.port();
+
     return Completable.create(new Completable.OnSubscribe() {
       @Override
       public void call(final CompletableSubscriber subscriber) {
         bootstrap.connect().addListener(new GenericFutureListener<ChannelFuture>() {
           @Override
           public void operationComplete(ChannelFuture future) throws Exception {
+            metrics.newActionCounter("connect")
+                .tag("remote", remote)
+                .build()
+                .track(future);
+
             if (future.isSuccess()) {
               channel = future.channel();
               channel.closeFuture().addListener(new GenericFutureListener<ChannelFuture>() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
+                  metrics.newEventCounter("channel.closed")
+                      .tag("remote", remote)
+                      .build()
+                      .increment();
+
                   transitionState(LifecycleState.DISCONNECTED);
                   channel = null;
                   triggerReconnect();

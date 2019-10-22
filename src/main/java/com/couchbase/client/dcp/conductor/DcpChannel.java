@@ -21,6 +21,7 @@ import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
@@ -33,6 +34,7 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
+import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
@@ -54,6 +56,7 @@ import com.couchbase.client.deps.io.netty.channel.ChannelOption;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import com.couchbase.client.deps.io.netty.util.concurrent.ImmediateEventExecutor;
+import io.micrometer.core.instrument.Tags;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Single;
@@ -72,6 +75,7 @@ import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -101,6 +105,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   private volatile boolean isShutdown;
   private volatile Channel channel;
   private volatile ChannelFuture connectFuture;
+  private final DcpChannelMetrics metrics;
+
+  //private final Meter connectionAttempt
 
   /**
    * Limits how frequently the client may attempt to reconnect after a successful connection.
@@ -123,6 +130,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     this.conductor = conductor;
     this.controlHandler = new DcpChannelControlHandler(this);
     this.isShutdown = false;
+    this.metrics = new DcpChannelMetrics(new MetricsContext("dcp", Tags.of("remote", inetAddress.toString())));
   }
 
   /**
@@ -154,16 +162,17 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
             .remoteAddress(inetAddress)
             .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-            .handler(new DcpPipeline(env, controlHandler, conductor.configProvider()))
+            .handler(new DcpPipeline(env, controlHandler, conductor.configProvider(), metrics))
             .group(env.eventLoopGroup());
 
         transitionState(LifecycleState.CONNECTING);
-        connectFuture = bootstrap.connect();
+        connectFuture = metrics.trackConnect(bootstrap.connect());
         connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
           @Override
           public void operationComplete(ChannelFuture future) throws Exception {
             if (future.isSuccess()) {
               channel = future.channel();
+              metrics.trackDisconnect(channel.closeFuture());
               if (isShutdown) {
                 LOGGER.info("Connected Node {}, but got instructed to disconnect in " +
                     "the meantime.", system(inetAddress));
@@ -285,7 +294,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         isShutdown = true;
         if (channel != null) {
           transitionState(LifecycleState.DISCONNECTING);
-          channel.close().addListener(new GenericFutureListener<ChannelFuture>() {
+          final ChannelFuture closeFuture = metrics.trackDisconnect(channel.close());
+          closeFuture.addListener(new GenericFutureListener<ChannelFuture>() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
               transitionState(LifecycleState.DISCONNECTED);
@@ -376,9 +386,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
               return;
             }
 
-            ByteBuf buf = future.getNow().buffer();
+            final DcpResponse dcpResponse = future.getNow();
+            final ByteBuf buf = dcpResponse.buffer();
             try {
-              final ResponseStatus status = MessageUtil.getResponseStatus(buf);
+              final ResponseStatus status = dcpResponse.status();
 
               if (status == KEY_EXISTS) {
                 LOGGER.debug("Stream already open against {} with vbid: {}", inetAddress, vbid);

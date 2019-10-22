@@ -34,4 +34,13 @@ public enum DcpStreamEndMessage {
     int flags = MessageUtil.getExtras(buffer).getInt(0);
     return StreamEndReason.of(flags);
   }
+
+  public static String getReasonAsString(final ByteBuf buffer) {
+    int reasonCode = MessageUtil.getExtras(buffer).getInt(0);
+    try {
+      return StreamEndReason.of(reasonCode).name();
+    } catch (IllegalArgumentException e) {
+      return String.valueOf(reasonCode);
+    }
+  }
 }

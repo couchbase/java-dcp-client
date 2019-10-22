@@ -27,6 +27,7 @@ import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
 import com.couchbase.client.dcp.events.FailedToRemoveNodeEvent;
+import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.couchbase.client.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
@@ -61,8 +63,10 @@ public class Conductor {
   private final AtomicReference<DcpBucketConfig> currentConfig = new AtomicReference<>();
   private final boolean ownsConfigProvider;
   private final SessionState sessionState = new SessionState();
+  private final DcpClientMetrics metrics;
 
-  public Conductor(final ClientEnvironment env, ConfigProvider cp) {
+  public Conductor(final ClientEnvironment env, ConfigProvider cp, DcpClientMetrics metrics) {
+    this.metrics = requireNonNull(metrics);
     this.env = env;
     configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
     ownsConfigProvider = cp == null;
@@ -212,6 +216,8 @@ public class Conductor {
   }
 
   private void reconfigure(DcpBucketConfig configHelper) {
+    metrics.incrementReconfigure();
+
     final boolean onlyConnectToPrimaryPartition = !env.persistencePollingEnabled();
     final List<NodeInfo> nodes = configHelper.getDataNodes(onlyConnectToPrimaryPartition);
 
@@ -224,19 +230,21 @@ public class Conductor {
 
     for (InetSocketAddress address : nodeAddresses) {
       if (!existingChannelsByAddress.containsKey(address)) {
+        metrics.incrementAddChannel();
         add(address);
       }
     }
 
     for (Map.Entry<InetSocketAddress, DcpChannel> entry : existingChannelsByAddress.entrySet()) {
       if (!nodeAddresses.contains(entry.getKey())) {
+        metrics.incrementRemoveChannel();
         remove(entry.getValue());
       }
     }
   }
 
   private void add(final InetSocketAddress node) {
-    LOGGER.debug("Adding DCP Channel against {}", node);
+    LOGGER.info("Adding DCP Channel against {}", system(node));
     final DcpChannel channel = new DcpChannel(node, env, this);
     if (!channels.add(channel)) {
       throw new IllegalStateException("Tried to add duplicate channel: " + system(channel));
@@ -275,7 +283,7 @@ public class Conductor {
       throw new IllegalStateException("Tried to remove unknown channel: " + system(node));
     }
 
-    LOGGER.debug("Removing DCP Channel against {}", node);
+    LOGGER.info("Removing DCP Channel against {}", system(node));
 
     for (short partition = 0; partition < node.streamIsOpen.length(); partition++) {
       if (node.streamIsOpen(partition)) {

@@ -52,16 +52,17 @@ public class ClientNoopHandler extends IdleStateHandler {
         .sendRequest(newNoopRequest())
         .addListener((DcpResponseListener) future -> {
           if (future.isSuccess()) {
-            final ByteBuf response = future.getNow().buffer();
+            final DcpResponse dcpResponse = future.getNow();
+            final ByteBuf buffer = dcpResponse.buffer();
             try {
-              final ResponseStatus status = MessageUtil.getResponseStatus(response);
+              final ResponseStatus status = dcpResponse.status();
               if (status.isSuccess()) {
                 LOGGER.debug("Got successful response to client-side NOOP for channel {}", ctx.channel());
               } else {
                 LOGGER.warn("Got error response to client-side NOOP for channel {}: {}", ctx.channel(), status);
               }
             } finally {
-              response.release();
+              buffer.release();
             }
           } else {
             LOGGER.warn("Failed to send client-side NOOP for channel {}", ctx.channel(), future.cause());

@@ -30,6 +30,7 @@ import com.couchbase.client.dcp.message.DcpNoopResponse;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.DcpStreamEndMessage;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
@@ -41,6 +42,7 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.ImmediateEventExecutor;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
@@ -90,6 +92,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
 
   private final ChannelFlowController flowController;
 
+  private final DcpChannelMetrics metrics;
+
   /**
    * A counter for assigning an ID to each request. There should never be
    * two outstanding requests with the same ID on the same channel.
@@ -136,10 +140,12 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
    * @param controlHandler control event handler.
    */
   DcpMessageHandler(final Channel channel, final ClientEnvironment environment,
-                    final DcpChannelControlHandler controlHandler) {
+                    final DcpChannelControlHandler controlHandler,
+                    final DcpChannelMetrics metrics) {
     this.dataEventHandler = environment.dataEventHandler();
     this.controlHandler = controlHandler;
     this.flowController = new ChannelFlowControllerImpl(channel, environment);
+    this.metrics = requireNonNull(metrics);
   }
 
   @Override
@@ -261,6 +267,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
     }
 
     try {
+      metrics.trackDcpRequest(promise, request);
+
       final int opaque = nextOpaque++;
       MessageUtil.setOpaque(opaque, request);
 
@@ -284,9 +292,11 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
   @Override
   public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
     final ByteBuf message = (ByteBuf) msg;
-    final byte magic = message.getByte(0);
+
+    metrics.incrementBytesRead(message.readableBytes());
 
     // The majority of messages are likely to be stream requests, not responses.
+    final byte magic = message.getByte(0);
     if (magic != MessageUtil.MAGIC_RES) {
       handleRequest(ctx, message);
       return;
@@ -306,12 +316,21 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
     // a 1:1 relationship between requests and responses, and FIFO order.
     final OutstandingRequest request = outstandingRequests.poll();
     if (request == null || MessageUtil.getOpaque(message) != request.opaque) {
-      // Should never happen so long as all requests are made via sendRequest()
-      // and successfully written to the channel.
-      LOGGER.error("Unexpected response with opaque {} (expected {}); closing connection",
-          MessageUtil.getOpaque(message), request == null ? "none" : request.opaque);
-      ctx.close();
-      return;
+      try {
+        if (request != null) {
+          request.promise.setFailure(new IOException("Response arrived out of order"));
+        }
+
+        // Should never happen so long as all requests are made via sendRequest()
+        // and successfully written to the channel.
+        LOGGER.error("Unexpected response with opaque {} (expected {}); closing connection",
+            MessageUtil.getOpaque(message), request == null ? "none" : request.opaque);
+        ctx.close();
+        return;
+
+      } finally {
+        message.release();
+      }
     }
 
     request.promise.setSuccess(new DcpResponse(message));
@@ -325,6 +344,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
     if (evt instanceof IdleStateEvent) {
       IdleStateEvent e = (IdleStateEvent) evt;
       if (e.state() == IdleState.READER_IDLE) {
+        metrics.incrementDeadConnections();
         LOGGER.warn("Closing dead connection.");
         ctx.close();
         return;
@@ -338,6 +358,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
    * Dispatch incoming message to either the data or the control feeds.
    */
   private void handleRequest(final ChannelHandlerContext ctx, final ByteBuf message) {
+    metrics.recordServerRequest(message);
+
     if (isDataMessage(message)) {
       dataEventHandler.onEvent(flowController, message);
     } else if (isControlMessage(message)) {
