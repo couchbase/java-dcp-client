@@ -28,7 +28,7 @@ The first step is to sign our Contributor License Agreement.
 NOTE: Contributor License Agreements (CLAs) are common for projects under the Apache license, and typically serve to grant control of the code to a central entity.
 Because our code is available under the Apache License, signing the CLA doesn’t prevent you from using your code however you like, but it does give Couchbase the ability to defend the source legally and build and maintain a business around the technology.
 
-Create an account on our https://review.couchbase.org/[Gerrit code review site].
+Create an account on our http://review.couchbase.org/[Gerrit code review site].
 Make sure the email address you register with matches the email address on your git commits.
 You can associate additional email addresses with your Gerrit account later if needed.
 
