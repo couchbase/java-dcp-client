@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.state;
 
+import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.state.json.SessionStateDeserializer;
 import com.couchbase.client.dcp.state.json.SessionStateSerializer;
 import com.couchbase.client.deps.com.fasterxml.jackson.databind.ObjectMapper;
@@ -89,8 +90,7 @@ public class SessionState {
       PartitionState partitionState = new PartitionState();
       partitionState.setEndSeqno(NO_END_SEQNO);
       partitionState.setStartSeqno(0);
-      partitionState.setSnapshotStartSeqno(0);
-      partitionState.setSnapshotEndSeqno(0);
+      partitionState.setSnapshot(SnapshotMarker.NONE);
       partitionStates.set(i, partitionState);
     }
   }
@@ -165,8 +165,7 @@ public class SessionState {
   public void rollbackToPosition(short partition, long seqno) {
     PartitionState ps = partitionStates.get(partition);
     ps.setStartSeqno(seqno);
-    ps.setSnapshotStartSeqno(seqno);
-    ps.setSnapshotEndSeqno(seqno);
+    ps.setSnapshot(new SnapshotMarker(seqno, seqno));
     List<FailoverLogEntry> failoverLog = ps.getFailoverLog();
     Iterator<FailoverLogEntry> flogIterator = failoverLog.iterator();
     List<FailoverLogEntry> entriesToRemove = new ArrayList<>();

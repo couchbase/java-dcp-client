@@ -22,11 +22,12 @@ import com.couchbase.client.core.utils.Events;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.OptionalInt;
 
 /**
  * Event published when the connector has failed to add new node during failover/rebalance.
  */
-public class FailedToAddNodeEvent implements CouchbaseEvent {
+public class FailedToAddNodeEvent implements CouchbaseEvent, DcpFailureEvent {
   private final InetSocketAddress node;
   private final Throwable error;
 
@@ -45,6 +46,11 @@ public class FailedToAddNodeEvent implements CouchbaseEvent {
    */
   public InetSocketAddress node() {
     return node;
+  }
+
+  @Override
+  public OptionalInt partition() {
+    return OptionalInt.empty();
   }
 
   /**

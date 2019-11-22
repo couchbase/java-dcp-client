@@ -27,6 +27,7 @@ import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
 import com.couchbase.client.dcp.events.FailedToRemoveNodeEvent;
+import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -168,12 +169,11 @@ public class Conductor {
         ).toSingle();
   }
 
-  public Completable startStreamForPartition(final short partition, final long vbuuid, final long startSeqno,
-                                             final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
+  public Completable startStreamForPartition(final short partition, final StreamOffset startOffset, final long endSeqno) {
     return Observable
         .just(partition)
         .map(ignored -> activeChannelByPartition(partition))
-        .flatMapCompletable(channel -> channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno))
+        .flatMapCompletable(channel -> channel.openStream(partition, startOffset, endSeqno))
         .retryWhen(anyOf(NotConnectedException.class)
             .max(Integer.MAX_VALUE)
             .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
@@ -334,11 +334,8 @@ public class Conductor {
           PartitionState ps = sessionState.get(partition);
           return startStreamForPartition(
               partition,
-              ps.getLastUuid(),
-              ps.getStartSeqno(),
-              ps.getEndSeqno(),
-              ps.getSnapshotStartSeqno(),
-              ps.getSnapshotEndSeqno()
+              ps.getOffset(),
+              ps.getEndSeqno()
           ).retryWhen(anyOf(NotMyVbucketException.class)
               .max(Integer.MAX_VALUE)
               .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))

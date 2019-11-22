@@ -15,6 +15,8 @@
  */
 package com.couchbase.client.dcp.state;
 
+import com.couchbase.client.dcp.highlevel.SnapshotMarker;
+import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonIgnore;
 import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Represents the individual current session state for a given partition.
@@ -50,16 +53,10 @@ public class PartitionState {
   private volatile long endSeqno = 0;
 
   /**
-   * Stores the snapshot start sequence number for this partition.
+   * Stores the snapshot start and end sequence numbers for this partition.
    */
-  @JsonProperty("sss")
-  private volatile long snapshotStartSeqno = 0;
+  private volatile SnapshotMarker snapshot = SnapshotMarker.NONE;
 
-  /**
-   * Stores the snapshot end sequence number for this partition.
-   */
-  @JsonProperty("ses")
-  private volatile long snapshotEndSeqno = 0;
 
   /**
    * Returns the current end sequence number.
@@ -118,29 +115,47 @@ public class PartitionState {
   /**
    * Returns the current snapshot start sequence number.
    */
+  @JsonProperty("sss")
   public long getSnapshotStartSeqno() {
-    return snapshotStartSeqno;
+    return snapshot.getStartSeqno();
   }
 
   /**
    * Allows to set the current snapshot start sequence number.
+   *
+   * @deprecated in favor of {@link #setSnapshot(SnapshotMarker)}
    */
+  @Deprecated
   public void setSnapshotStartSeqno(long snapshotStartSeqno) {
-    this.snapshotStartSeqno = snapshotStartSeqno;
+    this.snapshot = new SnapshotMarker(snapshotStartSeqno, this.snapshot.getEndSeqno());
+  }
+
+  @JsonIgnore
+  public void setSnapshot(SnapshotMarker snapshot) {
+    this.snapshot = requireNonNull(snapshot);
+  }
+
+  @JsonIgnore
+  public SnapshotMarker getSnapshot() {
+    return this.snapshot;
   }
 
   /**
    * Returns the current snapshot end sequence number.
    */
+  @JsonProperty("ses")
   public long getSnapshotEndSeqno() {
-    return snapshotEndSeqno;
+    return snapshot.getEndSeqno();
   }
 
   /**
    * Allows to set the current snapshot end sequence number.
+   *
+   * @deprecated in favor of {@link #setSnapshot(SnapshotMarker)}
    */
+  @Deprecated
   public void setSnapshotEndSeqno(long snapshotEndSeqno) {
-    this.snapshotEndSeqno = snapshotEndSeqno;
+    this.snapshot = new SnapshotMarker(this.snapshot.getStartSeqno(), snapshotEndSeqno);
   }
 
   /**
@@ -167,14 +182,19 @@ public class PartitionState {
     return failoverLog.isEmpty() ? 0 : failoverLog.get(0).getUuid();
   }
 
+  @JsonIgnore
+  public StreamOffset getOffset() {
+    return new StreamOffset(getLastUuid(), getStartSeqno(), getSnapshot());
+  }
+
   @Override
   public String toString() {
     return "{" +
         "log=" + failoverLog +
         ", ss=" + startSeqno +
         ", es=" + endSeqno +
-        ", sss=" + snapshotStartSeqno +
-        ", ses=" + snapshotEndSeqno +
+        ", sss=" + getSnapshotStartSeqno() +
+        ", ses=" + getSnapshotEndSeqno() +
         '}';
   }
 }

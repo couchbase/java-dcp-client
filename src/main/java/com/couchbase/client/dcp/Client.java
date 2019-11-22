@@ -29,14 +29,24 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
+import com.couchbase.client.dcp.events.StreamEndEvent;
+import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
+import com.couchbase.client.dcp.highlevel.FlowControlMode;
+import com.couchbase.client.dcp.highlevel.SnapshotMarker;
+import com.couchbase.client.dcp.highlevel.StreamOffset;
+import com.couchbase.client.dcp.highlevel.internal.AsyncEventDispatcher;
+import com.couchbase.client.dcp.highlevel.internal.EventHandlerAdapter;
+import com.couchbase.client.dcp.highlevel.internal.ImmediateEventDispatcher;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.metrics.MetricsContext;
+import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
@@ -46,7 +56,6 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-import io.micrometer.core.instrument.Tags;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -54,19 +63,25 @@ import rx.Single;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
+import rx.schedulers.Schedulers;
 
+import java.io.Closeable;
 import java.security.KeyStore;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.couchbase.client.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.core.logging.RedactableArgument.system;
-import static java.util.Collections.emptyList;
+import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -74,7 +89,7 @@ import static java.util.Objects.requireNonNull;
  * @author Michael Nitschinger
  * @since 1.0.0
  */
-public class Client {
+public class Client implements Closeable {
 
   /**
    * The logger used.
@@ -95,6 +110,17 @@ public class Client {
    * If buffer acknowledgment is enabled.
    */
   private final boolean bufferAckEnabled;
+
+  /**
+   * (nullable) Dispatches events for listeners registered via
+   * {@link #listener(DatabaseChangeListener, FlowControlMode)}.
+   */
+  private volatile AsyncEventDispatcher listenerDispatcher;
+
+  /**
+   * Prevents user from attempting to register multiple listeners.
+   */
+  private final AtomicBoolean hasHighLevelListener = new AtomicBoolean();
 
   /**
    * Creates a new {@link Client} instance.
@@ -164,8 +190,14 @@ public class Client {
    * Allows to configure the {@link Client} before bootstrap through a {@link Builder}.
    *
    * @return the builder to configure the client.
+   * @deprecated in favor of {@link #builder}
    */
+  @Deprecated
   public static Builder configure() {
+    return builder();
+  }
+
+  public static Builder builder() {
     return new Builder();
   }
 
@@ -199,6 +231,38 @@ public class Client {
   }
 
   /**
+   * Registers an event listener that will be invoked in a dedicated thread.
+   * The listener's methods may safely block without disrupting the Netty I/O layer.
+   */
+  public void listener(DatabaseChangeListener listener, FlowControlMode flowControlMode) {
+    if (!hasHighLevelListener.compareAndSet(false, true)) {
+      throw new IllegalStateException("Listener may only be set once.");
+    }
+
+    if (flowControlMode == AUTOMATIC && !bufferAckEnabled) {
+      throw new IllegalStateException("Can't register listener in automatic flow control mode because the DCP client was not configured for flow control." +
+          " Make sure to call flowControl(bufferSizeInBytes) when building the DCP client.");
+    }
+
+    this.listenerDispatcher = new AsyncEventDispatcher(flowControlMode, listener);
+    EventHandlerAdapter.register(this, listenerDispatcher);
+  }
+
+  /**
+   * Registers an event listener to be invoked in the Netty I/O event loop thread.
+   * The listener's methods should return quickly and <b>MUST NOT</b> block.
+   * <p>
+   * Non-blocking listeners always use {@link FlowControlMode#MANUAL}.
+   */
+  public void nonBlockingListener(DatabaseChangeListener listener) {
+    if (!hasHighLevelListener.compareAndSet(false, true)) {
+      throw new IllegalStateException("Listener may only be set once.");
+    }
+
+    EventHandlerAdapter.register(this, new ImmediateEventDispatcher(listener));
+  }
+
+  /**
    * Stores a {@link ControlEventHandler} to be called when control events happen.
    * <p>
    * All events (passed as {@link ByteBuf}s) that the callback receives need to be handled
@@ -221,6 +285,8 @@ public class Client {
    * @param controlEventHandler the event handler to use.
    */
   public void controlEventHandler(final ControlEventHandler controlEventHandler) {
+    final boolean userHandlerWantsFailoverLogs = controlEventHandler instanceof EventHandlerAdapter;
+
     env.setControlEventHandler(new ControlEventHandler() {
       @Override
       public void onEvent(ChannelFlowController flowController, ByteBuf event) {
@@ -228,15 +294,19 @@ public class Client {
           // Keep snapshot information in the session state, but also forward event to user
           short partition = DcpSnapshotMarkerRequest.partition(event);
           PartitionState ps = sessionState().get(partition);
-          ps.setSnapshotStartSeqno(DcpSnapshotMarkerRequest.startSeqno(event));
-          ps.setSnapshotEndSeqno(DcpSnapshotMarkerRequest.endSeqno(event));
+          ps.setSnapshot(new SnapshotMarker(
+              DcpSnapshotMarkerRequest.startSeqno(event),
+              DcpSnapshotMarkerRequest.endSeqno(event)));
           sessionState().set(partition, ps);
         } else if (DcpFailoverLogResponse.is(event)) {
-          // Do not forward failover log responses for now since their info is kept
-          // in the session state transparently
           handleFailoverLogResponse(event);
-          event.release();
-          return;
+
+          if (!userHandlerWantsFailoverLogs) {
+            // Do not forward failover log responses for now since their info is kept
+            // in the session state transparently
+            event.release();
+            return;
+          }
         } else if (RollbackMessage.is(event)) {
           // even if forwarded to the user, warn in case the user is not
           // aware of rollback messages.
@@ -357,7 +427,78 @@ public class Client {
    * @return a {@link Completable} signaling that the disconnect phase has been completed or failed.
    */
   public Completable disconnect() {
-    return conductor.stop().andThen(env.shutdown());
+    return dispatcherGracefulShutdown()
+        .andThen(conductor.stop())
+        .andThen(env.shutdown())
+        .andThen(dispatcherAwaitShutdown());
+  }
+
+  /**
+   * Disconnects the client. This blocking alternative to {@link #disconnect()}
+   * exists to support try-with-resources.
+   */
+  @Override
+  public void close() {
+    disconnect().await(60, TimeUnit.SECONDS);
+  }
+
+  private Completable dispatcherGracefulShutdown() {
+    return Completable.fromAction(() -> {
+      if (listenerDispatcher != null) {
+        LOGGER.info("Asking event dispatcher to shut down.");
+        listenerDispatcher.gracefulShutdown();
+      }
+    });
+  }
+
+  private Completable dispatcherAwaitShutdown() {
+    return Completable.fromCallable(() -> {
+      final long startNanos = System.nanoTime();
+      if (listenerDispatcher != null) {
+        if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(30))) {
+          LOGGER.info("Forcing event dispatcher to shut down.");
+          listenerDispatcher.shutdownNow();
+          if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(10))) {
+            LOGGER.warn("Event dispatcher still hasn't terminated after {} seconds.",
+                NANOSECONDS.toSeconds(System.nanoTime() - startNanos));
+          }
+        }
+      }
+      return null;
+    }).subscribeOn(Schedulers.io());
+  }
+
+  /**
+   * @param vbucketToOffset a Map where each key is a vbucket to stream, and the value is the offset from which to resume streaming.
+   * @return a {@link Completable} that completes when the streams have been successfully opened.
+   */
+  public Completable resumeStreaming(Map<Integer, StreamOffset> vbucketToOffset) {
+    if (vbucketToOffset.isEmpty()) {
+      return Completable.complete();
+    }
+
+    vbucketToOffset.forEach((partition, offset) -> {
+      PartitionState p = new PartitionState();
+      p.setStartSeqno(offset.getSeqno());
+      p.setEndSeqno(-1L);
+      p.setSnapshot(offset.getSnapshot());
+
+      // Use seqno -1 (max unsigned) so this synthetic failover log entry will always be pruned
+      // if the initial streamOpen request gets a rollback response. If there's no rollback
+      // on initial request, then the seqno used here doesn't matter, because the failover log
+      // gets reset when the stream is opened.
+      p.setFailoverLog(singletonList(new FailoverLogEntry(-1L, offset.getVbuuid())));
+
+      sessionState().set(partition, p);
+    });
+
+    return startStreaming(toBoxedShortArray(vbucketToOffset.keySet()));
+  }
+
+  private static Short[] toBoxedShortArray(Iterable<? extends Number> input) {
+    List<Short> shorts = new ArrayList<>();
+    input.forEach(i -> shorts.add(i.shortValue()));
+    return shorts.toArray(new Short[0]);
   }
 
   /**
@@ -373,6 +514,21 @@ public class Client {
     final List<Short> partitions = partitionsForVbids(numPartitions, vbids);
 
     List<Short> initializedPartitions = selectInitializedPartitions(numPartitions, partitions);
+
+    List<Short> noopPartitions = new ArrayList<>();
+    for (short p : partitions) {
+      if (!initializedPartitions.contains(p)) {
+        noopPartitions.add(p);
+      }
+    }
+    if (!noopPartitions.isEmpty()) {
+      LOGGER.info("Immediately sending stream end events for {} partitions already at desired end.", noopPartitions.size());
+      LOGGER.debug("Immediately sending stream end events for partitions already at desired end: {}", noopPartitions);
+      noopPartitions.forEach(p ->
+          env.eventBus().publish(
+              new StreamEndEvent(p, StreamEndReason.OK)));
+    }
+
     if (initializedPartitions.isEmpty()) {
       LOGGER.info("The configured session state does not require any streams to be opened. Completing immediately.");
       return Completable.complete();
@@ -389,22 +545,12 @@ public class Client {
             PartitionState partitionState = sessionState().get(partition);
             return conductor.startStreamForPartition(
                 partition,
-                partitionState.getLastUuid(),
-                partitionState.getStartSeqno(),
-                partitionState.getEndSeqno(),
-                partitionState.getSnapshotStartSeqno(),
-                partitionState.getSnapshotEndSeqno()
-            ).onErrorResumeNext(new Func1<Throwable, Completable>() {
-              @Override
-              public Completable call(Throwable throwable) {
-                if (throwable instanceof RollbackException) {
-                  // We ignore rollbacks since they are handled out of band by the user.
-                  return Completable.complete();
-                } else {
-                  return Completable.error(throwable);
-                }
-              }
-            });
+                partitionState.getOffset(),
+                partitionState.getEndSeqno()
+            ).onErrorResumeNext(throwable ->
+                (throwable instanceof RollbackException)
+                    ? Completable.complete() // Ignore rollbacks since they are handled out of band.
+                    : Completable.error(throwable));
           }
         })
         .toCompletable();
@@ -678,8 +824,7 @@ public class Client {
         long seqno = partitionAndSeqno.seqno();
         PartitionState partitionState = sessionState().get(partition);
         partitionState.setStartSeqno(seqno);
-        partitionState.setSnapshotStartSeqno(seqno);
-        partitionState.setSnapshotEndSeqno(seqno);
+        partitionState.setSnapshot(new SnapshotMarker(seqno, seqno));
         sessionState().set(partition, partitionState);
       }
     });
@@ -883,6 +1028,15 @@ public class Client {
       return this;
     }
 
+    public Builder credentials(String username, String password) {
+      this.credentialsProvider = new StaticCredentialsProvider(username, password);
+      return this;
+    }
+
+    /**
+     * @deprecated in favor of {@link #credentials(String, String)}
+     */
+    @Deprecated
     public Builder username(final String username) {
       Credentials cred = credentialsProvider.get(null);
       this.credentialsProvider = new StaticCredentialsProvider(username, cred.getPassword());
@@ -895,15 +1049,37 @@ public class Client {
     }
 
     /**
-     * The password of the bucket to use.
+     * The password to use for authentication.
      *
      * @param password the password.
      * @return this {@link Builder} for nice chainability.
+     * @deprecated in favor of {@link #credentials(String, String)}
      */
+    @Deprecated
     public Builder password(final String password) {
       Credentials cred = credentialsProvider.get(null);
       this.credentialsProvider = new StaticCredentialsProvider(cred.getUsername(), password);
       return this;
+    }
+
+    /**
+     * Sets the product information to include in the DCP client's User Agent
+     * string. The User Agent will be part of the DCP connection name,
+     * which appears in the Couchbase Server logs for log entries associated
+     * with this client.
+     * <p>
+     * The product name may consist of alpha-numeric ASCII characters, plus
+     * the following special characters: <code>!#$%&'*+-.^_`|~</code>
+     * <p>
+     * Invalid characters will be converted to underscores.
+     * <p>
+     * Comments may optionally convey additional context, such as the name of
+     * the bucket being streamed or some other information about the client.
+     *
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder userAgent(String productName, String productVersion, String... comments) {
+      return connectionNameGenerator(DefaultConnectionNameGenerator.forProduct(productName, productVersion, comments));
     }
 
     /**

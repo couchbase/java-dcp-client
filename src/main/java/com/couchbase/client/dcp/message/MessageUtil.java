@@ -112,6 +112,10 @@ public enum MessageUtil {
     }
   }
 
+  public static String getShortOpcodeName(ByteBuf buf) {
+    return getShortOpcodeName(getOpcode(buf));
+  }
+
   /**
    * Returns true if message can be processed and false if more data is needed.
    */
@@ -337,6 +341,24 @@ public enum MessageUtil {
       return ResponseStatus.valueOf(buffer.getShort(VBUCKET_OFFSET));
     } catch (IndexOutOfBoundsException malformedResponse) {
       return ResponseStatus.MALFORMED_RESPONSE;
+    }
+  }
+
+  public static boolean requiresFlowControlAck(ByteBuf message) {
+    if (message.getByte(0) != MessageUtil.MAGIC_REQ) {
+      return false;
+    }
+
+    switch (message.getByte(1)) {
+      case DCP_MUTATION_OPCODE:
+      case DCP_DELETION_OPCODE:
+      case DCP_SNAPSHOT_MARKER_OPCODE:
+      case DCP_EXPIRATION_OPCODE:
+      case DCP_STREAM_END_OPCODE:
+      case DCP_SET_VBUCKET_STATE_OPCODE:
+        return true;
+      default:
+        return false;
     }
   }
 

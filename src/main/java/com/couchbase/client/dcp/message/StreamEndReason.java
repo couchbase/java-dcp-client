@@ -16,44 +16,43 @@
 
 package com.couchbase.client.dcp.message;
 
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
+
 /**
  * Code describing why producer decided to close the stream.
  */
-public enum StreamEndReason {
-  /**
-   * The stream has finished without error.
-   */
-  OK(0x00),
-  /**
-   * The close stream command was invoked on this stream causing it to be closed
-   * by force.
-   */
-  CLOSED(0x01),
-  /**
-   * The state of the VBucket that is being streamed has changed to state that
-   * the consumer does not want to receive.
-   */
-  STATE_CHANGED(0x02),
-  /**
-   * The stream is closed because the connection was disconnected.
-   */
-  DISCONNECTED(0x03),
-  /**
-   * The stream is closing because the client cannot read from the stream fast enough.
-   * This is done to prevent the server from running out of resources trying while
-   * trying to serve the client. When the client is ready to read from the stream
-   * again it should reconnect. This flag is available starting in Couchbase 4.5.
-   */
-  TOO_SLOW(0x04);
-
+public class StreamEndReason {
   private final int value;
+  private final String name;
+  private final String description;
 
-  StreamEndReason(int value) {
+  private StreamEndReason(int value, String name, String description) {
     this.value = value;
+    this.name = requireNonNull(name);
+    this.description = requireNonNull(description);
   }
+
+  public static final StreamEndReason OK = new StreamEndReason(0, "OK", "The stream has finished without error.");
+  public static final StreamEndReason CLOSED = new StreamEndReason(1, "CLOSED", "The close stream command was invoked on this stream causing it to be closed by force.");
+  public static final StreamEndReason STATE_CHANGED = new StreamEndReason(2, "STATE_CHANGED", "The state of the VBucket that is being streamed has changed to state that the consumer does not want to receive.");
+  public static final StreamEndReason DISCONNECTED = new StreamEndReason(3, "DISCONNECTED", "The stream is closed because the connection was disconnected.");
+  public static final StreamEndReason TOO_SLOW = new StreamEndReason(4, "TOO_SLOW", "The stream is closing because the client cannot read from the stream fast enough." +
+      " This is done to prevent the server from running out of resources trying while" +
+      " trying to serve the client. When the client is ready to read from the stream" +
+      " again it should reconnect. This flag is available starting in Couchbase 4.5.");
 
   public int value() {
     return value;
+  }
+
+  public String name() {
+    return name;
+  }
+
+  public String description() {
+    return description;
   }
 
   static StreamEndReason of(int value) {
@@ -69,8 +68,30 @@ public enum StreamEndReason {
       case 0x04:
         return TOO_SLOW;
       default:
-        throw new IllegalArgumentException("Unknown stream end reason: " + value);
+        return new StreamEndReason(value, Integer.toString(value),
+            "Stream end reason " + value + " is not recognized by this DCP client.");
     }
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    StreamEndReason that = (StreamEndReason) o;
+    return value == that.value;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(value);
+  }
+
+  @Override
+  public String toString() {
+    return name;
+  }
 }

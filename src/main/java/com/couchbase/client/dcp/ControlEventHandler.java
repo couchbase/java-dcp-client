@@ -45,5 +45,4 @@ public interface ControlEventHandler {
    * @param event the control event happening.
    */
   void onEvent(ChannelFlowController flowController, ByteBuf event);
-
 }

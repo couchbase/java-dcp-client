@@ -21,11 +21,12 @@ import com.couchbase.client.core.event.EventType;
 import com.couchbase.client.core.utils.Events;
 
 import java.util.Map;
+import java.util.OptionalInt;
 
 /**
  * Event published when the connector has failed to move partition to new node during failover/rebalance.
  */
-public class FailedToMovePartitionEvent implements CouchbaseEvent {
+public class FailedToMovePartitionEvent implements CouchbaseEvent, DcpFailureEvent {
 
   private final short partition;
   private final Throwable error;
@@ -51,8 +52,8 @@ public class FailedToMovePartitionEvent implements CouchbaseEvent {
   /**
    * The partition ID which has caused issue
    */
-  public short partition() {
-    return partition;
+  public OptionalInt partition() {
+    return OptionalInt.of(partition);
   }
 
   /**

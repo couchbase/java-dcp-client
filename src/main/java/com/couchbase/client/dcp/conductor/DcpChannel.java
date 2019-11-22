@@ -21,6 +21,7 @@ import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.error.RollbackException;
@@ -86,20 +87,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
   private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpChannel.class);
-
-  /**
-   * A "do nothing" flow controller for when an event does not require acknowledgement,
-   * and the "real" flow controller isn't easily accessible.
-   */
-  private static final ChannelFlowController dummyFlowController = new ChannelFlowController() {
-    @Override
-    public void ack(ByteBuf message) {
-    }
-
-    @Override
-    public void ack(int numBytes) {
-    }
-  };
 
   private final DcpChannelControlHandler controlHandler;
   private volatile boolean isShutdown;
@@ -340,8 +327,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     return inetAddress;
   }
 
-  public Completable openStream(final short vbid, final long vbuuid, final long startSeqno, final long endSeqno,
-                                final long origSnapshotStartSeqno, final long origSnapshotEndSeqno) {
+  public Completable openStream(final short vbid, final StreamOffset startOffset, final long endSeqno) {
     return Completable.create(new Completable.OnSubscribe() {
       @Override
       public void call(final CompletableSubscriber subscriber) {
@@ -350,12 +336,20 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           return;
         }
 
+        final long startSeqno = startOffset.getSeqno();
+        final long origSnapshotStartSeqno = startOffset.getSnapshot().getStartSeqno();
+        final long origSnapshotEndSeqno = startOffset.getSnapshot().getEndSeqno();
+        final long vbuuid = startOffset.getVbuuid();
+
         final long snapshotStartSeqno;
         final long snapshotEndSeqno;
 
         if (origSnapshotStartSeqno == startSeqno + 1) {
           // startSeqno must be >= snapshotStartSeqno. If we get here, then we probably received
           // a snapshot marker and then disconnected before receiving the first seqno in the snapshot.
+          // todo rework how PartitionState stores snapshot markers so we never get into this state.
+          // One possibility would be to track the snapshot marker to assign to new events
+          // separately from the stream offset's snapshot marker.
           LOGGER.debug("Disregarding snapshot marker from the future.");
           snapshotStartSeqno = startSeqno;
           snapshotEndSeqno = startSeqno;
@@ -414,7 +408,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 ByteBuf content = MessageUtil.getContent(buf).copy().writeShort(vbid);
                 MessageUtil.setContent(content, flog);
                 content.release();
-                env.controlEventHandler().onEvent(dummyFlowController, flog);
+                env.controlEventHandler().onEvent(ChannelFlowController.dummy, flog);
 
               } else if (status == ROLLBACK_REQUIRED) {
                 subscriber.onError(new RollbackException());
@@ -422,7 +416,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 // create a rollback message and emit
                 ByteBuf rb = Unpooled.buffer();
                 RollbackMessage.init(rb, vbid, DcpOpenStreamResponse.rollbackSeqno(buf));
-                env.controlEventHandler().onEvent(dummyFlowController, rb);
+                env.controlEventHandler().onEvent(ChannelFlowController.dummy, rb);
 
               } else if (status == NOT_MY_VBUCKET) {
                 subscriber.onError(new NotMyVbucketException());

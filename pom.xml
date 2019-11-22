@@ -140,6 +140,18 @@
             <version>2.5</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.10.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-parameter-names</artifactId>
+            <version>2.10.2</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Compilation dependency to mark exception to enforced JDK API -->
         <dependency>
@@ -162,6 +174,8 @@
                 <configuration>
                     <source>${java-compat.version}</source>
                     <target>${java-compat.version}</target>
+                    <!-- Enable JSON data binding for immutable classes like StreamOffset -->
+                    <compilerArgument>-parameters</compilerArgument>
                 </configuration>
             </plugin>
             <plugin>

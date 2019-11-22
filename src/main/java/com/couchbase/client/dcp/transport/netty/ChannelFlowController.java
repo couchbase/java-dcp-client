@@ -33,4 +33,18 @@ public interface ChannelFlowController {
   void ack(ByteBuf message);
 
   void ack(int numBytes);
+
+  /**
+   * A flow controller that doesn't do anything.
+   */
+  ChannelFlowController dummy = new ChannelFlowController() {
+    @Override
+    public void ack(ByteBuf message) {
+    }
+
+    @Override
+    public void ack(int numBytes) {
+
+    }
+  };
 }
