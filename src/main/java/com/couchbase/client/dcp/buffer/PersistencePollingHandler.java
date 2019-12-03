@@ -152,6 +152,11 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
                                 final long vbuuid,
                                 final int groupId) {
 
+    if (activeGroupId != groupId) {
+      LOGGER.debug("Polling group {} is no longer active; stopping polling for {}", groupId, partitionInstance);
+      return;
+    }
+
     if (!env.streamEventBuffer().hasBufferedEvents(partitionInstance.partition())) {
       LOGGER.trace("No buffered events; skipping observeSeqno for partition instance {}", partitionInstance);
       scheduleObserveAndRepeat(ctx, partitionInstance, vbuuid, groupId, 1);
@@ -163,7 +168,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
       public void onSuccess(ObserveSeqnoResponse observeSeqnoResponse) {
         try {
           if (activeGroupId != groupId) {
-            LOGGER.debug("Polling group {} is no longer active; stopping polling for ", groupId, partitionInstance);
+            LOGGER.debug("Polling group {} is no longer active; stopping polling for {}", groupId, partitionInstance);
             return;
           }
 
