@@ -23,6 +23,7 @@ import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.ChannelInboundHandlerAdapter;
+import io.micrometer.core.instrument.Metrics;
 import rx.SingleSubscriber;
 import rx.Subscription;
 import rx.schedulers.Schedulers;
@@ -31,12 +32,16 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.LongAdder;
 
 import static java.util.Objects.requireNonNull;
 
 public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 
   private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(PersistencePollingHandler.class);
+
+  private static final LongAdder scheduledPollingTasks = requireNonNull(
+      Metrics.globalRegistry.gauge("dcp.scheduled.polling.tasks", new LongAdder()));
 
   private final ClientEnvironment env;
   private final ConfigProvider configProvider;
@@ -129,8 +134,13 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
     }
 
     try {
-      ctx.executor().schedule(() -> observeAndRepeat(ctx, partitionInstance, vbuuid, groupId),
+      ctx.executor().schedule(() -> {
+            scheduledPollingTasks.decrement();
+            observeAndRepeat(ctx, partitionInstance, vbuuid, groupId);
+          },
           env.persistencePollingIntervalMillis() * intervalMultiplier, TimeUnit.MILLISECONDS);
+
+      scheduledPollingTasks.increment();
 
     } catch (Throwable t) {
       logWarningAndClose(ctx, "Failed to schedule observeSeqno.", t);
