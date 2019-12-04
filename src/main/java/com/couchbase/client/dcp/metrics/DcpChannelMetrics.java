@@ -49,8 +49,12 @@ public class DcpChannelMetrics {
 
   // Cache the counter associated with the previous client request in order to avoid
   // counter lookups during bursts of persistence polling requests.
-  private int prevDcpRequestOpcode;
-  private ActionCounter prevDcpRequestCounter;
+  //
+  // Volatile because although these are only accessed by one Netty event loop
+  // thread at a time, the thread reporting the metrics may change if the
+  // underlying Netty channel changes (due to reconnect, for example).
+  private volatile int prevDcpRequestOpcode;
+  private volatile ActionCounter prevDcpRequestCounter;
 
   public DcpChannelMetrics(MetricsContext ctx) {
     this.ctx = ctx;
