@@ -146,7 +146,7 @@ public class DcpBucketConfig {
     throw new NoSuchElementException("Failed to locate " + system(nodeAddress) + " in bucket config.");
   }
 
-  public HostAndPort getMasterNodeKvAddress(int partition) {
+  public HostAndPort getActiveNodeKvAddress(int partition) {
     final int index = config.nodeIndexForMaster(partition, false);
     final NodeInfo node = nodes().get(index);
     final int port = getServicePortMap(node).get(ServiceType.BINARY);

@@ -158,7 +158,7 @@ public class Conductor {
   public Single<ByteBuf> getFailoverLog(final short partition) {
     return Observable
         .just(partition)
-        .map(ignored -> masterChannelByPartition(partition))
+        .map(ignored -> activeChannelByPartition(partition))
         .flatMapSingle(channel -> channel.getFailoverLog(partition))
         .retryWhen(anyOf(NotConnectedException.class)
             .max(Integer.MAX_VALUE)
@@ -172,7 +172,7 @@ public class Conductor {
                                              final long endSeqno, final long snapshotStartSeqno, final long snapshotEndSeqno) {
     return Observable
         .just(partition)
-        .map(ignored -> masterChannelByPartition(partition))
+        .map(ignored -> activeChannelByPartition(partition))
         .flatMapCompletable(channel -> channel.openStream(partition, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno))
         .retryWhen(anyOf(NotConnectedException.class)
             .max(Integer.MAX_VALUE)
@@ -185,7 +185,7 @@ public class Conductor {
 
   public Completable stopStreamForPartition(final short partition) {
     if (streamIsOpen(partition)) {
-      DcpChannel channel = masterChannelByPartition(partition);
+      DcpChannel channel = activeChannelByPartition(partition);
       return channel.closeStream(partition);
     } else {
       return Completable.complete();
@@ -193,7 +193,7 @@ public class Conductor {
   }
 
   public boolean streamIsOpen(final short partition) {
-    DcpChannel channel = masterChannelByPartition(partition);
+    DcpChannel channel = activeChannelByPartition(partition);
     return channel.streamIsOpen(partition);
   }
 
@@ -204,8 +204,8 @@ public class Conductor {
    * Note that this doesn't mean that the partition is enabled there, it just checks the current
    * mapping.
    */
-  private DcpChannel masterChannelByPartition(short partition) {
-    final InetSocketAddress address = currentConfig.get().getMasterNodeKvAddress(partition).toAddress();
+  private DcpChannel activeChannelByPartition(short partition) {
+    final InetSocketAddress address = currentConfig.get().getActiveNodeKvAddress(partition).toAddress();
     for (DcpChannel ch : channels) {
       if (ch.address().equals(address)) {
         return ch;
