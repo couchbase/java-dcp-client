@@ -63,15 +63,12 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
         .appendJava()
         .appendOs();
 
-    // The JSON form of the user agent string may use no more than 202 of the maximum key size of 250 bytes.
-    // That's 200 bytes for the user agent (including any JSON escape chars) and 2 bytes for the enclosing quotes.
+    // Connection names are limited to 200 bytes (see https://issues.couchbase.com/browse/MB-34280).
+    // Of the 200 bytes, 46 are consumed by the fixed length "i" field and various JSON bits and pieces. That leaves
+    // 154 bytes for the JSON form of the user agent string, including enclosing quotes and any JSON escape sequences.
     // We can assume 1 byte per character, since the User Agent builder only outputs ASCII characters.
-    //
-    // HOWEVER! Let's work around a bug Couchbase Server 6.0.0 (and possibly other versions) where rebalance fails
-    // if the name is too long (see JDCP-126). We don't really *need* the Java and OS info anyway.
-    final boolean WORKAROUND_CBSE_6804 = true;
-    final int userAgentMaxLength = WORKAROUND_CBSE_6804 ? 102 : 202;
-    this.userAgent = truncateAsJson(userAgentBuilder.build(), userAgentMaxLength);
+    final int userAgentJsonMaxLength = 154;
+    this.userAgent = truncateAsJson(userAgentBuilder.build(), userAgentJsonMaxLength);
   }
 
   @Override

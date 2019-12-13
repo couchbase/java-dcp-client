@@ -30,6 +30,8 @@ public interface ConnectionNameGenerator {
 
   /**
    * Generate the name for a DCP Connection.
+   * <p>
+   * The name must be no longer than 200 bytes when converted to UTF-8.
    */
   String name();
 }
