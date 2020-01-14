@@ -741,7 +741,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   public String toString() {
     return "ClientEnvironment{" +
         "clusterAt=" + clusterAt +
-        ", connectionNameGenerator=" + connectionNameGenerator.getClass().getSimpleName() +
+        ", connectionNameGenerator=" + connectionNameGenerator +
         ", bucket='" + bucket + '\'' +
         ", dcpControl=" + dcpControl +
         ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +

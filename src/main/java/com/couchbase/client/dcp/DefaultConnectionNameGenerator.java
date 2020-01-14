@@ -44,6 +44,7 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
   private static final String clientId = paddedHex(randomLong());
 
   private final String userAgent;
+  private final String untruncatedUserAgent;
 
   /**
    * Returns a new connection name generator that includes the given product information in the User Agent string.
@@ -62,6 +63,8 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
         .append("java-dcp-client", clientVersion())
         .appendJava()
         .appendOs();
+
+    this.untruncatedUserAgent = userAgentBuilder.build();
 
     // Connection names are limited to 200 bytes (see https://issues.couchbase.com/browse/MB-34280).
     // Of the 200 bytes, 46 are consumed by the fixed length "i" field and various JSON bits and pieces. That leaves
@@ -120,5 +123,12 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
 
   private static long randomLong() {
     return ThreadLocalRandom.current().nextLong();
+  }
+
+  @Override
+  public String toString() {
+    return "DefaultConnectionNameGenerator{" +
+        "userAgent='" + untruncatedUserAgent + '\'' +
+        '}';
   }
 }
