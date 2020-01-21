@@ -53,6 +53,8 @@ public class StatePersistence {
     final Client client = Client.configure()
         .hostnames("localhost")
         .bucket(BUCKET)
+        .username("Administrator")
+        .password("password")
         .build();
 
     // Don't do anything with control events in this example

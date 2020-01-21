@@ -51,6 +51,8 @@ public class PrintIncomingChanges {
     final Client client = Client.configure()
         .hostnames("localhost")
         .bucket("travel-sample")
+        .username("Administrator")
+        .password("password")
         .build();
 
     // If we are in a rollback scenario, rollback the partition and restart the stream.

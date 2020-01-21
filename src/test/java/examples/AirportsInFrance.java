@@ -46,6 +46,8 @@ public class AirportsInFrance {
     final Client client = Client.configure()
         .hostnames("localhost")
         .bucket("travel-sample")
+        .username("Administrator")
+        .password("password")
         .build();
 
     // Don't do anything with control events in this example

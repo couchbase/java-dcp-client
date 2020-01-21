@@ -31,7 +31,7 @@ import java.util.UUID;
 public class WorkloadGenerator {
 
   public static void main(String... args) throws Exception {
-    CouchbaseCluster cluster = CouchbaseCluster.create("127.0.0.1");
+    CouchbaseCluster cluster = CouchbaseCluster.create("127.0.0.1").authenticate("Administrator", "password");
     Bucket bucket = cluster.openBucket("default");
 
     while (true) {

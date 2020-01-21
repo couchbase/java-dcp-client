@@ -43,6 +43,8 @@ public class FlowControl {
     final Client client = Client.configure()
         .hostnames("localhost")
         .bucket("travel-sample")
+        .username("Administrator")
+        .password("password")
         .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 10000) // set the buffer to 10K
         .bufferAckWatermark(75) // after 75% are reached of the 10KB, acknowledge against the server
         .build();
