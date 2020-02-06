@@ -19,11 +19,11 @@ package com.couchbase.client.dcp.test.agent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
-import com.couchbase.client.dcp.message.DcpDeletionMessage;
-import com.couchbase.client.dcp.message.DcpExpirationMessage;
-import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
-import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
+import com.couchbase.client.dcp.highlevel.Deletion;
+import com.couchbase.client.dcp.highlevel.FlowControlMode;
+import com.couchbase.client.dcp.highlevel.Mutation;
+import com.couchbase.client.dcp.highlevel.StreamFailure;
 import com.couchbase.client.dcp.state.SessionState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,29 +85,23 @@ public class DcpStreamer {
     this.client = requireNonNull(client);
     this.streamTo = requireNonNull(to);
 
-    client.controlEventHandler((flowController, event) -> {
-      if (DcpSnapshotMarkerRequest.is(event)) {
-        flowController.ack(event);
+    client.listener(new DatabaseChangeListener() {
+      @Override
+      public void onFailure(StreamFailure streamFailure) {
+        LOGGER.error("stream failure", streamFailure.getCause());
       }
-      event.release();
-    });
 
-    client.dataEventHandler((flowController, event) -> {
-      if (DcpMutationMessage.is(event)) {
+      @Override
+      public void onMutation(Mutation mutation) {
         mutations.incrementAndGet();
-      } else if (DcpDeletionMessage.is(event)) {
-        deletions.incrementAndGet();
-      } else if (DcpExpirationMessage.is(event)) {
-        expirations.incrementAndGet();
-      } else {
-        if (LOGGER.isWarnEnabled()) {
-          LOGGER.warn("Received unexpected data event: {}", MessageUtil.humanize(event));
-        }
       }
 
-      flowController.ack(event);
-      event.release();
-    });
+      @Override
+      public void onDeletion(Deletion deletion) {
+        (deletion.isDueToExpiration() ? expirations : deletions).incrementAndGet();
+      }
+
+    }, FlowControlMode.AUTOMATIC);
 
     client.connect().await(30, TimeUnit.SECONDS);
     try {

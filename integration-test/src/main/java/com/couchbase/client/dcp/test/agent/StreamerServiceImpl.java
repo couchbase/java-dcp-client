@@ -62,11 +62,10 @@ public class StreamerServiceImpl implements StreamerService {
   public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks) {
     String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
 
-    Client client = Client.configure()
+    Client client = Client.builder()
         .eventLoopGroup(eventLoopGroup)
         .bucket(bucket)
-        .username(username)
-        .password(password)
+        .credentials(username, password)
         .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
         .flowControl(1024 * 128)
         .hostnames(nodes.split(","))
@@ -125,11 +124,10 @@ public class StreamerServiceImpl implements StreamerService {
 
   @Override
   public int getNumberOfPartitions(String bucket) {
-    final Client client = Client.configure()
+    final Client client = Client.builder()
         .eventLoopGroup(eventLoopGroup)
         .bucket(bucket)
-        .username(username)
-        .password(password)
+        .credentials(username, password)
         .hostnames(nodes.split(","))
         .build();
 
