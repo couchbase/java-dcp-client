@@ -15,9 +15,9 @@
  */
 package com.couchbase.client.dcp.config;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.util.Version;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
  * @since 1.0.0
  */
 public class DcpControl {
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpControl.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DcpControl.class);
 
   /**
    * NOOP interval to use when none is specified.

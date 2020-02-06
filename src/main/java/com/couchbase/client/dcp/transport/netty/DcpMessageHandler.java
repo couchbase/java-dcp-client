@@ -15,8 +15,6 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.buffer.DcpRequestDispatcher;
@@ -41,6 +39,8 @@ import com.couchbase.client.deps.io.netty.util.concurrent.EventExecutor;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.ImmediateEventExecutor;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -78,7 +78,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
   /**
    * The logger used.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpMessageHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DcpMessageHandler.class);
 
   /**
    * The data callback where the events are fed to the user.

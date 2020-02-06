@@ -16,8 +16,6 @@
 package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.config.NodeInfo;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
@@ -34,6 +32,8 @@ import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -55,7 +55,7 @@ import static java.util.stream.Collectors.toSet;
 
 public class Conductor {
 
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Conductor.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(Conductor.class);
 
   private final ConfigProvider configProvider;
   private final Set<DcpChannel> channels = new ConcurrentSet<>();

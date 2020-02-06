@@ -24,7 +24,6 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.Promise;
 
-import static com.couchbase.client.core.logging.CouchbaseLogLevel.DEBUG;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_DELETION_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_EXPIRATION_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
@@ -32,6 +31,8 @@ import static com.couchbase.client.dcp.message.MessageUtil.DCP_SNAPSHOT_MARKER_O
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_END_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.getOpcode;
 import static com.couchbase.client.dcp.message.MessageUtil.getShortOpcodeName;
+import static com.couchbase.client.dcp.metrics.LogLevel.DEBUG;
+import static com.couchbase.client.dcp.metrics.LogLevel.NONE;
 
 public class DcpChannelMetrics {
   private final MetricsContext ctx;
@@ -66,7 +67,7 @@ public class DcpChannelMetrics {
     this.expiration = serverRequestCounter(DCP_EXPIRATION_OPCODE).build();
     this.snapshot = serverRequestCounter(DCP_SNAPSHOT_MARKER_OPCODE).build();
 
-    this.bytesRead = ctx.newEventCounter("bytes.read").logLevel(null).build();
+    this.bytesRead = ctx.newEventCounter("bytes.read").logLevel(NONE).build();
   }
 
   public <V, F extends Future<V>> F trackConnect(F future) {
@@ -138,6 +139,6 @@ public class DcpChannelMetrics {
   private EventCounter.Builder serverRequestCounter(int opcode) {
     return ctx.newEventCounter("server.request")
         .tag("opcode", getShortOpcodeName(opcode))
-        .logLevel(null);
+        .logLevel(NONE);
   }
 }

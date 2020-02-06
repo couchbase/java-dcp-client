@@ -17,8 +17,6 @@ package com.couchbase.client.dcp;
 
 import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.event.EventBus;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.core.utils.ConnectionString;
 import com.couchbase.client.dcp.conductor.Conductor;
@@ -56,6 +54,8 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
 import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -94,7 +94,7 @@ public class Client implements Closeable {
   /**
    * The logger used.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Client.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(Client.class);
 
   /**
    * The {@link Conductor} handles channels and streams. It's the orchestrator of everything.

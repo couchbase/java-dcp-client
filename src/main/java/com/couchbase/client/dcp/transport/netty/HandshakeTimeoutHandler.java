@@ -16,11 +16,11 @@
 
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.ChannelOutboundHandlerAdapter;
 import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  * if the handshake takes too long.
  */
 public class HandshakeTimeoutHandler extends ChannelOutboundHandlerAdapter {
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HandshakeTimeoutHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(HandshakeTimeoutHandler.class);
 
   private static final HandshakeDeadlineEvent HANDSHAKE_DEADLINE_EVENT = new HandshakeDeadlineEvent();
 

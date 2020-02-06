@@ -16,11 +16,11 @@
 
 package com.couchbase.client.dcp.highlevel.internal;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
 import com.couchbase.client.dcp.highlevel.FlowControlMode;
 import com.couchbase.client.dcp.highlevel.StreamFailure;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.concurrent.BlockingDeque;
@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
  * Dispatches events in a separate dedicated thread.
  */
 public class AsyncEventDispatcher implements EventDispatcher {
-  private static final CouchbaseLogger log = CouchbaseLoggerFactory.getInstance(AsyncEventDispatcher.class);
+  private static final Logger log = LoggerFactory.getLogger(AsyncEventDispatcher.class);
 
   private static class GracefulShutdownPoisonPill extends RuntimeException {
   }

@@ -16,8 +16,6 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.endpoint.kv.AuthenticationException;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.security.sasl.Sasl;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
@@ -34,6 +32,8 @@ import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
@@ -56,7 +56,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
   /**
    * The logger used for the auth handler.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(AuthHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(AuthHandler.class);
 
   /**
    * Username used to authenticate against the bucket (likely to be the bucket name itself).

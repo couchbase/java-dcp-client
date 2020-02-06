@@ -17,8 +17,6 @@
 package com.couchbase.client.dcp.highlevel.internal;
 
 import com.couchbase.client.core.event.CouchbaseEvent;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -40,6 +38,8 @@ import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
  * high-level {@link com.couchbase.client.dcp.highlevel.DatabaseChangeListener}.
  */
 public class EventHandlerAdapter implements ControlEventHandler, SystemEventHandler {
-  private static final CouchbaseLogger log = CouchbaseLoggerFactory.getInstance(EventHandlerAdapter.class);
+  private static final Logger log = LoggerFactory.getLogger(EventHandlerAdapter.class);
 
   private static final int MAX_PARTITIONS = 1024;
 

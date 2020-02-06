@@ -16,11 +16,11 @@
 
 package com.couchbase.client.dcp.highlevel;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -29,7 +29,7 @@ import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static java.util.Objects.requireNonNull;
 
 public class Rollback implements DatabaseChangeEvent {
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(Rollback.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(Rollback.class);
 
   private final Client client;
   private final int vbucket;

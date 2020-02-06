@@ -18,8 +18,6 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.core.config.parser.BucketConfigParser;
 import com.couchbase.client.core.env.NetworkResolution;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.logging.RedactableArgument;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
@@ -30,6 +28,8 @@ import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpContent;
 import com.couchbase.client.deps.io.netty.handler.codec.http.HttpObject;
 import io.micrometer.core.instrument.Metrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
  * @since 1.0.0
  */
 class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ConfigHandler.class);
 
   /**
    * The config stream where the configs are emitted into.

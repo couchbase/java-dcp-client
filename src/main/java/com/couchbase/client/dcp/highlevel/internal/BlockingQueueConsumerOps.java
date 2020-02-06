@@ -16,7 +16,6 @@
 
 package com.couchbase.client.dcp.highlevel.internal;
 
-import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 /**

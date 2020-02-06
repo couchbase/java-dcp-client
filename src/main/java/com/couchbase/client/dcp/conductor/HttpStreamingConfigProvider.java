@@ -16,8 +16,6 @@
 package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.config.NodeInfo;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
@@ -35,6 +33,8 @@ import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
 import com.couchbase.client.deps.io.netty.channel.ChannelOption;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -58,7 +58,7 @@ import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
  */
 public class HttpStreamingConfigProvider extends AbstractStateMachine<LifecycleState> implements ConfigProvider {
 
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(HttpStreamingConfigProvider.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(HttpStreamingConfigProvider.class);
 
   private final AtomicReference<List<HostAndPort>> remoteHosts;
   private final Subject<DcpBucketConfig, DcpBucketConfig> configStream;

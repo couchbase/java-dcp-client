@@ -15,8 +15,6 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
@@ -31,6 +29,8 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.util.AttributeKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Opens the DCP connection on the channel and once established removes itself.
@@ -57,7 +57,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   /**
    * The logger used.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpConnectHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DcpConnectHandler.class);
 
   /**
    * The version reported by the server.

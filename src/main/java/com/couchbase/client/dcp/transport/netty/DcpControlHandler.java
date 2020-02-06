@@ -15,8 +15,6 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpControlRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
@@ -25,6 +23,8 @@ import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -42,7 +42,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
   /**
    * The logger used.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpControlHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DcpControlHandler.class);
 
   /**
    * Stores an iterator over the control settings that need to be negotiated.

@@ -15,19 +15,13 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpBufferAckRequest;
-import com.couchbase.client.dcp.message.DcpDeletionMessage;
-import com.couchbase.client.dcp.message.DcpExpirationMessage;
-import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSetVbucketStateMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
-import com.couchbase.client.dcp.message.DcpStreamEndMessage;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.deps.io.netty.channel.Channel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.couchbase.client.dcp.message.MessageUtil.requiresFlowControlAck;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +30,7 @@ public class ChannelFlowControllerImpl implements ChannelFlowController {
   /**
    * The logger used.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ChannelFlowControllerImpl.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ChannelFlowControllerImpl.class);
   /**
    * The DCP channel
    */

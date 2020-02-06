@@ -16,14 +16,14 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.channel.ChannelInboundHandlerAdapter;
 import io.micrometer.core.instrument.Metrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.SingleSubscriber;
 import rx.Subscription;
 import rx.schedulers.Schedulers;
@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 
 public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(PersistencePollingHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(PersistencePollingHandler.class);
 
   private static final LongAdder scheduledPollingTasks = requireNonNull(
       Metrics.globalRegistry.gauge("dcp.scheduled.polling.tasks", new LongAdder()));

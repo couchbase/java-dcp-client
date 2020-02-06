@@ -17,8 +17,6 @@
 package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.core.event.EventBus;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.events.StreamEndEvent;
@@ -31,6 +29,8 @@ import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ import static java.util.Collections.unmodifiableList;
  */
 @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
 public class StreamEventBuffer implements DataEventHandler, ControlEventHandler {
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(StreamEventBuffer.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamEventBuffer.class);
 
   static class BufferedEvent {
     enum Type {DATA, CONTROL, STREAM_END_OK}

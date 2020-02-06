@@ -15,16 +15,13 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.core.state.AbstractStateMachine;
 import com.couchbase.client.core.state.LifecycleState;
 import com.couchbase.client.core.state.NotConnectedException;
 import com.couchbase.client.core.time.Delay;
-import com.couchbase.client.dcp.highlevel.StreamOffset;
-import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.error.RollbackException;
+import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
 import com.couchbase.client.dcp.message.DcpFailoverLogRequest;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
@@ -35,6 +32,7 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
+import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
@@ -58,6 +56,8 @@ import com.couchbase.client.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import com.couchbase.client.deps.io.netty.util.concurrent.ImmediateEventExecutor;
 import io.micrometer.core.instrument.Tags;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Single;
@@ -76,7 +76,6 @@ import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -86,7 +85,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  */
 public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DcpChannel.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DcpChannel.class);
 
   private final DcpChannelControlHandler controlHandler;
   private volatile boolean isShutdown;

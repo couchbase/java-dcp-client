@@ -16,19 +16,17 @@
 
 package com.couchbase.client.dcp.metrics;
 
-import com.couchbase.client.core.logging.CouchbaseLogLevel;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.couchbase.client.dcp.metrics.DcpMetricsHelper.log;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,7 +39,7 @@ public class EventCounter {
     private final String name;
     private MeterRegistry registry = Metrics.globalRegistry;
     private List<Tag> baseTags = new ArrayList<>();
-    private CouchbaseLogLevel logLevel = CouchbaseLogLevel.INFO;
+    private LogLevel logLevel = LogLevel.INFO;
 
     private Builder(String name) {
       this.name = requireNonNull(name);
@@ -66,11 +64,8 @@ public class EventCounter {
       return this;
     }
 
-    /**
-     * @param logLevel (nullable) null means do not log
-     */
-    public Builder logLevel(CouchbaseLogLevel logLevel) {
-      this.logLevel = logLevel;
+    public Builder logLevel(LogLevel logLevel) {
+      this.logLevel = requireNonNull(logLevel);
       return this;
     }
 
@@ -83,19 +78,19 @@ public class EventCounter {
   private final Counter counter;
   private final MeterRegistry registry;
   private final List<Tag> baseTags;
-  private final CouchbaseLogLevel logLevel;
-  private final CouchbaseLogger logger;
+  private final LogLevel logLevel;
+  private final Logger logger;
 
   public static Builder builder(String name) {
     return new Builder(name);
   }
 
   private EventCounter(MeterRegistry registry, String name, Iterable<Tag> tags,
-                       CouchbaseLogLevel logLevel) {
+                       LogLevel logLevel) {
     this.registry = requireNonNull(registry);
     this.name = requireNonNull(name);
-    this.logLevel = logLevel;
-    this.logger = CouchbaseLoggerFactory.getInstance(EventCounter.class.getName() + "." + name);
+    this.logLevel = requireNonNull(logLevel);
+    this.logger = LoggerFactory.getLogger(EventCounter.class.getName() + "." + name);
 
     List<Tag> tagList = new ArrayList<>();
     tags.forEach(tagList::add);
@@ -108,7 +103,7 @@ public class EventCounter {
    * Increments the event count.
    */
   public void increment() {
-    log(logger, logLevel, "event {}", baseTags);
+    logLevel.log(logger, "event {}", baseTags);
     counter.increment();
   }
 
@@ -116,8 +111,8 @@ public class EventCounter {
    * Increases the event count by the given amount
    */
   public void increment(long amount) {
-    if (logger != null) { // null check to skip boxing of amount when logging is disabled
-      log(logger, logLevel, "event {} {}", amount, baseTags);
+    if (logLevel.isEnabled(logger)) { // skip boxing of amount when logging is disabled
+      logLevel.log(logger, "event {} {}", amount, baseTags);
     }
     counter.increment(amount);
   }

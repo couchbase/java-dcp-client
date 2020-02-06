@@ -16,25 +16,20 @@
 
 package com.couchbase.client.dcp.metrics;
 
-import com.couchbase.client.core.logging.CouchbaseLogLevel;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.deps.io.netty.util.concurrent.Future;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
 import io.micrometer.core.instrument.Clock;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import static com.couchbase.client.dcp.metrics.DcpMetricsHelper.log;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -51,8 +46,8 @@ public class ActionTimer {
     private Clock clock = Clock.SYSTEM;
     private MeterRegistry registry = Metrics.globalRegistry;
     private List<Tag> baseTags = new ArrayList<>();
-    private CouchbaseLogLevel successLogLevel = CouchbaseLogLevel.INFO;
-    private CouchbaseLogLevel failureLogLevel = CouchbaseLogLevel.WARN;
+    private LogLevel successLogLevel = LogLevel.INFO;
+    private LogLevel failureLogLevel = LogLevel.WARN;
 
     private Builder(String name) {
       this.name = requireNonNull(name);
@@ -77,27 +72,18 @@ public class ActionTimer {
       return this;
     }
 
-    /**
-     * @param logLevel (nullable) null means do not log
-     */
-    public Builder logLevel(CouchbaseLogLevel logLevel) {
+    public Builder logLevel(LogLevel logLevel) {
       return successLogLevel(logLevel)
           .failureLogLevel(logLevel);
     }
 
-    /**
-     * @param logLevel (nullable) null means do not log
-     */
-    public Builder successLogLevel(CouchbaseLogLevel logLevel) {
-      this.successLogLevel = logLevel;
+    public Builder successLogLevel(LogLevel logLevel) {
+      this.successLogLevel = requireNonNull(logLevel);
       return this;
     }
 
-    /**
-     * @param logLevel (nullable) null means do not log
-     */
-    public Builder failureLogLevel(CouchbaseLogLevel logLevel) {
-      this.failureLogLevel = logLevel;
+    public Builder failureLogLevel(LogLevel logLevel) {
+      this.failureLogLevel = requireNonNull(logLevel);
       return this;
     }
 
@@ -116,22 +102,22 @@ public class ActionTimer {
   private final Timer successTimer;
   private final MeterRegistry registry;
   private final List<Tag> baseTags;
-  private final CouchbaseLogLevel successLogLevel;
-  private final CouchbaseLogLevel failureLogLevel;
-  private final CouchbaseLogger logger;
+  private final LogLevel successLogLevel;
+  private final LogLevel failureLogLevel;
+  private final Logger logger;
 
   public static Builder builder(String name) {
     return new Builder(name);
   }
 
   private ActionTimer(MeterRegistry registry, String name, Iterable<Tag> tags, Clock clock,
-                      CouchbaseLogLevel successLogLevel, CouchbaseLogLevel failureLogLevel) {
+                      LogLevel successLogLevel, LogLevel failureLogLevel) {
     this.registry = requireNonNull(registry);
     this.name = requireNonNull(name);
     this.clock = requireNonNull(clock);
-    this.successLogLevel = successLogLevel;
-    this.failureLogLevel = failureLogLevel;
-    this.logger = CouchbaseLoggerFactory.getInstance(ActionTimer.class.getName() + "." + name);
+    this.successLogLevel = requireNonNull(successLogLevel);
+    this.failureLogLevel = requireNonNull(failureLogLevel);
+    this.logger = LoggerFactory.getLogger(ActionTimer.class.getName() + "." + name);
 
     List<Tag> tagList = new ArrayList<>();
     tags.forEach(tagList::add);
@@ -160,7 +146,7 @@ public class ActionTimer {
    * Increments the "success" count.
    */
   public void success(long elapsed, TimeUnit unit) {
-    log(logger, successLogLevel, "success {}", baseTags);
+    successLogLevel.log(logger, "success {}", baseTags);
     successTimer.record(elapsed, unit);
   }
 
@@ -170,10 +156,7 @@ public class ActionTimer {
    * @param reason (nullable) cause of the failure, or null if unknown
    */
   public void failure(long elapsed, TimeUnit unit, Throwable reason) {
-    // Don't want to convert reason to string here but it's necessary otherwise the placeholder doesn't get replaced.
-    // Might be a bug in how Throwable parameters are handled by CouchbaseLogger.
-    // todo: remove the string conversion, after migrating from CouchbaseLogger to pure slf4j
-    log(logger, failureLogLevel, "failure {} : {}", baseTags, String.valueOf(reason));
+    failureLogLevel.log(logger, "failure {}", baseTags, reason);
     String reasonName = reason == null ? "unknown" : reason.getClass().getSimpleName();
     failure(elapsed, unit, reasonName);
   }

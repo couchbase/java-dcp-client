@@ -18,8 +18,8 @@ package com.couchbase.client.dcp.events;
 
 import com.couchbase.client.core.event.CouchbaseEvent;
 import com.couchbase.client.core.event.EventBus;
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.Scheduler;
 import rx.subjects.PublishSubject;
@@ -33,7 +33,7 @@ import rx.subjects.SerializedSubject;
  */
 public class DefaultDcpEventBus implements EventBus {
 
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(DefaultDcpEventBus.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DefaultDcpEventBus.class);
 
   private final SerializedSubject<CouchbaseEvent, CouchbaseEvent> bus = PublishSubject.<CouchbaseEvent>create().toSerialized();
   private final Scheduler scheduler;

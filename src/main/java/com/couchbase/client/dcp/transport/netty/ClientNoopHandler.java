@@ -16,8 +16,6 @@
 
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
@@ -25,6 +23,8 @@ import com.couchbase.client.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateEvent;
 import com.couchbase.client.deps.io.netty.handler.timeout.IdleStateHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +37,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * DCP_NOOP requests to the client when there is at least one stream open.
  */
 public class ClientNoopHandler extends IdleStateHandler {
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ClientNoopHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ClientNoopHandler.class);
 
   public ClientNoopHandler(long readerIdleTime, TimeUnit unit) {
     super(readerIdleTime, 0, 0, unit);

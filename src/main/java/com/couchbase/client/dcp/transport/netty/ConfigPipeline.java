@@ -15,8 +15,6 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.logging.CouchbaseLogger;
-import com.couchbase.client.core.logging.CouchbaseLoggerFactory;
 import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.CredentialsProvider;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
@@ -29,6 +27,8 @@ import com.couchbase.client.deps.io.netty.handler.codec.http.HttpClientCodec;
 import com.couchbase.client.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.deps.io.netty.handler.ssl.SslHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
@@ -45,7 +45,7 @@ public class ConfigPipeline extends ChannelInitializer<Channel> {
   /**
    * The logger used.
    */
-  private static final CouchbaseLogger LOGGER = CouchbaseLoggerFactory.getInstance(ConfigPipeline.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ConfigPipeline.class);
 
   /**
    * The stateful environment.
