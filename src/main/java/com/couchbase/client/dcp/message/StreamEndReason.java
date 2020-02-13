@@ -42,6 +42,7 @@ public class StreamEndReason {
       " This is done to prevent the server from running out of resources trying while" +
       " trying to serve the client. When the client is ready to read from the stream" +
       " again it should reconnect. This flag is available starting in Couchbase 4.5.");
+  public static final StreamEndReason BACKFILL_FAILED = new StreamEndReason(5, "BACKFILL_FAILED", "The stream is closed because the backfill failed");
 
   public int value() {
     return value;
@@ -67,6 +68,8 @@ public class StreamEndReason {
         return DISCONNECTED;
       case 0x04:
         return TOO_SLOW;
+      case 0x05:
+        return BACKFILL_FAILED;
       default:
         return new StreamEndReason(value, Integer.toString(value),
             "Stream end reason " + value + " is not recognized by this DCP client.");
