@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>1.8</java.version>
-        <dcp.client.version>0.26.0</dcp.client.version>
+        <dcp.client.version>0.27.0-SNAPSHOT</dcp.client.version>
     </properties>
 
     <dependencies>
