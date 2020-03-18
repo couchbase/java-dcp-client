@@ -26,9 +26,6 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This class is used during bootstrap to configure all the possible DCP negotiation parameters.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class DcpControl {
   private static final Logger LOGGER = LoggerFactory.getLogger(DcpControl.class);

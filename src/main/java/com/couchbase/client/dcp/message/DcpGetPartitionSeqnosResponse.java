@@ -16,7 +16,7 @@
 package com.couchbase.client.dcp.message;
 
 
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import static com.couchbase.client.dcp.message.MessageUtil.GET_SEQNOS_OPCODE;
 

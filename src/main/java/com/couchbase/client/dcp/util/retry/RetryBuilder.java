@@ -15,9 +15,7 @@
  */
 package com.couchbase.client.dcp.util.retry;
 
-import com.couchbase.client.core.annotations.InterfaceAudience;
-import com.couchbase.client.core.annotations.InterfaceStability;
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.time.Delay;
 import rx.Scheduler;
 import rx.functions.Action4;
 import rx.functions.Func1;
@@ -36,12 +34,7 @@ import java.util.concurrent.TimeUnit;
  * Note that if retriable errors keep occurring more than the maximum allowed number of attempts, the last error that
  * triggered the extraneous attempt will be wrapped as the cause inside a {@link CannotRetryException}, which will be
  * emitted via the observable's onError method.
- *
- * @author Simon Baslé
- * @since 1.0.0
  */
-@InterfaceStability.Committed
-@InterfaceAudience.Public
 public class RetryBuilder {
 
   private int maxAttempts;

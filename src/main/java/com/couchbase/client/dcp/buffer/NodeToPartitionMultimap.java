@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
+import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -23,13 +23,12 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.test.agent.DcpStreamer.Status;
-import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
-import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.github.therapi.core.annotation.Default;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,7 +41,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Service
 public class StreamerServiceImpl implements StreamerService {
-  private final EventLoopGroup eventLoopGroup = new NioEventLoopGroup(16);
   private final AtomicLong nextStreamerId = new AtomicLong(0);
   private final ConcurrentMap<String, DcpStreamer> idToStreamer = new ConcurrentHashMap<>();
 
@@ -63,7 +61,6 @@ public class StreamerServiceImpl implements StreamerService {
     String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
 
     Client client = Client.builder()
-        .eventLoopGroup(eventLoopGroup)
         .bucket(bucket)
         .credentials(username, password)
         .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
@@ -112,9 +109,8 @@ public class StreamerServiceImpl implements StreamerService {
   }
 
   @PreDestroy
-  public void shutdown() throws InterruptedException {
-    list().forEach(this::stop);
-    eventLoopGroup.shutdownGracefully().await(3, TimeUnit.SECONDS);
+  public void shutdown() {
+    new HashSet<>(list()).forEach(this::stop);
   }
 
   @Override
@@ -125,7 +121,6 @@ public class StreamerServiceImpl implements StreamerService {
   @Override
   public int getNumberOfPartitions(String bucket) {
     final Client client = Client.builder()
-        .eventLoopGroup(eventLoopGroup)
         .bucket(bucket)
         .credentials(username, password)
         .hostnames(nodes.split(","))

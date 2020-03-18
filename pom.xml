@@ -12,8 +12,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.8</java-compat.version>
-        <core.version>1.7.13</core.version>
-        <client.version>2.7.13</client.version>
+
+        <native.folder>${project.build.directory}/native</native.folder>
+        <native.original>libnetty_transport_native_epoll_x86_64.so</native.original>
+        <native.renamed>libcom_couchbase_client_dcp_deps_netty_transport_native_epoll_x86_64.so</native.renamed>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -91,9 +93,9 @@
     <dependencies>
         <!-- Exposed, Required Dependencies -->
         <dependency>
-            <groupId>com.couchbase.client</groupId>
-            <artifactId>core-io</artifactId>
-            <version>${core.version}</version>
+            <groupId>io.reactivex</groupId>
+            <artifactId>rxjava</artifactId>
+            <version>1.3.8</version>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
@@ -106,18 +108,23 @@
             <version>1.7.30</version>
         </dependency>
 
+        <!-- Shaded dependencies -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.0.56.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.10.3</version>
+        </dependency>
 
         <!-- Test Dependencies -->
         <dependency>
-            <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-json</artifactId>
-            <version>4.1.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.couchbase.client</groupId>
-            <artifactId>java-client</artifactId>
-            <version>${client.version}</version>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>2.19.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -138,31 +145,12 @@
             <version>2.8.0</version>
             <scope>test</scope>
         </dependency>
-        <!-- for examples -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.5</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.10.2</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.module</groupId>
-            <artifactId>jackson-module-parameter-names</artifactId>
-            <version>2.10.2</version>
-            <scope>test</scope>
-        </dependency>
 
         <!-- Compilation dependency to mark exception to enforced JDK API -->
         <dependency>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>animal-sniffer-annotations</artifactId>
-            <version>1.14</version>
+            <version>1.16</version>
             <optional>true</optional>
             <!-- if you are using badly written Maven plugins then blame them and add
             <scope>provided</scope>
@@ -195,7 +183,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>animal-sniffer-maven-plugin</artifactId>
-                <version>1.14</version>
+                <version>1.16</version>
                 <configuration>
                     <signature>
                         <groupId>org.codehaus.mojo.signature</groupId>
@@ -273,6 +261,102 @@
                     <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                     <autoReleaseAfterClose>${autoReleaseAfterClose}</autoReleaseAfterClose>
                 </configuration>
+            </plugin>
+
+            <!-- Used for Netty Native: unpack the .so from the artifact so
+                 it is accessible for shade plugin transformer, haha -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.10</version>
+                <executions>
+                    <execution>
+                        <id>unpack</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-all</artifactId>
+                                    <outputDirectory>${native.folder}</outputDirectory>
+                                    <includes>META-INF/native/libnetty_transport_native_epoll_x86_64.so</includes>
+                                </artifactItem>
+                            </artifactItems>
+                            <includes>META-INF/native/libnetty_transport_native_epoll_x86_64.so</includes>
+                            <outputDirectory>${native.folder}</outputDirectory>
+                            <overWriteReleases>false</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.2</version>
+                <configuration>
+                    <artifactSet>
+                        <includes>
+                            <include>com.fasterxml.jackson.core:*</include>
+                            <include>io.netty:*</include>
+                        </includes>
+                    </artifactSet>
+                    <filters>
+                        <!-- Netty Native: avoid putting the original .so in the shaded jar -->
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/native/${native.original}</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
+                            <artifact>com.fasterxml.jackson.core:*</artifact>
+                            <excludes>
+                                <!-- Not required, and the service descriptor interferes with Java 9 modules (JVMCBC-530) -->
+                                <exclude>META-INF/**</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <transformers>
+                        <!-- Netty Native: with the unpacked .so (see unpack config), rename
+                             it so it has the shaded namespace -->
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                            <file>${native.folder}/META-INF/native/${native.original}</file>
+                            <resource>META-INF/native/${native.renamed}</resource>
+                        </transformer>
+                    </transformers>
+                    <relocations>
+                        <relocation>
+                            <pattern>io.netty</pattern>
+                            <shadedPattern>com.couchbase.client.dcp.deps.io.netty</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>com.fasterxml</pattern>
+                            <shadedPattern>com.couchbase.client.dcp.deps.com.fasterxml</shadedPattern>
+                        </relocation>
+                        <!-- This is a hack, it should actually be an exclusion pattern on io.netty
+                             but for some reason this doesn't work. This is a workaround to repair
+                             the renaming damage done by the earlier io.netty rule. -->
+                        <relocation>
+                            <pattern>com.couchbase.client.dcp.deps.com.couchbase.client</pattern>
+                            <shadedPattern>com.couchbase.client</shadedPattern>
+                        </relocation>
+                    </relocations>
+                    <createSourcesJar>true</createSourcesJar>
+                    <shadeSourcesContent>true</shadeSourcesContent>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
 

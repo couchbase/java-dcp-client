@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.config;
 
-import com.couchbase.client.core.endpoint.SSLException;
+import com.couchbase.client.dcp.core.endpoint.SSLException;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -26,9 +26,6 @@ import java.security.KeyStore;
 
 /**
  * Creates a {@link SSLEngine} which will be passed into the handler if SSL is enabled.
- *
- * @author Michael Nitschinger
- * @since 1.0
  */
 public class SSLEngineFactory {
 

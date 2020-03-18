@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.highlevel.internal;
 
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

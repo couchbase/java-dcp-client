@@ -1,12 +1,9 @@
 package com.couchbase.client.dcp.error;
 
-import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.dcp.core.CouchbaseException;
 
 /**
  * Indicates a rollback happened, used as an internal messaging event.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class RollbackException extends CouchbaseException {
 

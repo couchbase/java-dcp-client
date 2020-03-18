@@ -16,13 +16,13 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.UnpooledByteBufAllocator;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-import static com.couchbase.client.deps.io.netty.util.CharsetUtil.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public enum MessageUtil {
   ;

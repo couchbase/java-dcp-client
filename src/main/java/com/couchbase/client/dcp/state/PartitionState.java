@@ -17,8 +17,8 @@ package com.couchbase.client.dcp.state;
 
 import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
-import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonIgnore;
-import com.couchbase.client.deps.com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

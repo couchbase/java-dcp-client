@@ -17,9 +17,9 @@
 package com.couchbase.client.dcp.util;
 
 
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.ByteBufUtil;
-import com.couchbase.client.deps.io.netty.handler.codec.compression.DecompressionException;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.handler.codec.compression.DecompressionException;
 
 /*
  * PROMINENT NOTICE: THIS CODE IS MODIFIED FROM THE ORIGINAL VERSION DISTRIBUTED

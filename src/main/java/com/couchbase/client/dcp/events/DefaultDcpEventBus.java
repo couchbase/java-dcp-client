@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.events;
 
-import com.couchbase.client.core.event.CouchbaseEvent;
-import com.couchbase.client.core.event.EventBus;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
+import com.couchbase.client.dcp.core.event.EventBus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Observable;
@@ -26,7 +26,7 @@ import rx.subjects.PublishSubject;
 import rx.subjects.SerializedSubject;
 
 /**
- * Like {@link com.couchbase.client.core.event.DefaultEventBus} but buffers on backpressure instead of dropping.
+ * Like {@link com.couchbase.client.dcp.core.event.DefaultEventBus} but buffers on backpressure instead of dropping.
  * This is important in order not to drop critical events like {@link StreamEndEvent}s that only get sent once.
  *
  * @since 0.13.0

@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.util.CharsetUtil;
 
 import java.nio.charset.Charset;
 

@@ -15,17 +15,14 @@
  */
 package com.couchbase.client.dcp.config;
 
-import com.couchbase.client.core.env.ConfigParserEnvironment;
-import com.couchbase.client.core.env.CoreScheduler;
-import com.couchbase.client.core.env.NetworkResolution;
-import com.couchbase.client.core.env.resources.NoOpShutdownHook;
-import com.couchbase.client.core.env.resources.ShutdownHook;
-import com.couchbase.client.core.event.CouchbaseEvent;
-import com.couchbase.client.core.event.EventBus;
-import com.couchbase.client.core.event.EventType;
-import com.couchbase.client.core.node.DefaultMemcachedHashingStrategy;
-import com.couchbase.client.core.node.MemcachedHashingStrategy;
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.env.CoreScheduler;
+import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.dcp.core.env.resources.NoOpShutdownHook;
+import com.couchbase.client.dcp.core.env.resources.ShutdownHook;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
+import com.couchbase.client.dcp.core.event.EventBus;
+import com.couchbase.client.dcp.core.event.EventType;
+import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.CredentialsProvider;
@@ -33,10 +30,12 @@ import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.SystemEventHandler;
 import com.couchbase.client.dcp.buffer.PersistedSeqnos;
 import com.couchbase.client.dcp.buffer.StreamEventBuffer;
+import com.couchbase.client.dcp.core.env.ConfigParserEnvironment;
+import com.couchbase.client.dcp.core.node.MemcachedHashingStrategy;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
-import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
-import com.couchbase.client.deps.io.netty.util.concurrent.Future;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -53,9 +52,6 @@ import static java.util.Objects.requireNonNull;
 /**
  * The {@link ClientEnvironment} is responsible to carry various configuration and
  * state information throughout the lifecycle.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class ClientEnvironment implements SecureEnvironment, ConfigParserEnvironment {
   public static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
@@ -497,7 +493,9 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   @Override
   public MemcachedHashingStrategy memcachedHashingStrategy() {
     // This is hardcoded, because memcached nodes do not support DCP anyway.
-    return DefaultMemcachedHashingStrategy.INSTANCE;
+    return (info, repetition) -> {
+      throw new UnsupportedOperationException("Can't stream from memcached buckets.");
+    };
   }
 
   public static class Builder {

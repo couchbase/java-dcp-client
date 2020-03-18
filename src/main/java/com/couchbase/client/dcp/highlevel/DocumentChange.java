@@ -16,13 +16,13 @@
 
 package com.couchbase.client.dcp.highlevel;
 
-import com.couchbase.client.core.logging.RedactableArgument;
+import com.couchbase.client.dcp.core.logging.RedactableArgument;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import com.couchbase.client.dcp.highlevel.internal.FlowControlReceipt;
 import com.couchbase.client.dcp.highlevel.internal.FlowControllable;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import static java.util.Objects.requireNonNull;
 

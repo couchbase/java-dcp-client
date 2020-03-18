@@ -15,10 +15,10 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.config.NodeInfo;
-import com.couchbase.client.core.state.LifecycleState;
-import com.couchbase.client.core.state.NotConnectedException;
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.config.NodeInfo;
+import com.couchbase.client.dcp.core.state.LifecycleState;
+import com.couchbase.client.dcp.core.state.NotConnectedException;
+import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.error.RollbackException;
@@ -30,8 +30,8 @@ import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.util.internal.ConcurrentSet;
+import io.netty.buffer.ByteBuf;
+import io.netty.util.internal.ConcurrentSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -47,7 +47,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;

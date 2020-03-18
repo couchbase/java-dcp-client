@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.config;
 
-import com.couchbase.client.core.logging.RedactableArgument;
+import com.couchbase.client.dcp.core.logging.RedactableArgument;
 
 import java.net.InetSocketAddress;
 import java.util.Objects;

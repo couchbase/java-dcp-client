@@ -1,6 +1,6 @@
 package com.couchbase.client.dcp.util;
 
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.time.Delay;
 import org.junit.Test;
 
 import java.time.Duration;

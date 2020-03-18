@@ -16,9 +16,9 @@
 
 package com.couchbase.client.dcp.events;
 
-import com.couchbase.client.core.event.CouchbaseEvent;
-import com.couchbase.client.core.event.EventType;
-import com.couchbase.client.core.utils.Events;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
+import com.couchbase.client.dcp.core.event.EventType;
+import com.couchbase.client.dcp.core.utils.Events;
 import com.couchbase.client.dcp.message.StreamEndReason;
 
 import java.util.Map;

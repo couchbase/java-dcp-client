@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.dcp.core.CouchbaseException;
 
 /**
  * Created by daschl on 01/09/16.

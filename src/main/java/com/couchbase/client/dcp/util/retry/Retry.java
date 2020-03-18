@@ -15,11 +15,9 @@
  */
 package com.couchbase.client.dcp.util.retry;
 
-import com.couchbase.client.core.annotations.InterfaceAudience;
-import com.couchbase.client.core.annotations.InterfaceStability;
-import com.couchbase.client.core.lang.Tuple;
-import com.couchbase.client.core.lang.Tuple2;
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.lang.Tuple;
+import com.couchbase.client.dcp.core.lang.Tuple2;
+import com.couchbase.client.dcp.core.time.Delay;
 import rx.Observable;
 import rx.functions.Func2;
 
@@ -27,12 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Utility methods to deal with retrying {@link Observable}s.
- *
- * @author Simon Baslé
- * @since 1.0.0
  */
-@InterfaceStability.Committed
-@InterfaceAudience.Public
 public class Retry {
 
   public static final Delay DEFAULT_DELAY = Delay.fixed(1, TimeUnit.MILLISECONDS);

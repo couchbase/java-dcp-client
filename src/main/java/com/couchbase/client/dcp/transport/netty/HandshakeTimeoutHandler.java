@@ -16,9 +16,9 @@
 
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
-import com.couchbase.client.deps.io.netty.channel.ChannelOutboundHandlerAdapter;
-import com.couchbase.client.deps.io.netty.channel.ChannelPromise;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

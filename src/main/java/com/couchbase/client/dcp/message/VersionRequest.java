@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 public enum VersionRequest {
   ;

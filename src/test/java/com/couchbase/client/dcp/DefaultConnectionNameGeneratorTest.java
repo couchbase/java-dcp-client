@@ -1,6 +1,6 @@
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.core.utils.DefaultObjectMapper;
+import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
 import org.junit.Test;
 
 import java.util.Map;

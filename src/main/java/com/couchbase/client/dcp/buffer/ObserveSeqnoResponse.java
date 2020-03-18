@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 class ObserveSeqnoResponse {
   private final boolean didFailover;

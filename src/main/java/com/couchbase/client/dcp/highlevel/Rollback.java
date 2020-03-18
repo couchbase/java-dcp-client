@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.highlevel;
 
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import org.slf4j.Logger;

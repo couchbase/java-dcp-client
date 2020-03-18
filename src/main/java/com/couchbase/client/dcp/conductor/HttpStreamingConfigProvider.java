@@ -15,24 +15,24 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.config.NodeInfo;
-import com.couchbase.client.core.service.ServiceType;
-import com.couchbase.client.core.state.AbstractStateMachine;
-import com.couchbase.client.core.state.LifecycleState;
+import com.couchbase.client.dcp.core.config.NodeInfo;
+import com.couchbase.client.dcp.core.service.ServiceType;
+import com.couchbase.client.dcp.core.state.AbstractStateMachine;
+import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.ConfigPipeline;
-import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
-import com.couchbase.client.deps.io.netty.buffer.ByteBufAllocator;
-import com.couchbase.client.deps.io.netty.buffer.PooledByteBufAllocator;
-import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
-import com.couchbase.client.deps.io.netty.channel.Channel;
-import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
-import com.couchbase.client.deps.io.netty.channel.ChannelOption;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.UnpooledByteBufAllocator;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelOption;
+import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -48,7 +48,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 
 /**

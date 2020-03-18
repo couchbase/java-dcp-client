@@ -15,9 +15,9 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.core.utils.DefaultObjectMapper;
+import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
 import com.couchbase.client.dcp.util.UserAgentBuilder;
-import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,9 +31,6 @@ import static com.couchbase.client.dcp.ClientVersion.clientVersion;
  * It generates a new name every time called, using the format specified by the
  * <a href="https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0035-rto.md#client--connection-ids">
  * Response Time Observability RFC</a>.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
   /**

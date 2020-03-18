@@ -1,0 +1,83 @@
+{
+  "rev": 11761,
+  "name": "gbook_users_3",
+  "uri": "/pools/default/buckets/gbook_users_3?bucket_uuid=98604aff88fee964668e093ea7e3ee60",
+  "streamingUri": "/pools/default/bucketsStreaming/gbook_users_3?bucket_uuid=98604aff88fee964668e093ea7e3ee60",
+  "nodes": [],
+  "nodesExt": [
+    {
+      "services": {
+        "mgmt": 8091,
+        "mgmtSSL": 18091,
+        "capiSSL": 18092,
+        "capi": 8092,
+        "kvSSL": 11207,
+        "projector": 9999,
+        "kv": 11210,
+        "moxi": 11211
+      },
+      "hostname": "10.112.150.101"
+    },
+    {
+      "services": {
+        "mgmt": 8091,
+        "mgmtSSL": 18091,
+        "capiSSL": 18092,
+        "capi": 8092,
+        "kvSSL": 11207,
+        "projector": 9999,
+        "kv": 11210,
+        "moxi": 11211
+      },
+      "thisNode": true,
+      "hostname": "10.112.150.102"
+    },
+    {
+      "services": {
+        "mgmt": 8091,
+        "mgmtSSL": 18091,
+        "capiSSL": 18092,
+        "capi": 8092,
+        "kvSSL": 11207,
+        "projector": 9999,
+        "kv": 11210,
+        "moxi": 11211
+      },
+      "hostname": "10.112.150.103"
+    },
+    {
+      "services": {
+        "mgmt": 8091,
+        "mgmtSSL": 18091,
+        "capiSSL": 18092,
+        "capi": 8092,
+        "kvSSL": 11207,
+        "projector": 9999,
+        "kv": 11210,
+        "moxi": 11211
+      },
+      "hostname": "10.112.150.104"
+    }
+  ],
+  "nodeLocator": "vbucket",
+  "uuid": "98604aff88fee964668e093ea7e3ee60",
+  "ddocs": {
+    "uri": "/pools/default/buckets/gbook_users_3/ddocs"
+  },
+  "vBucketServerMap": {
+    "hashAlgorithm": "CRC",
+    "numReplicas": 0,
+    "serverList": [],
+    "vBucketMap": []
+  },
+  "bucketCapabilitiesVer": "",
+  "bucketCapabilities": [
+    "cbhello",
+    "touch",
+    "couchapi",
+    "cccp",
+    "xdcrCheckpointing",
+    "nodesExt",
+    "dcp"
+  ]
+}

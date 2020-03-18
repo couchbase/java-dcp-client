@@ -15,16 +15,16 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.core.env.NetworkResolution;
-import com.couchbase.client.core.event.EventBus;
-import com.couchbase.client.core.time.Delay;
-import com.couchbase.client.core.utils.ConnectionString;
+import com.couchbase.client.dcp.core.event.EventBus;
+import com.couchbase.client.dcp.core.time.Delay;
+import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.env.NetworkResolution;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.StreamEndEvent;
@@ -50,10 +50,9 @@ import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.dcp.util.MathUtils;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.channel.EventLoopGroup;
-import com.couchbase.client.deps.io.netty.channel.nio.NioEventLoopGroup;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -66,6 +65,7 @@ import rx.functions.Func2;
 import rx.schedulers.Schedulers;
 
 import java.io.Closeable;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -76,8 +76,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-import static com.couchbase.client.core.logging.RedactableArgument.meta;
-import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -85,9 +85,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class Client implements Closeable {
 
@@ -753,7 +750,7 @@ public class Client implements Closeable {
       @Override
       public void call(CompletableSubscriber subscriber) {
         LOGGER.info("Recovering state from format {}", format);
-        LOGGER.debug("PersistedState on recovery is: {}", new String(persistedState, CharsetUtil.UTF_8));
+        LOGGER.debug("PersistedState on recovery is: {}", new String(persistedState, StandardCharsets.UTF_8));
 
         try {
           if (format == StateFormat.JSON) {

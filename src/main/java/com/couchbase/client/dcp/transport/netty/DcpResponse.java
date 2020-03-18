@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.message.ResponseStatus;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import static com.couchbase.client.dcp.message.MessageUtil.getResponseStatus;
 import static java.util.Objects.requireNonNull;

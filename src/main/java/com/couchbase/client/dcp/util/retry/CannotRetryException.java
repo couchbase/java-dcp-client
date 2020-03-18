@@ -15,15 +15,11 @@
  */
 package com.couchbase.client.dcp.util.retry;
 
-import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.dcp.core.CouchbaseException;
 
 /**
  * A {@link CouchbaseException} that denotes that a retry cycle failed because the maximum allowed attempt
  * count was reached.
- *
- * @author Simon Baslé
- * @see Retry
- * @since 1.0.0
  */
 public class CannotRetryException extends CouchbaseException {
 

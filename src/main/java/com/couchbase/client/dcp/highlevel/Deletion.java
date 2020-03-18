@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.highlevel;
 
 import com.couchbase.client.dcp.highlevel.internal.FlowControlReceipt;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 public class Deletion extends DocumentChange {
   private final boolean dueToExpiration;

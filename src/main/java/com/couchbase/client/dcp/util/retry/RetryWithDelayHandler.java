@@ -15,11 +15,9 @@
  */
 package com.couchbase.client.dcp.util.retry;
 
-import com.couchbase.client.core.annotations.InterfaceAudience;
-import com.couchbase.client.core.annotations.InterfaceStability;
-import com.couchbase.client.core.lang.Tuple2;
-import com.couchbase.client.core.time.Delay;
-import com.couchbase.client.core.time.ExponentialDelay;
+import com.couchbase.client.dcp.core.lang.Tuple2;
+import com.couchbase.client.dcp.core.time.Delay;
+import com.couchbase.client.dcp.core.time.ExponentialDelay;
 import rx.Observable;
 import rx.Scheduler;
 import rx.functions.Action4;
@@ -31,14 +29,10 @@ import java.util.concurrent.TimeUnit;
  * A class that allows to produce a "retry" delay depending on the number of retry attempts.
  * The number of retries is bounded by a maximum number of attempts.
  *
- * @author Simon Baslé
  * @see Retry#wrapForRetry(Observable, RetryWithDelayHandler) how to wrap an Observable with this behavior
  * @see RetryWhenFunction how to chain this behavior into an Observable's retryWhen operation.
  * @see RetryBuilder how to construct a RetryWhenFunction in a fluent manner.
- * @since 1.0.0
  */
-@InterfaceStability.Committed
-@InterfaceAudience.Public
 public class RetryWithDelayHandler implements Func1<Tuple2<Integer, Throwable>, Observable<?>> {
 
   protected final int maxAttempts;

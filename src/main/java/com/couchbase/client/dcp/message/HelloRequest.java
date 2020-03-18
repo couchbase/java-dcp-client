@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.message;
 
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 public enum HelloRequest {
   ;

@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.endpoint.kv.AuthenticationException;
-import com.couchbase.client.core.security.sasl.Sasl;
+import com.couchbase.client.dcp.core.endpoint.kv.AuthenticationException;
+import com.couchbase.client.dcp.core.security.sasl.Sasl;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.SaslAuthRequest;
@@ -25,13 +25,13 @@ import com.couchbase.client.dcp.message.SaslListMechsRequest;
 import com.couchbase.client.dcp.message.SaslListMechsResponse;
 import com.couchbase.client.dcp.message.SaslStepRequest;
 import com.couchbase.client.dcp.message.SaslStepResponse;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
-import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
-import com.couchbase.client.deps.io.netty.util.concurrent.Future;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.CharsetUtil;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,9 +47,6 @@ import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_ERROR;
 
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements CallbackHandler {
 
@@ -82,8 +79,8 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
   /**
    * Creates a new auth handler.
    *
-   * @param address user/bucket name.
-   * @param environment password of the user/bucket.
+   * @param username user/bucket name.
+   * @param password password of the user/bucket.
    */
   AuthHandler(String username, String password) {
     this.username = username;

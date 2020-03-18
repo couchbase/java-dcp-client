@@ -16,9 +16,9 @@
 package com.couchbase.client.dcp.message.control;
 
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.util.CharsetUtil;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

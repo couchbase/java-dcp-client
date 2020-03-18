@@ -17,9 +17,9 @@ package com.couchbase.client.dcp.state.json;
 
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
-import com.couchbase.client.deps.com.fasterxml.jackson.core.JsonGenerator;
-import com.couchbase.client.deps.com.fasterxml.jackson.databind.JsonSerializer;
-import com.couchbase.client.deps.com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
 
 import java.io.IOException;
 

@@ -16,13 +16,13 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.core.CouchbaseException;
-import com.couchbase.client.core.config.AlternateAddress;
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
-import com.couchbase.client.core.config.DefaultNodeInfo;
-import com.couchbase.client.core.config.NodeInfo;
-import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.CouchbaseException;
+import com.couchbase.client.dcp.core.config.AlternateAddress;
+import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
+import com.couchbase.client.dcp.core.config.DefaultNodeInfo;
+import com.couchbase.client.dcp.core.config.NodeInfo;
+import com.couchbase.client.dcp.core.service.ServiceType;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
-import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;

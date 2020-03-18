@@ -15,11 +15,11 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.state.AbstractStateMachine;
-import com.couchbase.client.core.state.LifecycleState;
-import com.couchbase.client.core.state.NotConnectedException;
-import com.couchbase.client.core.time.Delay;
+import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.core.state.AbstractStateMachine;
+import com.couchbase.client.dcp.core.state.LifecycleState;
+import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
@@ -42,19 +42,19 @@ import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.dcp.transport.netty.DcpResponseListener;
 import com.couchbase.client.dcp.util.AdaptiveDelay;
 import com.couchbase.client.dcp.util.AtomicBooleanArray;
-import com.couchbase.client.deps.io.netty.bootstrap.Bootstrap;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.buffer.ByteBufAllocator;
-import com.couchbase.client.deps.io.netty.buffer.PooledByteBufAllocator;
-import com.couchbase.client.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.deps.io.netty.buffer.UnpooledByteBufAllocator;
-import com.couchbase.client.deps.io.netty.channel.Channel;
-import com.couchbase.client.deps.io.netty.channel.ChannelFuture;
-import com.couchbase.client.deps.io.netty.channel.ChannelFutureListener;
-import com.couchbase.client.deps.io.netty.channel.ChannelOption;
-import com.couchbase.client.deps.io.netty.util.concurrent.Future;
-import com.couchbase.client.deps.io.netty.util.concurrent.GenericFutureListener;
-import com.couchbase.client.deps.io.netty.util.concurrent.ImmediateEventExecutor;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledByteBufAllocator;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelOption;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ImmediateEventExecutor;
 import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,12 +70,12 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-import static com.couchbase.client.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.message.ResponseStatus.KEY_EXISTS;
 import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
-import static com.couchbase.client.deps.io.netty.util.ReferenceCountUtil.safeRelease;
+import static io.netty.util.ReferenceCountUtil.safeRelease;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**

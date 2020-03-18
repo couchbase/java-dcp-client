@@ -15,13 +15,10 @@
  */
 package com.couchbase.client.dcp.error;
 
-import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.dcp.core.CouchbaseException;
 
 /**
  * This exception indicates an error during bootstrap. See the cause and message for more details.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class BootstrapException extends CouchbaseException {
 

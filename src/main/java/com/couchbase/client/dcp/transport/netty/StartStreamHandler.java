@@ -15,26 +15,23 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.CouchbaseException;
-import com.couchbase.client.core.logging.RedactableArgument;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
-import com.couchbase.client.deps.io.netty.handler.codec.base64.Base64;
-import com.couchbase.client.deps.io.netty.handler.codec.http.DefaultFullHttpRequest;
-import com.couchbase.client.deps.io.netty.handler.codec.http.FullHttpRequest;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpHeaders;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpMethod;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpRequest;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpResponse;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpVersion;
-import com.couchbase.client.deps.io.netty.util.CharsetUtil;
+import com.couchbase.client.dcp.core.CouchbaseException;
+import com.couchbase.client.dcp.core.logging.RedactableArgument;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.base64.Base64;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.util.CharsetUtil;
 
 /**
  * This handler intercepts the bootstrap of the config stream, sending the initial request
  * and checking the response for potential errors.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
 

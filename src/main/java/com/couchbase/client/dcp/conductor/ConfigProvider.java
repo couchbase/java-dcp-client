@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.state.LifecycleState;
-import com.couchbase.client.core.state.Stateful;
+import com.couchbase.client.dcp.core.state.LifecycleState;
+import com.couchbase.client.dcp.core.state.Stateful;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import rx.Completable;
 import rx.Observable;
@@ -27,9 +27,6 @@ import rx.Observable;
  * Note that it is assumed by contract that the configuration provider is "cluster aware" and
  * tries until stopped to find a new node to grab a configuration from if the current source
  * is not available anymore.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public interface ConfigProvider extends Stateful<LifecycleState> {
 

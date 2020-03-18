@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.perfrunner;
 
-import com.couchbase.client.core.CouchbaseException;
-import com.couchbase.client.core.utils.ConnectionString.Scheme;
+import com.couchbase.client.dcp.core.CouchbaseException;
+import com.couchbase.client.dcp.core.utils.ConnectionString.Scheme;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;

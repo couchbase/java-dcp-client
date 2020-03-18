@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.core.event.CouchbaseEvent;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 
 /**
  * This interface acts as a callback on the {@link Client#systemEventHandler(SystemEventHandler)} API

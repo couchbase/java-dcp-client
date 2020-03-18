@@ -15,38 +15,38 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.core.config.CouchbaseBucketConfig;
-import com.couchbase.client.core.config.parser.BucketConfigParser;
-import com.couchbase.client.core.env.NetworkResolution;
-import com.couchbase.client.core.logging.RedactableArgument;
+import com.couchbase.client.dcp.core.logging.RedactableArgument;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
-import com.couchbase.client.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.deps.io.netty.channel.ChannelHandlerContext;
-import com.couchbase.client.deps.io.netty.channel.SimpleChannelInboundHandler;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpContent;
-import com.couchbase.client.deps.io.netty.handler.codec.http.HttpObject;
+import com.couchbase.client.dcp.core.config.AlternateAddress;
+import com.couchbase.client.dcp.core.config.BucketConfig;
+import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
+import com.couchbase.client.dcp.core.config.NodeInfo;
+import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
+import com.couchbase.client.dcp.core.env.NetworkResolution;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpObject;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.subjects.Subject;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static com.couchbase.client.core.config.DefaultConfigurationProvider.determineNetworkResolution;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
  * This handler is responsible to consume chunks of JSON configs via HTTP, aggregate them and once a complete
  * config is received send it into a {@link Subject} for external usage.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
   private static final Logger LOGGER = LoggerFactory.getLogger(ConfigHandler.class);
@@ -154,6 +154,45 @@ class ConfigHandler extends SimpleChannelInboundHandler<HttpObject> {
       LOGGER.info("Selected network: {}", displayName);
     }
     config.useAlternateNetwork(alternateNetworkName);
+  }
+
+  /**
+   * Helper method to figure out which network resolution should be used.
+   *
+   * if DEFAULT is selected, then null is returned which is equal to the "internal" or default
+   * config mode. If AUTO is used then we perform the select heuristic based off of the seed
+   * hosts given. All other resolution settings (i.e. EXTERNAL) are returned directly and are
+   * considered to be part of the alternate address configs.
+   *
+   * @param config the config to check against
+   * @param nr the network resolution setting from the environment
+   * @param seedHosts the seed hosts from bootstrap for autoconfig.
+   * @return the found setting if external is used, null if internal/default is used.
+   */
+  public static String determineNetworkResolution(final BucketConfig config, final NetworkResolution nr,
+                                                  final Set<String> seedHosts) {
+    if (nr.equals(NetworkResolution.DEFAULT)) {
+      return null;
+    } else if (nr.equals(NetworkResolution.AUTO)) {
+      for (NodeInfo info : config.nodes()) {
+        if (seedHosts.contains(info.hostname())) {
+          return null;
+        }
+
+        Map<String, AlternateAddress> aa = info.alternateAddresses();
+        if (aa != null && !aa.isEmpty()) {
+          for (Map.Entry<String, AlternateAddress> entry : aa.entrySet()) {
+            AlternateAddress alternateAddress = entry.getValue();
+            if (alternateAddress != null && seedHosts.contains(alternateAddress.hostname())) {
+              return entry.getKey();
+            }
+          }
+        }
+      }
+      return null;
+    } else {
+      return nr.name();
+    }
   }
 
   /**

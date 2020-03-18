@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.core.CouchbaseException;
+import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import rx.Single;
 
