@@ -177,9 +177,10 @@ class PerformanceTestDriver {
       hostnames.add(host.getHostName());
     }
 
-    final Client.Builder builder = Client.configure()
-        .username(requireNonNull(connectionString.username(), "Connection string is missing username"))
-        .password(requireNonNull(connectionString.password(), "Connection string is missing password"))
+    final String username = requireNonNull(connectionString.username(), "Connection string is missing username");
+    final String password = requireNonNull(connectionString.password(), "Connection string is missing password");
+    final Client.Builder builder = Client.builder()
+        .credentials(username, password)
         .hostnames(hostnames)
         .bucket(requireNonNull(connectionString.bucket(), "Connection string is missing bucket name"))
         .compression(compressionMode);

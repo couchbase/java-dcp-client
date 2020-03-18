@@ -39,9 +39,6 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * This program works well together with the {@link WorkloadGenerator} which runs some constant workload and then
  * this file is stopped and resumed to showcase the pickup.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class StatePersistence {
 
@@ -50,11 +47,10 @@ public class StatePersistence {
 
   public static void main(String[] args) throws Exception {
     // Connect to localhost and use the travel-sample bucket
-    final Client client = Client.configure()
+    final Client client = Client.builder()
         .hostnames("localhost")
         .bucket(BUCKET)
-        .username("Administrator")
-        .password("password")
+        .credentials("Administrator", "password")
         .build();
 
     // Don't do anything with control events in this example

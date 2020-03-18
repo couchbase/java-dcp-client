@@ -32,19 +32,15 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>
  * If you comment out the acknowledge part, you'll see no more changes streamed since the server waits forever
  * for acknowledgements.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class FlowControl {
 
   public static void main(String[] args) throws Exception {
     // Connect to localhost and use the travel-sample bucket
-    final Client client = Client.configure()
+    final Client client = Client.builder()
         .hostnames("localhost")
         .bucket("travel-sample")
-        .username("Administrator")
-        .password("password")
+        .credentials("Administrator", "password")
         .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 10000) // set the buffer to 10K
         .bufferAckWatermark(75) // after 75% are reached of the 10KB, acknowledge against the server
         .build();

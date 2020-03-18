@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.state.json;
 
+import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -40,8 +41,7 @@ public class SessionStateSerializerTest {
         new FailoverLogEntry(5, 12345)));
     partitionState.setStartSeqno(1);
     partitionState.setEndSeqno(1000);
-    partitionState.setSnapshotStartSeqno(2);
-    partitionState.setSnapshotEndSeqno(3);
+    partitionState.setSnapshot(new SnapshotMarker(2, 3));
     sessionState.set(0, partitionState);
 
     byte[] actualJson = sessionState.export(StateFormat.JSON);

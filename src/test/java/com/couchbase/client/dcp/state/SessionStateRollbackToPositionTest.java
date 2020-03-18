@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.state;
 
+import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -36,8 +37,7 @@ public class SessionStateRollbackToPositionTest {
         new FailoverLogEntry(-1L, 4567))); // seqnos are unsigned, so -1 is max value
     partitionState.setStartSeqno(1);
     partitionState.setEndSeqno(1000);
-    partitionState.setSnapshotStartSeqno(2);
-    partitionState.setSnapshotEndSeqno(3);
+    partitionState.setSnapshot(new SnapshotMarker(2, 3));
     sessionState.set(0, partitionState);
 
     sessionState.rollbackToPosition((short) 0, 1L);

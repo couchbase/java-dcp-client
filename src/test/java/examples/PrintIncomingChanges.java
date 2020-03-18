@@ -39,20 +39,16 @@ import java.util.concurrent.TimeUnit;
  * Mutation: MutationMessage [key: "airline_10226", vbid: 7, cas: 820685701775360, bySeqno: 490, revSeqno: 11,
  * flags: 0, expiry: 0, lockTime: 0, clength: 171]
  * Deletion: DeletionMessage [key: "airline_10226", vbid: 7, cas: 820691821527040, bySeqno: 491, revSeqno: 12]
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class PrintIncomingChanges {
 
   public static void main(String[] args) throws Exception {
 
     // Connect to localhost and use the travel-sample bucket
-    final Client client = Client.configure()
+    final Client client = Client.builder()
         .hostnames("localhost")
         .bucket("travel-sample")
-        .username("Administrator")
-        .password("password")
+        .credentials("Administrator", "password")
         .build();
 
     // If we are in a rollback scenario, rollback the partition and restart the stream.

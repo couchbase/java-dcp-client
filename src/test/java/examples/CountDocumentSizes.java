@@ -36,20 +36,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * Total Docs: 31590
  * Total Bytes: 36185411
  * Average Size per Doc: 1145b
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class CountDocumentSizes {
 
   public static void main(String[] args) throws Exception {
 
     // Connect to localhost and use the travel-sample bucket
-    final Client client = Client.configure()
+    final Client client = Client.builder()
         .hostnames("localhost")
         .bucket("travel-sample")
-        .username("Administrator")
-        .password("password")
+        .credentials("Administrator", "password")
         .build();
 
     // Don't do anything with control events in this example

@@ -34,20 +34,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A little more involved sample which uses JSON decoding to aggregate the number of airports in france.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class AirportsInFrance {
 
   public static void main(String[] args) throws Exception {
 
     // Connect to localhost and use the travel-sample bucket
-    final Client client = Client.configure()
+    final Client client = Client.builder()
         .hostnames("localhost")
         .bucket("travel-sample")
-        .username("Administrator")
-        .password("password")
+        .credentials("Administrator", "password")
         .build();
 
     // Don't do anything with control events in this example
