@@ -16,11 +16,11 @@
 package com.couchbase.client.dcp.message;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.util.CharsetUtil;
 
 import java.nio.charset.Charset;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public enum DcpMutationMessage {
   ;
@@ -38,7 +38,7 @@ public enum DcpMutationMessage {
   }
 
   public static String keyString(final ByteBuf buffer) {
-    return keyString(buffer, CharsetUtil.UTF_8);
+    return keyString(buffer, UTF_8);
   }
 
   public static ByteBuf content(final ByteBuf buffer) {

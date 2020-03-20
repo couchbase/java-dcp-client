@@ -22,7 +22,6 @@ import com.couchbase.client.dcp.message.ResponseStatus;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +29,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServerVersion;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Negotiates DCP control flags once connected and removes itself afterwards.
@@ -76,7 +76,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
       ByteBuf request = ctx.alloc().buffer();
       DcpControlRequest.init(request);
       DcpControlRequest.key(setting.getKey(), request);
-      DcpControlRequest.value(Unpooled.copiedBuffer(setting.getValue(), CharsetUtil.UTF_8), request);
+      DcpControlRequest.value(Unpooled.copiedBuffer(setting.getValue(), UTF_8), request);
 
       ctx.writeAndFlush(request);
     } else {

@@ -31,7 +31,6 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import io.netty.buffer.ByteBuf;
-import io.netty.util.internal.ConcurrentSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -44,6 +43,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,7 +58,7 @@ public class Conductor {
   private static final Logger LOGGER = LoggerFactory.getLogger(Conductor.class);
 
   private final ConfigProvider configProvider;
-  private final Set<DcpChannel> channels = new ConcurrentSet<>();
+  private final Set<DcpChannel> channels = ConcurrentHashMap.newKeySet();
   private volatile boolean stopped = true;
   private final ClientEnvironment env;
   private final AtomicReference<DcpBucketConfig> currentConfig = new AtomicReference<>();

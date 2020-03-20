@@ -29,7 +29,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
@@ -44,6 +43,7 @@ import javax.security.sasl.SaslClient;
 import java.io.IOException;
 
 import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_ERROR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
@@ -139,7 +139,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
       // just to play it safe keep it for both mechanisms.
       if (selectedMechanism.equals("CRAM-MD5") || selectedMechanism.equals("PLAIN")) {
         String[] evaluated = new String(evaluatedBytes).split(" ");
-        content = Unpooled.copiedBuffer(username + "\0" + evaluated[1], CharsetUtil.UTF_8);
+        content = Unpooled.copiedBuffer(username + "\0" + evaluated[1], UTF_8);
       } else {
         content = Unpooled.wrappedBuffer(evaluatedBytes);
       }

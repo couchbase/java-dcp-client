@@ -22,12 +22,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.base64.Base64;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.util.CharsetUtil;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * This handler intercepts the bootstrap of the config stream, sending the initial request
@@ -52,14 +53,14 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
     String terseUri = "/pools/default/bs/" + bucket;
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, terseUri);
-    request.headers().add(HttpHeaders.Names.ACCEPT, "application/json");
+    request.headers().add(HttpHeaderNames.ACCEPT, "application/json");
     addHttpBasicAuth(ctx, request);
     ctx.writeAndFlush(request);
   }
 
   @Override
   protected void channelRead0(final ChannelHandlerContext ctx, final HttpResponse msg) throws Exception {
-    int statusCode = msg.getStatus().code();
+    int statusCode = msg.status().code();
     if (statusCode == 200) {
       ctx.pipeline().remove(this);
       originalPromise().setSuccess();
@@ -75,7 +76,7 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
               " Does bucket '" + RedactableArgument.meta(bucket) + "' exist?");
           break;
         default:
-          exception = new CouchbaseException("Unknown error code during connect: " + msg.getStatus());
+          exception = new CouchbaseException("Unknown error code during connect: " + msg.status());
 
       }
       originalPromise().setFailure(exception);
@@ -87,9 +88,9 @@ class StartStreamHandler extends ConnectInterceptingHandler<HttpResponse> {
    */
   private void addHttpBasicAuth(final ChannelHandlerContext ctx, final HttpRequest request) {
     ByteBuf raw = ctx.alloc().buffer(username.length() + password.length() + 1);
-    raw.writeBytes((username + ":" + password).getBytes(CharsetUtil.UTF_8));
+    raw.writeBytes((username + ":" + password).getBytes(UTF_8));
     ByteBuf encoded = Base64.encode(raw, false);
-    request.headers().add(HttpHeaders.Names.AUTHORIZATION, "Basic " + encoded.toString(CharsetUtil.UTF_8));
+    request.headers().add(HttpHeaderNames.AUTHORIZATION, "Basic " + encoded.toString(UTF_8));
     encoded.release();
     raw.release();
   }

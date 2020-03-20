@@ -18,9 +18,9 @@ package com.couchbase.client.dcp.message.control;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.util.CharsetUtil;
 import org.junit.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -45,7 +45,7 @@ public class OpenConnectionRequestTest {
 
     DcpOpenConnectionRequest.connectionName(buffer, "name");
 
-    assertEquals("name", DcpOpenConnectionRequest.connectionName(buffer).toString(CharsetUtil.UTF_8));
+    assertEquals("name", DcpOpenConnectionRequest.connectionName(buffer).toString(UTF_8));
   }
 
 }

@@ -16,11 +16,11 @@
 package com.couchbase.client.dcp.message;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.util.CharsetUtil;
 
 import java.nio.charset.Charset;
 
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_DELETION_OPCODE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public enum DcpDeletionMessage {
   ;
@@ -38,7 +38,7 @@ public enum DcpDeletionMessage {
   }
 
   public static String keyString(final ByteBuf buffer) {
-    return keyString(buffer, CharsetUtil.UTF_8);
+    return keyString(buffer, UTF_8);
   }
 
 

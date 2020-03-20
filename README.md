@@ -77,7 +77,7 @@ client.dataEventHandler(new DataEventHandler() {
     public void onEvent(ChannelFlowController flowController, ByteBuf event) {
         if (DcpMutationMessage.is(event)) {
             System.out.println("Mutation: " + DcpMutationMessage.toString(event));
-            // You can print the content via DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
+            // You can print the content via DcpMutationMessage.content(event).toString(StandardCharsets.UTF_8);
         } else if (DcpDeletionMessage.is(event)) {
             System.out.println("Deletion: " + DcpDeletionMessage.toString(event));
         }
@@ -115,8 +115,8 @@ incoming mutation in the data handler you can do it like this:
 
 ```java
 if (DcpMutationMessage.is(event)) {
-    String key = DcpMutationMessage.key(event).toString(CharsetUtil.UTF_8);
-    String content = DcpMutationMessage.content(event).toString(CharsetUtil.UTF_8);
+    String key = DcpMutationMessage.keyString(event);
+    String content = DcpMutationMessage.content(event).toString(StandardCharsets.UTF_8);
     System.out.println("Found Key " + key + " with Content " + content);
 }
 ```
