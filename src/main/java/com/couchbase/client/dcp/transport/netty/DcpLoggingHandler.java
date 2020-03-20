@@ -20,6 +20,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
@@ -81,38 +82,25 @@ public class DcpLoggingHandler extends LoggingHandler {
     super(name, level);
   }
 
-  protected String formatMessage(String eventName, Object msg) {
-    if (msg instanceof ByteBuf) {
-      return formatByteBuf(eventName, (ByteBuf) msg);
-    } else if (msg instanceof ByteBufHolder) {
-      return formatByteBufHolder(eventName, (ByteBufHolder) msg);
+  @Override
+  protected String format(ChannelHandlerContext ctx, String eventName, Object arg) {
+    if (arg instanceof ByteBuf) {
+      return formatDcpPacket(ctx, eventName, (ByteBuf) arg);
+    } else if (arg instanceof ByteBufHolder) {
+      return formatDcpPacket(ctx, eventName, ((ByteBufHolder) arg).content());
     } else {
-      return formatNonByteBuf(eventName, msg);
+      return super.format(ctx, eventName, arg);
     }
   }
 
   /**
    * Returns a String which contains all details to log the {@link ByteBuf}
    */
-  protected String formatByteBuf(String eventName, ByteBuf msg) {
-    int length = msg.readableBytes();
-    if (length == 0) {
-      StringBuilder buf = new StringBuilder(eventName.length() + 4);
-      buf.append(eventName).append(": 0B");
-      return buf.toString();
-    } else {
-      return "\n" + MessageUtil.humanize(msg);
+  private String formatDcpPacket(ChannelHandlerContext ctx, String eventName, ByteBuf msg) {
+    if (msg.readableBytes() == 0) {
+      return ctx.channel() + " " + eventName + ": 0B";
     }
-  }
-
-  /**
-   * Returns a String which contains all details to log the {@link ByteBufHolder}.
-   * <p>
-   * By default this method just delegates to {@link #formatByteBuf(String, ByteBuf)},
-   * using the content of the {@link ByteBufHolder}. Sub-classes may override this.
-   */
-  protected String formatByteBufHolder(String eventName, ByteBufHolder msg) {
-    return formatByteBuf(eventName, msg.content());
+    return ctx.channel() + " " + eventName + ":\n" + MessageUtil.humanize(msg);
   }
 }
 
