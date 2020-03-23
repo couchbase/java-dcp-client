@@ -127,6 +127,13 @@ public class Version implements Comparable<Version> {
       int major = Integer.parseInt(matcher.group(1));
       int minor = matcher.group(2) != null ? Integer.parseInt(matcher.group(2)) : 0;
       int patch = matcher.group(3) != null ? Integer.parseInt(matcher.group(3)) : 0;
+
+      // Custom server builds report a version of 0.0.0. Treat these as if they
+      // were the most recent version, since they usually are.
+      if (major == 0) {
+        major = 9999;
+      }
+
       return new Version(major, minor, patch);
     } else {
       throw new IllegalArgumentException(
