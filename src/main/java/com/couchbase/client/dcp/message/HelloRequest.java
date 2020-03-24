@@ -18,38 +18,30 @@ package com.couchbase.client.dcp.message;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+import java.util.EnumSet;
+import java.util.Set;
+
+import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
+import static com.couchbase.client.dcp.message.HelloFeature.XERROR;
+import static java.util.Collections.unmodifiableSet;
+
 public enum HelloRequest {
   ;
 
-  public static final short DATATYPE = 0x01;
-  public static final short TLS = 0x02;
-  public static final short TCPNODELAY = 0x03;
-  public static final short MUTATIONSEQ = 0x04;
-  public static final short TCPDELAY = 0x05;
-  public static final short XATTR = 0x06;
-  public static final short XERROR = 0x07;
-  public static final short SELECT = 0x08;
+  private static final Set<HelloFeature> standardFeatures = unmodifiableSet(EnumSet.of(
+      XERROR, SELECT_BUCKET));
 
-  /**
-   * Enable snappy-based compression support.
-   *
-   * @since Couchbase Server 5.5 (Vulcan)
-   */
-  public static final short SNAPPY = 0x0a;
-
-  private static final short[] standardFeatures = new short[]{XERROR, SELECT};
-
-  public static void init(ByteBuf buffer, String connectionName, short... extraFeatures) {
+  public static void init(ByteBuf buffer, String connectionName, Set<HelloFeature> extraFeatures) {
     MessageUtil.initRequest(MessageUtil.HELLO_OPCODE, buffer);
     MessageUtil.setKey(connectionName, buffer);
 
-    ByteBuf features = Unpooled.buffer((standardFeatures.length + extraFeatures.length) * 2);
+    Set<HelloFeature> advertisedFeatures = EnumSet.copyOf(standardFeatures);
+    advertisedFeatures.addAll(extraFeatures);
+
+    ByteBuf features = Unpooled.buffer(advertisedFeatures.size() * 2);
     try {
-      for (short feature : standardFeatures) {
-        features.writeShort(feature);
-      }
-      for (short feature : extraFeatures) {
-        features.writeShort(feature);
+      for (HelloFeature feature : advertisedFeatures) {
+        features.writeShort(feature.code());
       }
 
       MessageUtil.setContent(features, buffer);
@@ -57,5 +49,16 @@ public enum HelloRequest {
     } finally {
       features.release();
     }
+  }
+
+  public static Set<HelloFeature> parseResponse(ByteBuf msg) {
+    Set<HelloFeature> features = EnumSet.noneOf(HelloFeature.class);
+    ByteBuf content = MessageUtil.getContent(msg);
+    while (content.isReadable()) {
+      // Don't need to worry about encountering an unrecognized value,
+      // since the response features are always a subset of the request features.
+      features.add(HelloFeature.forCode(content.readShort()));
+    }
+    return features;
   }
 }

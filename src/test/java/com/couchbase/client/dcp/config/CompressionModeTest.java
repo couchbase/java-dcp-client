@@ -16,16 +16,19 @@
 
 package com.couchbase.client.dcp.config;
 
-import com.couchbase.client.dcp.message.HelloRequest;
 import com.couchbase.client.dcp.util.Version;
 import org.junit.Test;
+
+import java.util.EnumSet;
 
 import static com.couchbase.client.dcp.config.CompressionMode.DISABLED;
 import static com.couchbase.client.dcp.config.CompressionMode.ENABLED;
 import static com.couchbase.client.dcp.config.CompressionMode.FORCED;
+import static com.couchbase.client.dcp.message.HelloFeature.DATATYPE;
+import static com.couchbase.client.dcp.message.HelloFeature.SNAPPY;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonMap;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 public class CompressionModeTest {
@@ -50,19 +53,19 @@ public class CompressionModeTest {
 
   @Test
   public void vulcanDisabled() throws Exception {
-    assertArrayEquals(new short[0], DISABLED.getHelloFeatures(VULCAN));
+    assertEquals(emptySet(), DISABLED.getHelloFeatures(VULCAN));
     assertEquals(emptyMap(), DISABLED.getDcpControls(VULCAN));
   }
 
   @Test
   public void vulcanForced() throws Exception {
-    assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, FORCED.getHelloFeatures(VULCAN));
+    assertEquals(EnumSet.of(DATATYPE, SNAPPY), FORCED.getHelloFeatures(VULCAN));
     assertEquals(singletonMap("force_value_compression", "true"), FORCED.getDcpControls(VULCAN));
   }
 
   @Test
   public void vulcanDiscretionary() throws Exception {
-    assertArrayEquals(new short[]{HelloRequest.DATATYPE, HelloRequest.SNAPPY}, ENABLED.getHelloFeatures(VULCAN));
+    assertEquals(EnumSet.of(DATATYPE, SNAPPY), ENABLED.getHelloFeatures(VULCAN));
     assertEquals(emptyMap(), ENABLED.getDcpControls(VULCAN));
   }
 

@@ -16,13 +16,17 @@
 
 package com.couchbase.client.dcp.config;
 
+import com.couchbase.client.dcp.message.HelloFeature;
 import com.couchbase.client.dcp.util.Version;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
-import static com.couchbase.client.dcp.message.HelloRequest.DATATYPE;
-import static com.couchbase.client.dcp.message.HelloRequest.SNAPPY;
+import static com.couchbase.client.dcp.message.HelloFeature.DATATYPE;
+import static com.couchbase.client.dcp.message.HelloFeature.SNAPPY;
+import static java.util.Collections.emptySet;
 
 public enum CompressionMode {
   /**
@@ -42,9 +46,9 @@ public enum CompressionMode {
     }
 
     @Override
-    public short[] getHelloFeatures(Version serverVersion) {
+    public Set<HelloFeature> getHelloFeatures(Version serverVersion) {
       // Don't advertise support for compression.
-      return EMPTY_SHORT_ARRAY;
+      return emptySet();
     }
   },
 
@@ -129,11 +133,11 @@ public enum CompressionMode {
   /**
    * @return the HELLO features required to activate this compression mode.
    */
-  public short[] getHelloFeatures(Version serverVersion) {
+  public Set<HelloFeature> getHelloFeatures(Version serverVersion) {
     // Vulcan won't send compressed values unless we HELLO with these features.
     // Watson doesn't care how we HELLO; doesn't hurt to send them anyway.
     // The DISABLED enum overrides this method to return no features,
     // deactivating compression for Vulcan.
-    return new short[]{DATATYPE, SNAPPY};
+    return EnumSet.of(DATATYPE, SNAPPY);
   }
 }

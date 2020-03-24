@@ -20,6 +20,7 @@ import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
+import com.couchbase.client.dcp.message.HelloFeature;
 import com.couchbase.client.dcp.message.HelloRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
@@ -32,27 +33,27 @@ import io.netty.util.AttributeKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Set;
+
+import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
+import static java.util.Collections.unmodifiableSet;
+
 /**
  * Opens the DCP connection on the channel and once established removes itself.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
-  /**
-   * MEMCACHED Status indicating a success
-   */
-  private static final byte SUCCESS = 0x00;
+  private enum ConnectionStep {
+    VERSION,
+    HELLO,
+    SELECT,
+    OPEN,
+    REMOVE;
 
-  /**
-   * Connection steps
-   */
-  private static final byte VERSION = 0;
-  private static final byte HELLO = 1;
-  private static final byte SELECT = 2;
-  private static final byte OPEN = 3;
-  private static final byte REMOVE = 4;
+    ConnectionStep next() {
+      return values()[ordinal() + 1];
+    }
+  }
 
   /**
    * The logger used.
@@ -63,6 +64,11 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
    * The version reported by the server.
    */
   private static final AttributeKey<Version> SERVER_VERSION = AttributeKey.valueOf("serverVersion");
+
+  /**
+   * The features returned by the server in the HELO response.
+   */
+  private static final AttributeKey<Set<HelloFeature>> NEGOTIATED_FEATURES = AttributeKey.valueOf("negotiatedFeatures");
 
   /**
    * Generates the connection name for the dcp connection.
@@ -87,7 +93,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   /**
    * The current connection step
    */
-  private byte step = VERSION;
+  private ConnectionStep step = ConnectionStep.VERSION;
 
   /**
    * Returns the Couchbase Server version associated with the given channel.
@@ -102,6 +108,22 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
           + DcpConnectHandler.class.getSimpleName());
     }
     return version;
+  }
+
+  /**
+   * Returns the features from the HELO response (the intersection of the features
+   * we advertised and the features supported by the server).
+   *
+   * @throws IllegalStateException if {@link DcpConnectHandler} has not yet issued
+   *                               a HELO request and processed the result.
+   */
+  public static Set<HelloFeature> getFeatures(Channel channel) {
+    Set<HelloFeature> features = channel.attr(NEGOTIATED_FEATURES).get();
+    if (features == null) {
+      throw new IllegalStateException("Negotiated features version attribute not yet set by "
+          + DcpConnectHandler.class.getSimpleName());
+    }
+    return features;
   }
 
   /**
@@ -133,13 +155,22 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
     ResponseStatus status = MessageUtil.getResponseStatus(msg);
     if (status.isSuccess()) {
-      step++;
+      step = step.next();
       switch (step) {
         case HELLO:
           hello(ctx, msg);
           break;
         case SELECT:
-          select(ctx);
+          final Set<HelloFeature> features = HelloRequest.parseResponse(msg);
+          LOGGER.debug("Negotiated features: {}", features);
+          ctx.channel().attr(NEGOTIATED_FEATURES).set(unmodifiableSet(features));
+          if (features.contains(SELECT_BUCKET)) {
+            select(ctx);
+          } else {
+            // Skip SELECT
+            step = ConnectionStep.OPEN;
+            open(ctx);
+          }
           break;
         case OPEN:
           open(ctx);
@@ -153,24 +184,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
       }
     } else {
       originalPromise().setFailure(new IllegalStateException("Could not open DCP Connection: Failed in the "
-          + toString(step) + " step, response status is " + status));
-    }
-  }
-
-  private String toString(byte step) {
-    switch (step) {
-      case VERSION:
-        return "VERSION";
-      case HELLO:
-        return "HELLO";
-      case SELECT:
-        return "SELECT";
-      case OPEN:
-        return "OPEN";
-      case REMOVE:
-        return "REMOVE";
-      default:
-        return "UNKNOWN";
+          + step + " step, response status is " + status));
     }
   }
 
@@ -194,7 +208,6 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     DcpOpenConnectionRequest.init(request);
     DcpOpenConnectionRequest.connectionName(request, connectionName);
     ctx.writeAndFlush(request);
-
   }
 
   private void hello(ChannelHandlerContext ctx, ByteBuf msg) {
@@ -212,15 +225,8 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
       return;
     }
 
-    if (serverVersion.major() < 5) {
-      // Skip HELLO and SELECT
-      step = OPEN;
-      open(ctx);
-      return;
-    }
-
     final CompressionMode compressionMode = dcpControl.compression(serverVersion);
-    short[] extraFeatures = compressionMode.getHelloFeatures(serverVersion);
+    final Set<HelloFeature> extraFeatures = compressionMode.getHelloFeatures(serverVersion);
     ByteBuf request = ctx.alloc().buffer();
     HelloRequest.init(request, connectionName, extraFeatures);
     ctx.writeAndFlush(request);
