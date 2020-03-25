@@ -16,6 +16,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.ConnectionNameGenerator;
+import com.couchbase.client.dcp.buffer.DcpOps;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
@@ -35,25 +36,122 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
 import static java.util.Collections.unmodifiableSet;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Opens the DCP connection on the channel and once established removes itself.
  */
 public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
-  private enum ConnectionStep {
-    VERSION,
-    HELLO,
-    SELECT,
-    OPEN,
-    REMOVE;
+  private abstract class ConnectionStep {
+    private final String name;
 
-    ConnectionStep next() {
-      return values()[ordinal() + 1];
+    ConnectionStep(String name) {
+      this.name = requireNonNull(name);
     }
+
+    @Override
+    public String toString() {
+      return name;
+    }
+
+    abstract void issueRequest(ChannelHandlerContext ctx);
+
+    /**
+     * @return the next connection step to execute
+     */
+    abstract ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg);
   }
+
+  private final ConnectionStep version = new ConnectionStep("version") {
+    @Override
+    void issueRequest(ChannelHandlerContext ctx) {
+      ByteBuf request = ctx.alloc().buffer();
+      VersionRequest.init(request);
+      ctx.writeAndFlush(request);
+    }
+
+    @Override
+    ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg) {
+      final String versionString = MessageUtil.getContentAsString(msg);
+      LOGGER.info("{} Couchbase Server version {}", system(ctx.channel()), versionString);
+      final Version serverVersion = Version.parseVersion(versionString);
+      ctx.channel().attr(SERVER_VERSION).set(serverVersion);
+
+      return hello;
+    }
+  };
+
+  private final ConnectionStep hello = new ConnectionStep("hello") {
+    @Override
+    void issueRequest(ChannelHandlerContext ctx) {
+      final Version serverVersion = getServerVersion(ctx.channel());
+      final CompressionMode compressionMode = dcpControl.compression(serverVersion);
+      final Set<HelloFeature> extraFeatures = compressionMode.getHelloFeatures(serverVersion);
+
+      ByteBuf request = ctx.alloc().buffer();
+      HelloRequest.init(request, connectionName, extraFeatures);
+      ctx.writeAndFlush(request);
+    }
+
+    @Override
+    ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg) {
+      final Set<HelloFeature> features = HelloRequest.parseResponse(msg);
+      LOGGER.debug("{} Negotiated features: {}", ctx.channel(), features);
+      ctx.channel().attr(NEGOTIATED_FEATURES).set(unmodifiableSet(features));
+
+      // skip the 'select bucket' step if unsupported
+      return features.contains(SELECT_BUCKET) ? selectBucket : open;
+    }
+  };
+
+  private final ConnectionStep selectBucket = new ConnectionStep("select bucket") {
+    @Override
+    void issueRequest(ChannelHandlerContext ctx) {
+      ByteBuf request = ctx.alloc().buffer();
+      BucketSelectRequest.init(request, bucket);
+      ctx.writeAndFlush(request);
+    }
+
+    @Override
+    ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg) {
+      return open;
+    }
+  };
+
+  private final ConnectionStep open = new ConnectionStep("open") {
+    @Override
+    void issueRequest(ChannelHandlerContext ctx) {
+      ByteBuf request = ctx.alloc().buffer();
+      DcpOpenConnectionRequest.init(request);
+      DcpOpenConnectionRequest.connectionName(request, connectionName);
+      ctx.writeAndFlush(request);
+    }
+
+    @Override
+    ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg) {
+      return remove;
+    }
+  };
+
+  private final ConnectionStep remove = new ConnectionStep("remove") {
+    @Override
+    void issueRequest(ChannelHandlerContext ctx) {
+      ctx.pipeline().remove(DcpConnectHandler.this);
+      originalPromise().setSuccess();
+      ctx.fireChannelActive();
+      LOGGER.debug("DCP Connection opened with Name \"{}\" against Node {}", connectionName,
+          ctx.channel().remoteAddress());
+    }
+
+    @Override
+    ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg) {
+      throw new AssertionError("Connection step '" + this + "' should not have a response to handle.");
+    }
+  };
 
   /**
    * The logger used.
@@ -93,7 +191,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   /**
    * The current connection step
    */
-  private ConnectionStep step = ConnectionStep.VERSION;
+  private ConnectionStep step = version;
 
   /**
    * Returns the Couchbase Server version associated with the given channel.
@@ -138,13 +236,17 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   }
 
   /**
-   * Once the channel becomes active, sends the initial open connection request.
+   * Assigns a name to the connection and starts the first connection step.
    */
   @Override
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-    ByteBuf request = ctx.alloc().buffer();
-    VersionRequest.init(request);
-    ctx.writeAndFlush(request);
+    try {
+      connectionName = connectionNameGenerator.name();
+      step.issueRequest(ctx);
+
+    } catch (Throwable t) {
+      fail(ctx, t);
+    }
   }
 
   /**
@@ -153,83 +255,22 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
    */
   @Override
   protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
-    ResponseStatus status = MessageUtil.getResponseStatus(msg);
-    if (status.isSuccess()) {
-      step = step.next();
-      switch (step) {
-        case HELLO:
-          hello(ctx, msg);
-          break;
-        case SELECT:
-          final Set<HelloFeature> features = HelloRequest.parseResponse(msg);
-          LOGGER.debug("Negotiated features: {}", features);
-          ctx.channel().attr(NEGOTIATED_FEATURES).set(unmodifiableSet(features));
-          if (features.contains(SELECT_BUCKET)) {
-            select(ctx);
-          } else {
-            // Skip SELECT
-            step = ConnectionStep.OPEN;
-            open(ctx);
-          }
-          break;
-        case OPEN:
-          open(ctx);
-          break;
-        case REMOVE:
-          remove(ctx);
-          break;
-        default:
-          originalPromise().setFailure(new IllegalStateException("Unidentified DcpConnection step " + step));
-          break;
-      }
-    } else {
-      originalPromise().setFailure(new IllegalStateException("Could not open DCP Connection: Failed in the "
-          + step + " step, response status is " + status));
-    }
-  }
-
-  private void select(ChannelHandlerContext ctx) {
-    // Select bucket
-    ByteBuf request = ctx.alloc().buffer();
-    BucketSelectRequest.init(request, bucket);
-    ctx.writeAndFlush(request);
-  }
-
-  private void remove(ChannelHandlerContext ctx) {
-    ctx.pipeline().remove(this);
-    originalPromise().setSuccess();
-    ctx.fireChannelActive();
-    LOGGER.debug("DCP Connection opened with Name \"{}\" against Node {}", connectionName,
-        ctx.channel().remoteAddress());
-  }
-
-  private void open(ChannelHandlerContext ctx) {
-    ByteBuf request = ctx.alloc().buffer();
-    DcpOpenConnectionRequest.init(request);
-    DcpOpenConnectionRequest.connectionName(request, connectionName);
-    ctx.writeAndFlush(request);
-  }
-
-  private void hello(ChannelHandlerContext ctx, ByteBuf msg) {
-    connectionName = connectionNameGenerator.name();
-    final String versionString = MessageUtil.getContentAsString(msg);
-    final Version serverVersion;
     try {
-      serverVersion = Version.parseVersion(versionString);
-      ctx.channel().attr(SERVER_VERSION).set(serverVersion);
+      ResponseStatus status = MessageUtil.getResponseStatus(msg);
+      if (!status.isSuccess()) {
+        throw new DcpOps.BadResponseStatusException(status);
+      }
 
-    } catch (IllegalArgumentException e) {
-      originalPromise().setFailure(
-          new IllegalStateException("Version returned by the server couldn't be parsed " + versionString, e));
-      ctx.close(ctx.voidPromise());
-      return;
+      step = step.handleResponse(ctx, msg);
+      step.issueRequest(ctx);
+
+    } catch (Throwable t) {
+      fail(ctx, new RuntimeException("Could not establish DCP connection; failed in the '" + step + "' step; " + t, t));
     }
-
-    final CompressionMode compressionMode = dcpControl.compression(serverVersion);
-    final Set<HelloFeature> extraFeatures = compressionMode.getHelloFeatures(serverVersion);
-    ByteBuf request = ctx.alloc().buffer();
-    HelloRequest.init(request, connectionName, extraFeatures);
-    ctx.writeAndFlush(request);
   }
 
+  private void fail(final ChannelHandlerContext ctx, Throwable t) {
+    originalPromise().setFailure(t);
+    ctx.channel().close(ctx.voidPromise());
+  }
 }
