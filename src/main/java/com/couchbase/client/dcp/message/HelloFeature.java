@@ -17,51 +17,59 @@
 package com.couchbase.client.dcp.message;
 
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
 
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Collectors.toMap;
 
 public enum HelloFeature {
   // For feature definitions see https://github.com/couchbase/kv_engine/blob/master/docs/BinaryProtocol.md#0x1f-helo
 
-  // ORDER IS SIGNIFICANT! Ordinal value corresponds to feature code.
+  DATATYPE(0x0001),
+  TLS(0x0002),
+  TCP_NODELAY(0x0003),
+  MUTATION_SEQNO(0x0004),
+  TCP_DELAY(0x0005),
+  XATTR(0x0006),
+  XERROR(0x0007),
+  SELECT_BUCKET(0x0008),
+  // 0x0009 is undefined
+  SNAPPY(0x000a),
+  JSON(0x000b),
+  DUPLEX(0x000c),
+  CLUSTERMAP_CHANGE_NOTIFICATION(0x000d),
+  UNORDERED_EXECUTION(0x000e),
+  TRACING(0x000f),
+  ALT_REQUEST(0x0010),
+  SYNC_REPLICATION(0x0011),
+  COLLECTIONS(0x0012),
+  OPEN_TRACING(0x0013),
+  PRESERVE_TTL(0x0014),
+  VATTR(0x0015);
 
-  UNDEFINED_0,
-  DATATYPE,
-  TLS,
-  TCP_NODELAY,
-  MUTATION_SEQNO,
-  TCP_DELAY,
-  XATTR,
-  XERROR,
-  SELECT_BUCKET,
-  UNDEFINED_9,
-  SNAPPY,
-  JSON,
-  DUPLEX,
-  CLUSTERMAP_CHANGE_NOTIFICATION,
-  UNORDERED_EXECUTION,
-  TRACING,
-  ALT_REQUEST,
-  SYNC_REPLICATION,
-  COLLECTIONS,
-  OPEN_TRACING,
-  PRESERVE_TTL,
-  VATTR;
+  private final short code;
 
-  // Cache since values() creates a new array each time it is called.
-  private static final List<HelloFeature> values = unmodifiableList(Arrays.asList(values()));
+  private static final Map<Short, HelloFeature> codeToFeature = unmodifiableMap(
+      Arrays.stream(values())
+          .collect(toMap(HelloFeature::code, f -> f)));
+
+  HelloFeature(int code) {
+    if (code < 0 || code > 0xffff) {
+      throw new IllegalArgumentException("code doesn't fit in 2 bytes");
+    }
+    this.code = (short) code;
+  }
 
   public short code() {
-    return (short) ordinal();
+    return code;
   }
 
   public static HelloFeature forCode(short code) {
-    try {
-      return values.get(code);
-    } catch (IndexOutOfBoundsException e) {
+    HelloFeature f = codeToFeature.get(code);
+    if (f == null) {
       throw new IllegalArgumentException("Unrecognized feature code: " + code);
     }
+    return f;
   }
 
   @Override
