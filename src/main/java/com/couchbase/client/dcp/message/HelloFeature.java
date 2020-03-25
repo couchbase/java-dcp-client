@@ -16,6 +16,10 @@
 
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+
 import java.util.Arrays;
 import java.util.Map;
 
@@ -58,6 +62,14 @@ public enum HelloFeature {
       throw new IllegalArgumentException("code doesn't fit in 2 bytes");
     }
     this.code = (short) code;
+  }
+
+  public boolean isEnabled(Channel channel) {
+    return DcpConnectHandler.getFeatures(channel).contains(this);
+  }
+
+  public boolean isEnabled(ChannelHandlerContext ctx) {
+    return isEnabled(ctx.channel());
   }
 
   public short code() {

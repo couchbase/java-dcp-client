@@ -25,17 +25,16 @@ import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.service.ServiceType;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.stream.Collectors;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * A wrapper around a {@link CouchbaseBucketConfig} that automatically resolves alternate addresses
@@ -45,9 +44,8 @@ public class DcpBucketConfig {
   private final boolean sslEnabled;
   private final CouchbaseBucketConfig config;
   private final NodeToPartitionMultimap map;
-  private final List<NodeInfo> dataNodesWithAnyPartitions;
-  private final List<NodeInfo> dataNodesWithActivePartitions;
   private final List<NodeInfo> allNodes;
+  private final List<NodeInfo> allDataNodes;
 
   public DcpBucketConfig(final CouchbaseBucketConfig config, final boolean sslEnabled) {
     this.config = requireNonNull(config);
@@ -55,31 +53,9 @@ public class DcpBucketConfig {
     this.map = new NodeToPartitionMultimap(config);
     this.allNodes = resolveAlternateAddresses(config);
 
-    final List<NodeInfo> active = new ArrayList<>();
-    final List<NodeInfo> activeOrReplica = new ArrayList<>();
-
-    for (int i = 0, len = allNodes.size(); i < len; i++) {
-      final NodeInfo node = allNodes.get(i);
-      final boolean hasAnyPartitions = !map.get(i).isEmpty();
-
-      if (hasAnyPartitions) {
-        if (!hasBinaryService(node)) {
-          throw new IllegalArgumentException("Only nodes running the KV service can host bucket partitions.");
-        }
-
-        activeOrReplica.add(node);
-
-        final boolean nodeHasActivePartitions =
-            map.get(i).stream().anyMatch(partitionInstance -> partitionInstance.slot() == 0);
-
-        if (nodeHasActivePartitions) {
-          active.add(node);
-        }
-      }
-    }
-
-    this.dataNodesWithAnyPartitions = unmodifiableList(activeOrReplica);
-    this.dataNodesWithActivePartitions = unmodifiableList(active);
+    allDataNodes = unmodifiableList(allNodes.stream()
+        .filter(this::hasBinaryService)
+        .collect(toList()));
   }
 
   public long rev() {
@@ -97,7 +73,7 @@ public class DcpBucketConfig {
   private static List<NodeInfo> resolveAlternateAddresses(CouchbaseBucketConfig config) {
     return config.nodes().stream()
         .map(DcpBucketConfig::resolveAlternateAddress)
-        .collect(Collectors.toList());
+        .collect(toList());
   }
 
   private static NodeInfo resolveAlternateAddress(NodeInfo nodeInfo) {
@@ -125,14 +101,10 @@ public class DcpBucketConfig {
   }
 
   /**
-   * Returns an unmodifiable list containing only those nodes that are running the Data Service
-   * (also known as Key/Value Service or Binary Service) and are hosting at least one active or replica partition.
-   *
-   * @param requireActivePartition if true, only nodes hosting at least one active partition will be returned.
-   * Otherwise, nodes hosting at least partition of any kind (active or replica) will be returned.
+   * Returns an unmodifiable list containing only those nodes that are running the KV service.
    */
-  public List<NodeInfo> getDataNodes(boolean requireActivePartition) {
-    return requireActivePartition ? dataNodesWithActivePartitions : dataNodesWithAnyPartitions;
+  public List<NodeInfo> getDataNodes() {
+    return allDataNodes;
   }
 
   public int getNodeIndex(final InetSocketAddress nodeAddress) throws NoSuchElementException {

@@ -38,7 +38,7 @@ public class FlowControl {
   public static void main(String[] args) throws Exception {
     // Connect to localhost and use the travel-sample bucket
     final Client client = Client.builder()
-        .hostnames("localhost")
+        .seedNodes("localhost")
         .bucket("travel-sample")
         .credentials("Administrator", "password")
         .controlParam(DcpControl.Names.CONNECTION_BUFFER_SIZE, 10000) // set the buffer to 10K

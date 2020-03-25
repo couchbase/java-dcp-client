@@ -112,10 +112,13 @@ abstract class ConnectInterceptingHandler<T>
     ctx.fireExceptionCaught(cause);
   }
 
+  private static final String customPortAdvice = "If your seed nodes include a custom port," +
+      " make sure it's the port of the KV service which defaults to 11210 (or 11207 for TLS).";
+
   @Override
   public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
     if (evt instanceof HandshakeDeadlineEvent) {
-      originalPromise().tryFailure(new ConnectTimeoutException("Handshake did not complete before deadline."));
+      originalPromise().tryFailure(new ConnectTimeoutException("Handshake did not complete before deadline. " + customPortAdvice));
       ctx.close();
       return;
     }
@@ -125,7 +128,7 @@ abstract class ConnectInterceptingHandler<T>
 
   @Override
   public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-    originalPromise().tryFailure(new ConnectException("Channel became inactive before handshake completed."));
+    originalPromise().tryFailure(new ConnectException("Channel became inactive before handshake completed. " + customPortAdvice));
     ctx.fireChannelInactive();
   }
 }

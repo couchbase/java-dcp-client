@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
+import static com.couchbase.client.dcp.message.MessageUtil.GET_CLUSTER_CONFIG_OPCODE;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -100,7 +101,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     @Override
     ConnectionStep handleResponse(ChannelHandlerContext ctx, ByteBuf msg) {
       final Set<HelloFeature> features = HelloRequest.parseResponse(msg);
-      LOGGER.debug("{} Negotiated features: {}", ctx.channel(), features);
+      LOGGER.info("{} Negotiated features: {}", ctx.channel(), features);
       ctx.channel().attr(NEGOTIATED_FEATURES).set(unmodifiableSet(features));
 
       // skip the 'select bucket' step if unsupported
@@ -140,6 +141,11 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   private final ConnectionStep remove = new ConnectionStep("remove") {
     @Override
     void issueRequest(ChannelHandlerContext ctx) {
+      // Get the bucket config. BucketConfigHandler will handle the response.
+      ByteBuf request = ctx.alloc().buffer();
+      MessageUtil.initRequest(GET_CLUSTER_CONFIG_OPCODE, request);
+      ctx.writeAndFlush(request);
+
       ctx.pipeline().remove(DcpConnectHandler.this);
       originalPromise().setSuccess();
       ctx.fireChannelActive();
@@ -218,7 +224,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   public static Set<HelloFeature> getFeatures(Channel channel) {
     Set<HelloFeature> features = channel.attr(NEGOTIATED_FEATURES).get();
     if (features == null) {
-      throw new IllegalStateException("Negotiated features version attribute not yet set by "
+      throw new IllegalStateException("Negotiated features attribute not yet set by "
           + DcpConnectHandler.class.getSimpleName());
     }
     return features;
@@ -271,6 +277,6 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
   private void fail(final ChannelHandlerContext ctx, Throwable t) {
     originalPromise().setFailure(t);
-    ctx.channel().close(ctx.voidPromise());
+    ctx.channel().close();
   }
 }

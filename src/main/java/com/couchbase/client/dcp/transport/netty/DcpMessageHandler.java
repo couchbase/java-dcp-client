@@ -15,11 +15,11 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.buffer.DcpRequestDispatcher;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;

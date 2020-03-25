@@ -15,6 +15,13 @@
  */
 package com.couchbase.client.dcp.config;
 
+import com.couchbase.client.dcp.ConnectionNameGenerator;
+import com.couchbase.client.dcp.ControlEventHandler;
+import com.couchbase.client.dcp.CredentialsProvider;
+import com.couchbase.client.dcp.DataEventHandler;
+import com.couchbase.client.dcp.SystemEventHandler;
+import com.couchbase.client.dcp.buffer.PersistedSeqnos;
+import com.couchbase.client.dcp.buffer.StreamEventBuffer;
 import com.couchbase.client.dcp.core.env.CoreScheduler;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
 import com.couchbase.client.dcp.core.env.resources.NoOpShutdownHook;
@@ -23,19 +30,12 @@ import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.core.event.EventBus;
 import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.time.Delay;
-import com.couchbase.client.dcp.ConnectionNameGenerator;
-import com.couchbase.client.dcp.ControlEventHandler;
-import com.couchbase.client.dcp.CredentialsProvider;
-import com.couchbase.client.dcp.DataEventHandler;
-import com.couchbase.client.dcp.SystemEventHandler;
-import com.couchbase.client.dcp.buffer.PersistedSeqnos;
-import com.couchbase.client.dcp.buffer.StreamEventBuffer;
-import com.couchbase.client.dcp.core.env.ConfigParserEnvironment;
-import com.couchbase.client.dcp.core.node.MemcachedHashingStrategy;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
@@ -44,6 +44,7 @@ import rx.Subscriber;
 import rx.Subscription;
 
 import java.security.KeyStore;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -53,17 +54,18 @@ import static java.util.Objects.requireNonNull;
  * The {@link ClientEnvironment} is responsible to carry various configuration and
  * state information throughout the lifecycle.
  */
-public class ClientEnvironment implements SecureEnvironment, ConfigParserEnvironment {
-  public static final long DEFAULT_BOOTSTRAP_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
+public class ClientEnvironment implements SecureEnvironment {
+  private static final Logger log = LoggerFactory.getLogger(ClientEnvironment.class);
+
+  public static final Duration DEFAULT_BOOTSTRAP_TIMEOUT = Duration.ofSeconds(5);
+  public static final Duration DEFAULT_CONFIG_REFRESH_INTERVAL = Duration.ofSeconds(2);
   public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
-  public static final Delay DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY = Delay.linear(TimeUnit.SECONDS, 10, 1);
-  public static final int DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
   public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
   public static final Delay DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Delay.fixed(200, TimeUnit.MILLISECONDS);
   public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
   public static final boolean DEFAULT_SSL_ENABLED = false;
-  public static final int BOOTSTRAP_HTTP_DIRECT_PORT = 8091;
-  public static final int BOOTSTRAP_HTTP_SSL_PORT = 18091;
+  private static final int DEFAULT_KV_PORT = 11210;
+  private static final int DEFAULT_KV_TLS_PORT = 11207;
 
   /**
    * Stores the list of bootstrap nodes (where the cluster is).
@@ -91,9 +93,14 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   private final CredentialsProvider credentialsProvider;
 
   /**
-   * Time in milliseconds to wait for initial configuration during bootstrap.
+   * Time to wait for initial configuration during bootstrap.
    */
-  private final long bootstrapTimeout;
+  private final Duration bootstrapTimeout;
+
+  /**
+   * Polling interval when server does not support clustermap change notifications.
+   */
+  private final Duration configRefreshInterval;
 
   /**
    * Time in milliseconds to wait configuration provider socket to connect.
@@ -154,16 +161,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   /**
    * Delay strategy for configuration provider reconnection.
    */
-  private final Delay configProviderReconnectDelay;
-
-  /**
-   * Maximum number of attempts to reconnect configuration provider before giving up.
-   */
-  private final int configProviderReconnectMaxAttempts;
-
-  /**
-   * Delay strategy for configuration provider reconnection.
-   */
   private final Delay dcpChannelsReconnectDelay;
 
   /**
@@ -179,8 +176,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   private final String sslKeystoreFile;
   private final String sslKeystorePassword;
   private final KeyStore sslKeystore;
-  private final int bootstrapHttpDirectPort;
-  private final int bootstrapHttpSslPort;
 
   /**
    * Creates a new environment based on the builder.
@@ -192,14 +187,13 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     bucket = builder.bucket;
     credentialsProvider = builder.credentialsProvider;
     bootstrapTimeout = builder.bootstrapTimeout;
+    configRefreshInterval = builder.configRefreshInterval;
     connectTimeout = builder.connectTimeout;
     dcpControl = builder.dcpControl;
     eventLoopGroup = builder.eventLoopGroup;
     eventLoopGroupIsPrivate = builder.eventLoopGroupIsPrivate;
     bufferAckWatermark = builder.bufferAckWatermark;
     poolBuffers = builder.poolBuffers;
-    configProviderReconnectDelay = builder.configProviderReconnectDelay;
-    configProviderReconnectMaxAttempts = builder.configProviderReconnectMaxAttempts;
     socketConnectTimeout = builder.socketConnectTimeout;
     dcpChannelsReconnectDelay = builder.dcpChannelsReconnectDelay;
     dcpChannelsReconnectMaxAttempts = builder.dcpChannelsReconnectMaxAttempts;
@@ -213,8 +207,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
       this.schedulerShutdownHook = scheduler;
       eventBus = new DefaultDcpEventBus(scheduler);
     }
-    bootstrapHttpDirectPort = builder.bootstrapHttpDirectPort;
-    bootstrapHttpSslPort = builder.bootstrapHttpSslPort;
     sslEnabled = builder.sslEnabled;
     sslKeystoreFile = builder.sslKeystoreFile;
     sslKeystorePassword = builder.sslKeystorePassword;
@@ -367,9 +359,16 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   }
 
   /**
+   * Polling interval when server does not support clustermap change notifications.
+   */
+  public Duration configRefreshInterval() {
+    return configRefreshInterval;
+  }
+
+  /**
    * Time in milliseconds to wait for first configuration during bootstrap.
    */
-  public long bootstrapTimeout() {
+  public Duration bootstrapTimeout() {
     return bootstrapTimeout;
   }
 
@@ -435,20 +434,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
   }
 
   /**
-   * Delay strategy for configuration provider reconnection.
-   */
-  public Delay configProviderReconnectDelay() {
-    return configProviderReconnectDelay;
-  }
-
-  /**
-   * Maximum number of attempts to reconnect configuration provider before giving up.
-   */
-  public int configProviderReconnectMaxAttempts() {
-    return configProviderReconnectMaxAttempts;
-  }
-
-  /**
    * Socket connect timeout in milliseconds.
    */
   public long socketConnectTimeout() {
@@ -460,14 +445,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
    */
   public EventBus eventBus() {
     return eventBus;
-  }
-
-  public int bootstrapHttpDirectPort() {
-    return bootstrapHttpDirectPort;
-  }
-
-  public int bootstrapHttpSslPort() {
-    return bootstrapHttpSslPort;
   }
 
   @Override
@@ -490,33 +467,22 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     return sslKeystore;
   }
 
-  @Override
-  public MemcachedHashingStrategy memcachedHashingStrategy() {
-    // This is hardcoded, because memcached nodes do not support DCP anyway.
-    return (info, repetition) -> {
-      throw new UnsupportedOperationException("Can't stream from memcached buckets.");
-    };
-  }
-
   public static class Builder {
     private List<HostAndPort> clusterAt;
     private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private ConnectionNameGenerator connectionNameGenerator;
     private String bucket;
     private CredentialsProvider credentialsProvider;
-    private long bootstrapTimeout = DEFAULT_BOOTSTRAP_TIMEOUT;
+    private Duration configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
+    private Duration bootstrapTimeout = DEFAULT_BOOTSTRAP_TIMEOUT;
     private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
     private DcpControl dcpControl;
     private EventLoopGroup eventLoopGroup;
     private boolean eventLoopGroupIsPrivate;
     private boolean poolBuffers;
-    private Delay configProviderReconnectDelay = DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
-    private int configProviderReconnectMaxAttempts = DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
     private long socketConnectTimeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
     private Delay dcpChannelsReconnectDelay = DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
     private int dcpChannelsReconnectMaxAttempts = DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
-    private int bootstrapHttpDirectPort = BOOTSTRAP_HTTP_DIRECT_PORT;
-    private int bootstrapHttpSslPort = BOOTSTRAP_HTTP_SSL_PORT;
 
     private int bufferAckWatermark;
     private EventBus eventBus;
@@ -557,23 +523,18 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
 
-    public Builder setBootstrapTimeout(long bootstrapTimeout) {
+    public Builder setBootstrapTimeout(Duration bootstrapTimeout) {
       this.bootstrapTimeout = bootstrapTimeout;
+      return this;
+    }
+
+    public Builder setConfigRefreshInterval(Duration configRefreshInterval) {
+      this.configRefreshInterval = configRefreshInterval;
       return this;
     }
 
     public Builder setConnectTimeout(long connectTimeout) {
       this.connectTimeout = connectTimeout;
-      return this;
-    }
-
-    public Builder setConfigProviderReconnectDelay(Delay configProviderReconnectDelay) {
-      this.configProviderReconnectDelay = configProviderReconnectDelay;
-      return this;
-    }
-
-    public Builder setConfigProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts) {
-      this.configProviderReconnectMaxAttempts = configProviderReconnectMaxAttempts;
       return this;
     }
 
@@ -615,24 +576,6 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
 
     public Builder setEventBus(EventBus eventBus) {
       this.eventBus = eventBus;
-      return this;
-    }
-
-    /**
-     * If SSL not enabled, sets the port to use for HTTP bootstrap
-     * (default value {@value #BOOTSTRAP_HTTP_DIRECT_PORT}).
-     */
-    public Builder setBootstrapHttpDirectPort(final int bootstrapHttpDirectPort) {
-      this.bootstrapHttpDirectPort = bootstrapHttpDirectPort;
-      return this;
-    }
-
-    /**
-     * If SSL enabled, sets the port to use for HTTP bootstrap
-     * (default value {@value #BOOTSTRAP_HTTP_SSL_PORT}).
-     */
-    public Builder setBootstrapHttpSslPort(final int bootstrapHttpSslPort) {
-      this.bootstrapHttpSslPort = bootstrapHttpSslPort;
       return this;
     }
 
@@ -688,11 +631,19 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
     }
 
     public ClientEnvironment build() {
-      int defaultConfigPort = sslEnabled ? bootstrapHttpSslPort : bootstrapHttpDirectPort;
+      final int defaultKvPort = sslEnabled ? DEFAULT_KV_TLS_PORT : DEFAULT_KV_PORT;
       for (int i = 0; i < clusterAt.size(); i++) {
         HostAndPort node = clusterAt.get(i);
+
+        if (node.port() == 8091 || node.port() == 18091) {
+          log.warn("Seed node '{}' uses port '{}' which is likely incorrect." +
+                  " This should be the port of the KV service, not the Manager service." +
+                  " If the connection fails, omit the port so the client can supply the correct default.",
+              node.host(), node.port());
+        }
+
         if (node.port() == 0) {
-          clusterAt.set(i, node.withPort(defaultConfigPort));
+          clusterAt.set(i, node.withPort(defaultKvPort));
         }
       }
       return new ClientEnvironment(this);
@@ -748,6 +699,7 @@ public class ClientEnvironment implements SecureEnvironment, ConfigParserEnviron
         ", bufferAckWatermark=" + bufferAckWatermark +
         ", connectTimeout=" + connectTimeout +
         ", bootstrapTimeout=" + bootstrapTimeout +
+        ", configRefreshInterval=" + configRefreshInterval +
         ", sslEnabled=" + sslEnabled +
         ", sslKeystoreFile='" + sslKeystoreFile + '\'' +
         ", sslKeystorePassword=" + (sslKeystorePassword != null && !sslKeystorePassword.isEmpty()) +

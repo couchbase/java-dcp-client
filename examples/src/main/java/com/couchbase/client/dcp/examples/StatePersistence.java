@@ -48,7 +48,7 @@ public class StatePersistence {
   public static void main(String[] args) throws Exception {
     // Connect to localhost and use the travel-sample bucket
     final Client client = Client.builder()
-        .hostnames("localhost")
+        .seedNodes("localhost")
         .bucket(BUCKET)
         .credentials("Administrator", "password")
         .build();

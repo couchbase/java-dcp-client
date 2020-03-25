@@ -60,7 +60,7 @@ public class HighLevelApi {
 
     try (Client client = Client.builder()
         .credentials("Administrator", "password")
-        .hostnames("localhost")
+        .seedNodes("localhost")
         .bucket(bucketName)
         .flowControl(64 * BYTES_PER_MEGABYTE)
         .userAgent("HighLevelApiExample", "0.1", "bucket:" + bucketName)

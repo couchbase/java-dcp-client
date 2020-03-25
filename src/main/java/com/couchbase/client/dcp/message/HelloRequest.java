@@ -21,6 +21,8 @@ import io.netty.buffer.Unpooled;
 import java.util.EnumSet;
 import java.util.Set;
 
+import static com.couchbase.client.dcp.message.HelloFeature.CLUSTERMAP_CHANGE_NOTIFICATION;
+import static com.couchbase.client.dcp.message.HelloFeature.DUPLEX;
 import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
 import static com.couchbase.client.dcp.message.HelloFeature.XERROR;
 import static java.util.Collections.unmodifiableSet;
@@ -29,7 +31,7 @@ public enum HelloRequest {
   ;
 
   private static final Set<HelloFeature> standardFeatures = unmodifiableSet(EnumSet.of(
-      XERROR, SELECT_BUCKET));
+      XERROR, SELECT_BUCKET, DUPLEX, CLUSTERMAP_CHANGE_NOTIFICATION));
 
   public static void init(ByteBuf buffer, String connectionName, Set<HelloFeature> extraFeatures) {
     MessageUtil.initRequest(MessageUtil.HELLO_OPCODE, buffer);

@@ -19,6 +19,8 @@ package com.couchbase.client.dcp.test.agent;
 import com.couchbase.client.java.CouchbaseCluster;
 import com.couchbase.client.java.cluster.ClusterManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.util.ResourceLeakDetector;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -28,6 +30,10 @@ import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
 
 @SpringBootApplication
 public class Application {
+  static {
+    ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+  }
+
   private final String username;
   private final String password;
   private final String bootstrapHostnames;

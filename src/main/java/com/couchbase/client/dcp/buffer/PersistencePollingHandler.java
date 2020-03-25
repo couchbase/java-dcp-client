@@ -16,12 +16,12 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.dcp.core.state.NotConnectedException;
-import com.couchbase.client.dcp.conductor.ConfigProvider;
+import com.couchbase.client.dcp.conductor.BucketConfigSource;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.core.state.NotConnectedException;
+import io.micrometer.core.instrument.Metrics;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.SingleSubscriber;
@@ -44,7 +44,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
       Metrics.globalRegistry.gauge("dcp.scheduled.polling.tasks", new LongAdder()));
 
   private final ClientEnvironment env;
-  private final ConfigProvider configProvider;
+  private final BucketConfigSource bucketConfigSource;
   private final DcpOps dcpOps;
   private final PersistedSeqnos persistedSeqnos;
   private final AtomicBoolean loggedClosureWarning = new AtomicBoolean();
@@ -55,10 +55,10 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   private int activeGroupId;
 
   public PersistencePollingHandler(final ClientEnvironment env,
-                                   final ConfigProvider configProvider,
+                                   final BucketConfigSource bucketConfigSource,
                                    final DcpRequestDispatcher dispatcher) {
     this.env = requireNonNull(env);
-    this.configProvider = requireNonNull(configProvider);
+    this.bucketConfigSource = requireNonNull(bucketConfigSource);
     this.persistedSeqnos = requireNonNull(env.persistedSeqnos());
     this.dcpOps = new DcpOpsImpl(dispatcher);
   }
@@ -78,7 +78,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
     super.channelActive(ctx);
 
-    configSubscription = configProvider.configs()
+    configSubscription = bucketConfigSource.configs()
         .observeOn(Schedulers.from(ctx.executor()))
         .subscribe(bucketConfig -> reconfigure(ctx, bucketConfig));
   }

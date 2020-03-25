@@ -148,7 +148,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
             .remoteAddress(inetAddress)
             .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-            .handler(new DcpPipeline(env, controlHandler, conductor.configProvider(), metrics))
+            .handler(new DcpPipeline(env, controlHandler, conductor.bucketConfigArbiter(), metrics))
             .group(env.eventLoopGroup());
 
         transitionState(LifecycleState.CONNECTING);

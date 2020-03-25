@@ -15,12 +15,12 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.dcp.buffer.DcpBucketConfig;
+import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.core.time.Delay;
-import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
@@ -57,21 +57,20 @@ public class Conductor {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Conductor.class);
 
-  private final ConfigProvider configProvider;
+  private final BucketConfigArbiter bucketConfigArbiter;
   private final Set<DcpChannel> channels = ConcurrentHashMap.newKeySet();
   private volatile boolean stopped = true;
   private final ClientEnvironment env;
   private final AtomicReference<DcpBucketConfig> currentConfig = new AtomicReference<>();
-  private final boolean ownsConfigProvider;
   private final SessionState sessionState = new SessionState();
   private final DcpClientMetrics metrics;
 
-  public Conductor(final ClientEnvironment env, ConfigProvider cp, DcpClientMetrics metrics) {
+  public Conductor(final ClientEnvironment env, DcpClientMetrics metrics) {
     this.metrics = requireNonNull(metrics);
     this.env = env;
-    configProvider = cp == null ? new HttpStreamingConfigProvider(env) : cp;
-    ownsConfigProvider = cp == null;
-    configProvider.configs().forEach(config -> {
+    this.bucketConfigArbiter = new BucketConfigArbiter(env);
+
+    bucketConfigArbiter.configs().forEach(config -> {
       LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
       currentConfig.set(config);
       reconfigure(config);
@@ -84,36 +83,34 @@ public class Conductor {
 
   public Completable connect() {
     stopped = false;
-    Completable atLeastOneConfig = configProvider.configs()
+
+    // Connect to every node listed in the bootstrap list.
+    // As part of the connection process, each node is asked for the
+    // bucket config. The response is used to reconfigure the cluster
+    // which adds any missing nodes.
+    env.clusterAt().forEach(h -> add(h.toAddress()));
+
+    long bootstrapTimeoutMillis = env.bootstrapTimeout().toMillis()
+        + env.configRefreshInterval().toMillis(); // allow at least one config refresh
+
+    Completable atLeastOneConfig = bucketConfigArbiter.configs()
         .filter(config -> config.numberOfPartitions() != 0)
         .first().toCompletable()
-        .timeout(env.bootstrapTimeout(), TimeUnit.SECONDS)
-        .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from provider."));
-    return configProvider.start()
-        .timeout(env.connectTimeout(), TimeUnit.SECONDS)
-        .doOnError(throwable -> LOGGER.warn("Cannot connect configuration provider."))
-        .concatWith(atLeastOneConfig);
+        .timeout(bootstrapTimeoutMillis, TimeUnit.MILLISECONDS)
+        .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from cluster within {}ms", bootstrapTimeoutMillis));
+    return atLeastOneConfig;
   }
 
-  ConfigProvider configProvider() {
-    return configProvider;
+  BucketConfigArbiter bucketConfigArbiter() {
+    return bucketConfigArbiter;
   }
 
   /**
    * Returns true if all channels and the config provider are in a disconnected state.
    */
   public boolean disconnected() {
-    if (!configProvider.isState(LifecycleState.DISCONNECTED)) {
-      return false;
-    }
-
-    for (DcpChannel channel : channels) {
-      if (!channel.isState(LifecycleState.DISCONNECTED)) {
-        return false;
-      }
-    }
-
-    return true;
+    return channels.stream()
+        .allMatch(c -> c.isState(LifecycleState.DISCONNECTED));
   }
 
   public Completable stop() {
@@ -123,10 +120,6 @@ public class Conductor {
         .from(channels)
         .flatMapCompletable(DcpChannel::disconnect)
         .toCompletable();
-
-    if (ownsConfigProvider) {
-      channelShutdown = channelShutdown.andThen(configProvider.stop());
-    }
 
     return channelShutdown.doOnCompleted(() -> LOGGER.info("Shutdown complete."));
   }
@@ -218,8 +211,10 @@ public class Conductor {
   private void reconfigure(DcpBucketConfig configHelper) {
     metrics.incrementReconfigure();
 
-    final boolean onlyConnectToPrimaryPartition = !env.persistencePollingEnabled();
-    final List<NodeInfo> nodes = configHelper.getDataNodes(onlyConnectToPrimaryPartition);
+    final List<NodeInfo> nodes = configHelper.getDataNodes();
+    if (nodes.isEmpty()) {
+      throw new IllegalStateException("Bucket config helper returned no data nodes");
+    }
 
     final Map<InetSocketAddress, DcpChannel> existingChannelsByAddress = channels.stream()
         .collect(toMap(DcpChannel::address, c -> c));

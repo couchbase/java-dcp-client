@@ -33,6 +33,10 @@ public enum MessageUtil {
   public static final byte MAGIC_REQ = (byte) 0x80;
   public static final byte MAGIC_RES = (byte) 0x81;
 
+  // Duplex mode, server-initiated request and client response
+  public static final byte MAGIC_SERVER_REQ = (byte) 0x82;
+  public static final byte MAGIC_SERVER_RES = (byte) 0x83;
+
   public static final short KEY_LENGTH_OFFSET = 2;
   public static final short EXTRAS_LENGTH_OFFSET = 4;
   public static final short DATA_TYPE_OFFSET = 5;
@@ -65,8 +69,14 @@ public enum MessageUtil {
   public static final byte DCP_CONTROL_OPCODE = 0x5e;
   public static final byte SELECT_BUCKET_OPCODE = (byte) 0x89;
   public static final byte OBSERVE_SEQNO_OPCODE = (byte) 0x91;
+  public static final byte GET_CLUSTER_CONFIG_OPCODE = (byte) 0xb5;
 
-  public static final byte INTERNAL_ROLLBACK_OPCODE = 0x01;
+  public static final byte INTERNAL_ROLLBACK_OPCODE = 0x00;
+
+  // Duplex mode, server-initiated commands
+  public static final byte CLUSTERMAP_CHANGE_NOTIFICATION_OPCODE = 0x01;
+  public static final byte AUTHENTICATE_OPCODE = 0x02;
+  public static final byte ACTIVE_EXTERNAL_USERS_OPCODE = 0x03;
 
   private static final String[] OPCODE_NAMES = initOpcodeNames();
   private static final String[] FORMATTED_OPCODE_NAMES = initFormattedOpcodeNames();
@@ -108,7 +118,7 @@ public enum MessageUtil {
     try {
       return FORMATTED_OPCODE_NAMES[opcode];
     } catch (IndexOutOfBoundsException badRequestOrOpcodeArrayNotSizedCorrectly) {
-      return "?";
+      return String.valueOf(opcode);
     }
   }
 
@@ -399,11 +409,24 @@ public enum MessageUtil {
     }
   }
 
-
   private static String formatMagic(byte magic) {
-    String name = magic == MAGIC_REQ
-        ? "REQUEST"
-        : (magic == MAGIC_RES) ? "RESPONSE" : "?";
+    final String name;
+    switch (magic) {
+      case MAGIC_REQ:
+        name = "REQUEST";
+        break;
+      case MAGIC_RES:
+        name = "RESPONSE";
+        break;
+      case MAGIC_SERVER_REQ:
+        name = "SERVER REQUEST";
+        break;
+      case MAGIC_SERVER_RES:
+        name = "SERVER RESPONSE";
+        break;
+      default:
+        name = "?";
+    }
     return String.format("0x%02x (%s)", magic, name);
   }
 }

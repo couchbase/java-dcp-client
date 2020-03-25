@@ -32,6 +32,10 @@ public class HostAndPort {
     this.port = port;
   }
 
+  public HostAndPort(InetSocketAddress address) {
+    this(address.getHostString(), address.getPort());
+  }
+
   public String host() {
     return host;
   }

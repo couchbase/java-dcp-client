@@ -15,16 +15,15 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.dcp.core.event.EventBus;
-import com.couchbase.client.dcp.core.time.Delay;
-import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.conductor.Conductor;
-import com.couchbase.client.dcp.conductor.ConfigProvider;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.dcp.core.event.EventBus;
+import com.couchbase.client.dcp.core.time.Delay;
+import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.StreamEndEvent;
@@ -70,6 +69,8 @@ import java.security.KeyStore;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -139,10 +140,9 @@ public class Client implements Closeable {
         .setBufferAckWatermark(builder.bufferAckWatermark)
         .setBufferPooling(builder.poolBuffers)
         .setConnectTimeout(builder.connectTimeout)
+        .setConfigRefreshInterval(builder.configRefreshInterval)
         .setBootstrapTimeout(builder.bootstrapTimeout)
         .setSocketConnectTimeout(builder.socketConnectTimeout)
-        .setConfigProviderReconnectDelay(builder.configProviderReconnectDelay)
-        .setConfigProviderReconnectMaxAttempts(builder.configProviderReconnectMaxAttempts)
         .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
         .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
         .setEventBus(builder.eventBus)
@@ -179,7 +179,7 @@ public class Client implements Closeable {
     });
 
     MetricsContext metricsContext = new MetricsContext("dcp");
-    conductor = new Conductor(env, builder.configProvider, new DcpClientMetrics(metricsContext));
+    conductor = new Conductor(env, new DcpClientMetrics(metricsContext));
     LOGGER.info("Environment Configuration Used: {}", system(env));
   }
 
@@ -409,7 +409,7 @@ public class Client implements Closeable {
     return conductor.connect().onErrorResumeNext(new Func1<Throwable, Completable>() {
       @Override
       public Completable call(Throwable throwable) {
-        return conductor.stop()
+        return disconnect()
             .andThen(Completable.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable)));
       }
     });
@@ -910,14 +910,12 @@ public class Client implements Closeable {
     private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
     private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
     private DcpControl dcpControl = new DcpControl();
-    private ConfigProvider configProvider = null;
     private int bufferAckWatermark;
     private boolean poolBuffers = true;
     private long connectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
-    private long bootstrapTimeout = ClientEnvironment.DEFAULT_BOOTSTRAP_TIMEOUT;
+    private Duration bootstrapTimeout = ClientEnvironment.DEFAULT_BOOTSTRAP_TIMEOUT;
+    private Duration configRefreshInterval = ClientEnvironment.DEFAULT_CONFIG_REFRESH_INTERVAL;
     private long socketConnectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
-    private Delay configProviderReconnectDelay = ClientEnvironment.DEFAULT_CONFIG_PROVIDER_RECONNECT_DELAY;
-    private int configProviderReconnectMaxAttempts = ClientEnvironment.DEFAULT_CONFIG_PROVIDER_RECONNECT_MAX_ATTEMPTS;
     private int dcpChannelsReconnectMaxAttempts = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
     private Delay dcpChannelsReconnectDelay = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
     private EventBus eventBus;
@@ -943,30 +941,57 @@ public class Client implements Closeable {
     }
 
     /**
-     * The hostnames to bootstrap against.
+     * Sets the addresses of the Couchbase Server nodes to bootstrap against.
+     * <p>
+     * If a port is specified, it must be the KV service port.
+     * <p>
+     * The port may be omitted if Couchbase is listening on the standard KV ports
+     * (11210 and 11207 for insecure and TLS connections, respectively).
      *
-     * @param hostnames seed nodes.
+     * @param addresses seed nodes.
      * @return this {@link Builder} for nice chainability.
      */
-    public Builder hostnames(final List<String> hostnames) {
-      this.clusterAt = getSeedNodes(ConnectionString.fromHostnames(hostnames));
+    public Builder seedNodes(final Collection<String> addresses) {
+      List<String> asList = new ArrayList<>(new HashSet<>(addresses));
+      this.clusterAt = getSeedNodes(ConnectionString.fromHostnames(asList));
       return this;
     }
 
     /**
-     * The hostnames to bootstrap against.
+     * Sets the addresses of the Couchbase Server nodes to bootstrap against.
+     * <p>
+     * If a port is specified, it must be the KV service port.
+     * <p>
+     * The port may be omitted if Couchbase is listening on the standard KV ports
+     * (11210 and 11207 for insecure and TLS connections, respectively).
      *
-     * @param hostnames seed nodes.
+     * @param addresses seed nodes.
      * @return this {@link Builder} for nice chainability.
      */
-    public Builder hostnames(String... hostnames) {
-      return hostnames(Arrays.asList(hostnames));
+    public Builder seedNodes(final String... addresses) {
+      return seedNodes(Arrays.asList(addresses));
+    }
+
+    /**
+     * @deprecated use {@link #seedNodes(Collection)} instead.
+     */
+    @Deprecated
+    public Builder hostnames(final List<String> addresses) {
+      return seedNodes(addresses);
+    }
+
+    /**
+     * @deprecated use {@link #seedNodes(String...)} instead.
+     */
+    @Deprecated
+    public Builder hostnames(String... addresses) {
+      return seedNodes(addresses);
     }
 
     /**
      * Connection string to bootstrap with.
      * <p>
-     * Note: it overrides list of hostnames defined by {@link #hostnames(List)}.
+     * Note: it overrides list of hostnames defined by {@link #seedNodes(Collection)}.
      * <p>
      * Connection string specification defined in SDK-RFC-11:
      * https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0011-connection-string.md
@@ -1112,17 +1137,6 @@ public class Client implements Closeable {
     }
 
     /**
-     * A custom configuration provider can be shared and passed in across clients. use with care!
-     *
-     * @param configProvider the custom config provider.
-     * @return this {@link Builder} for nice chainability.
-     */
-    public Builder configProvider(final ConfigProvider configProvider) {
-      this.configProvider = configProvider;
-      return this;
-    }
-
-    /**
      * If buffer pooling should be enabled (yes by default).
      *
      * @param pool enable or disable buffer pooling.
@@ -1145,11 +1159,31 @@ public class Client implements Closeable {
 
     /**
      * Time to wait for first configuration during bootstrap.
-     *
-     * @param bootstrapTimeout time in milliseconds.
      */
-    public Builder bootstrapTimeout(long bootstrapTimeout) {
+    public Builder bootstrapTimeout(Duration bootstrapTimeout) {
       this.bootstrapTimeout = bootstrapTimeout;
+      return this;
+    }
+
+    /**
+     * When connecting to versions of Couchbase Server older than 5.5,
+     * the DCP client polls the server for cluster topology config changes
+     * at the specified interval.
+     * <p>
+     * When connecting to modern versions of Couchbase Server,
+     * calling this method has no effect.
+     *
+     * @param configRefreshInterval time between config refresh requests.
+     * Must be between 1 second and 2 minutes (inclusive).
+     */
+    public Builder configRefreshInterval(Duration configRefreshInterval) {
+      if (configRefreshInterval.compareTo(Duration.ofSeconds(1)) < 0) {
+        throw new IllegalArgumentException("Minimum config refresh interval is 1 second.");
+      }
+      if (configRefreshInterval.compareTo(Duration.ofMinutes(2)) > 0) {
+        throw new IllegalArgumentException("Maximum config refresh interval is 2 minutes.");
+      }
+      this.configRefreshInterval = requireNonNull(configRefreshInterval);
       return this;
     }
 
@@ -1160,27 +1194,6 @@ public class Client implements Closeable {
      */
     public Builder connectTimeout(long connectTimeout) {
       this.connectTimeout = connectTimeout;
-      return this;
-    }
-
-    /**
-     * Delay between retry attempts for configuration provider
-     *
-     * @param configProviderReconnectDelay
-     */
-    public Builder configProviderReconnectDelay(Delay configProviderReconnectDelay) {
-      this.configProviderReconnectDelay = configProviderReconnectDelay;
-      return this;
-    }
-
-
-    /**
-     * The maximum number of reconnect attempts for configuration provider
-     *
-     * @param configProviderReconnectMaxAttempts
-     */
-    public Builder configProviderReconnectMaxAttempts(int configProviderReconnectMaxAttempts) {
-      this.configProviderReconnectMaxAttempts = configProviderReconnectMaxAttempts;
       return this;
     }
 

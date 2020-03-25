@@ -17,7 +17,7 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
-import com.couchbase.client.dcp.conductor.ConfigProvider;
+import com.couchbase.client.dcp.conductor.BucketConfigArbiter;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
@@ -65,7 +65,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
    */
   private final DcpChannelControlHandler controlHandler;
   private final SSLEngineFactory sslEngineFactory;
-  private final ConfigProvider configProvider;
+  private final BucketConfigArbiter bucketConfigArbiter;
   private final DcpChannelMetrics metrics;
 
   /**
@@ -75,9 +75,9 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
    * @param controlHandler the control event handler.
    */
   public DcpPipeline(final ClientEnvironment environment,
-                     final DcpChannelControlHandler controlHandler, ConfigProvider configProvider,
+                     final DcpChannelControlHandler controlHandler, BucketConfigArbiter bucketConfigArbiter,
                      DcpChannelMetrics metrics) {
-    this.configProvider = requireNonNull(configProvider);
+    this.bucketConfigArbiter = requireNonNull(bucketConfigArbiter);
     this.environment = requireNonNull(environment);
     this.controlHandler = requireNonNull(controlHandler);
     this.metrics = requireNonNull(metrics);
@@ -116,6 +116,9 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
 
     Credentials credentials = environment.credentialsProvider().get((InetSocketAddress) ch.remoteAddress());
     pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()))
+        // BucketConfigHandler comes before connect handler because a clustermap change notification
+        // could arrive at any time during the connection setup.
+        .addLast(new BucketConfigHandler(bucketConfigArbiter, environment.configRefreshInterval()))
         .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket(), control))
         .addLast(new DcpControlHandler(control));
 
@@ -137,7 +140,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     pipeline.addLast(messageHandler);
 
     if (environment.persistencePollingEnabled()) {
-      pipeline.addLast(new PersistencePollingHandler(environment, configProvider, messageHandler));
+      pipeline.addLast(new PersistencePollingHandler(environment, bucketConfigArbiter, messageHandler));
     }
   }
 }

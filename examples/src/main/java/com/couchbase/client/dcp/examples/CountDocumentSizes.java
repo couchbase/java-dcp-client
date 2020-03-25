@@ -43,7 +43,7 @@ public class CountDocumentSizes {
 
     // Connect to localhost and use the travel-sample bucket
     final Client client = Client.builder()
-        .hostnames("localhost")
+        .seedNodes("localhost")
         .bucket("travel-sample")
         .credentials("Administrator", "password")
         .build();
