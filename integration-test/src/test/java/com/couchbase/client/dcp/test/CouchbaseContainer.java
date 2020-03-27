@@ -134,7 +134,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
   private void serverAdd(CouchbaseContainer newNode) {
     execOrDie(this, "couchbase-cli server-add" +
         " --cluster " + getHostname() +
-        " --user=" + username +
+        " -u " + username + // the full name of this arg differs between server versions
         " --password=" + password +
         " --server-add=" + newNode.hostname +
         " --server-add-username=" + username +
