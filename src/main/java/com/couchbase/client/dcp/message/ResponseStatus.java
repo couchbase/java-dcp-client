@@ -20,8 +20,8 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Response status codes and messages, as defined in the
- * <a href="https://github.com/couchbase/memcached/blob/master/docs/BinaryProtocol.md">
- * Couchbase Binary Protocol specification</a>.
+ * <a href="https://github.com/couchbase/kv_engine/blob/master/docs/BinaryProtocol.md#response-status">
+ * Response Status</a> section of the Couchbase Binary Protocol specification.
  */
 public class ResponseStatus {
   private static final ResponseStatus[] values = new ResponseStatus[256];
@@ -48,6 +48,16 @@ public class ResponseStatus {
   public static final ResponseStatus INTERNAL_ERROR = new ResponseStatus(0x0084, "INTERNAL_ERROR", "Internal error");
   public static final ResponseStatus BUSY = new ResponseStatus(0x0085, "BUSY", "Busy");
   public static final ResponseStatus TEMPORARY_FAILURE = new ResponseStatus(0x0086, "TEMPORARY_FAILURE", "Temporary Failure");
+  public static final ResponseStatus XATTR_INVALID_SYNTAX = new ResponseStatus(0x0087, "XATTR_INVALID_SYNTAX", "XATTR invalid syntax");
+  public static final ResponseStatus UNKNOWN_COLLECTION = new ResponseStatus(0x0088, "UNKNOWN_COLLECTION", "Unknown collection");
+  public static final ResponseStatus NO_COLLECTIONS_MANIFEST = new ResponseStatus(0x0089, "NO_COLLECTIONS_MANIFEST", "No collections manifest");
+  public static final ResponseStatus COLLECTIONS_MANIFEST_NOT_APPLIED = new ResponseStatus(0x008a, "COLLECTIONS_MANIFEST_NOT_APPLIED", "Collections manifest not applied");
+  public static final ResponseStatus CLIENT_COLLECTIONS_MANIFEST_AHEAD = new ResponseStatus(0x008b, "CLIENT_COLLECTIONS_MANIFEST_AHEAD", "Client collections manifest ahead");
+  public static final ResponseStatus UNKNOWN_SCOPE = new ResponseStatus(0x008c, "UNKNOWN_SCOPE", "Unknown scope");
+  public static final ResponseStatus DURABILITY_LEVEL_INVALID = new ResponseStatus(0x00a0, "DURABILITY_LEVEL_INVALID", "Durability level invalid");
+  public static final ResponseStatus DURABILITY_IMPOSSIBLE = new ResponseStatus(0x00a1, "DURABILITY_IMPOSSIBLE", "Durability impossible");
+  public static final ResponseStatus SYNCHRONOUS_WRITE_IN_PROGRESS = new ResponseStatus(0x00a2, "SYNCHRONOUS_WRITE_IN_PROGRESS", "Synchronous write in progress");
+  public static final ResponseStatus SYNCHRONOUS_WRITE_AMBIGUOUS = new ResponseStatus(0x00a3, "SYNCHRONOUS_WRITE_AMBIGUOUS", "Synchronous write ambiguous");
 
   // Synthetic, never returned by server
   private static final int MALFORMED_RESPONSE_CODE = -1;
