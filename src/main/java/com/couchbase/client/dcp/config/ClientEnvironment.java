@@ -45,6 +45,7 @@ import rx.Subscription;
 
 import java.security.KeyStore;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -632,6 +633,8 @@ public class ClientEnvironment implements SecureEnvironment {
 
     public ClientEnvironment build() {
       final int defaultKvPort = sslEnabled ? DEFAULT_KV_TLS_PORT : DEFAULT_KV_PORT;
+      this.clusterAt = new ArrayList<>(clusterAt); // ensure modifiable
+
       for (int i = 0; i < clusterAt.size(); i++) {
         HostAndPort node = clusterAt.get(i);
 
