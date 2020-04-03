@@ -47,6 +47,21 @@ public interface DatabaseChangeListener {
     deletion.flowControlAck();
   }
 
+  /**
+   * Called when the vbucket seqno has advanced due to an event that the consumer is
+   * not subscribed too. For instance this might be sync-write prepares or mutations
+   * from a collection that the consumer is not subscribed too.
+   * <p>
+   * Collections-aware listeners SHOULD use the offset from this notification
+   * to update their stream state just as if they had received a document change
+   * at this offset. Otherwise they risk "rollback to zero" when the stream is
+   * restarted from an offset prior to the purge seqno.
+   * <p>
+   * Only sent if the client is collections-aware.
+   */
+  default void onSeqnoAdvanced(SeqnoAdvanced seqnoAdvanced) {
+  }
+
   default void onRollback(Rollback rollback) {
     // Most clients just want to resume streaming.
     rollback.resume();

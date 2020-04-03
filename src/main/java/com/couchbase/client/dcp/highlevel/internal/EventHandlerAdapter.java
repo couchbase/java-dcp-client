@@ -16,23 +16,28 @@
 
 package com.couchbase.client.dcp.highlevel.internal;
 
-import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.SystemEventHandler;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.events.DcpFailureEvent;
 import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.highlevel.Deletion;
 import com.couchbase.client.dcp.highlevel.FailoverLog;
 import com.couchbase.client.dcp.highlevel.Mutation;
 import com.couchbase.client.dcp.highlevel.Rollback;
+import com.couchbase.client.dcp.highlevel.SeqnoAdvanced;
 import com.couchbase.client.dcp.highlevel.SnapshotDetails;
 import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.highlevel.StreamEnd;
 import com.couchbase.client.dcp.highlevel.StreamFailure;
+import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
+import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSeqnoAdvancedRequest;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.state.FailoverLogEntry;
@@ -46,6 +51,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.user;
 import static com.couchbase.client.dcp.message.MessageUtil.getOpcode;
 import static java.util.Objects.requireNonNull;
 
@@ -145,6 +151,24 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
           return;
         }
 
+        case MessageUtil.DCP_SEQNO_ADVANCED_OPCODE: {
+          final int vbucket = MessageUtil.getVbucket(event);
+          final long seqno = DcpSeqnoAdvancedRequest.getSeqno(event);
+          log.debug("vbucket {} seqno advanced to {}", vbucket, seqno);
+          dispatch(new SeqnoAdvanced(vbucket, newOffset(vbucket, seqno)));
+          return;
+        }
+
+        case MessageUtil.DCP_SYSTEM_EVENT_OPCODE: {
+          // Collection manifest updates are handled by the low-level control event handler.
+          // All we need to do here is notify the user of the sequence number advancement.
+          final int vbucket = MessageUtil.getVbucket(event);
+          final long seqno = DcpSystemEventRequest.getSeqno(event);
+          log.debug("vbucket {} seqno advanced to {} due to system event", vbucket, seqno);
+          dispatch(new SeqnoAdvanced(vbucket, newOffset(vbucket, seqno)));
+          return;
+        }
+
         default:
           log.warn("Unexpected control event type: {}", MessageUtil.getShortOpcodeName(getOpcode(event)));
       }
@@ -158,28 +182,70 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
     }
   }
 
+  private CollectionsManifest getCurrentManifest(int vbucket) {
+    return dcpClient.sessionState()
+        .get(vbucket)
+        .getCollectionsManifest();
+  }
+
+  private CollectionIdAndKey extractKey(int vbucket, ByteBuf event) {
+    return dcpClient.sessionState()
+        .get(vbucket)
+        .getKeyExtractor()
+        .getCollectionIdAndKey(event);
+  }
+
+  private StreamOffset newOffset(ByteBuf dataEvent, int vbucket) {
+    long seqno = DcpMutationMessage.bySeqno(dataEvent); // works for deletion/expiration events too
+    return newOffset(vbucket, seqno);
+  }
+
+  private StreamOffset newOffset(int vbucket, long seqno) {
+    final long vbuuid = vbucketToUuid.get(vbucket);
+    final SnapshotMarker snapshot = vbucketToCurrentSnapshot.get(vbucket);
+    return new StreamOffset(vbuuid, seqno, snapshot);
+  }
+
   private final DataEventHandler dataEventHandler = (flowController, event) -> {
     int vbucket = -1;
 
     try {
       final FlowControlReceipt receipt = FlowControlReceipt.forMessage(flowController, event);
       vbucket = MessageUtil.getVbucket(event);
-      final long vbuuid = vbucketToUuid.get(vbucket);
-      final SnapshotMarker snapshot = vbucketToCurrentSnapshot.get(vbucket);
+      final CollectionsManifest manifest = getCurrentManifest(vbucket);
 
       final byte opcode = event.getByte(1);
       switch (opcode) {
-        case MessageUtil.DCP_MUTATION_OPCODE:
-          dispatch(new Mutation(event, receipt, vbuuid, snapshot));
-          return;
+        case MessageUtil.DCP_MUTATION_OPCODE: {
+          final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
+          final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
+          if (collectionInfo == null) {
+            log.warn("Unrecognized collection ID {} for key {}; assuming collection was deleted, and skipping",
+                collectionIdAndKey.collectionId(), user(collectionIdAndKey.key()));
 
-        case MessageUtil.DCP_DELETION_OPCODE:
-          dispatch(new Deletion(event, receipt, vbuuid, snapshot, false));
-          return;
+            dispatch(new SeqnoAdvanced(vbucket, newOffset(event, vbucket)));
+            return;
+          }
 
-        case MessageUtil.DCP_EXPIRATION_OPCODE:
-          dispatch(new Deletion(event, receipt, vbuuid, snapshot, true));
+          dispatch(new Mutation(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket)));
           return;
+        }
+
+        case MessageUtil.DCP_DELETION_OPCODE: {
+          final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
+          final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
+
+          dispatch(new Deletion(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket), false));
+          return;
+        }
+
+        case MessageUtil.DCP_EXPIRATION_OPCODE: {
+          final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
+          final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
+
+          dispatch(new Deletion(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket), true));
+          return;
+        }
 
         default:
           receipt.acknowledge();

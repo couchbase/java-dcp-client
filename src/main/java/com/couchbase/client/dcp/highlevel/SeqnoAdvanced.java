@@ -17,34 +17,31 @@
 package com.couchbase.client.dcp.highlevel;
 
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
-import com.couchbase.client.dcp.message.StreamEndReason;
 
 import static java.util.Objects.requireNonNull;
 
-public class StreamEnd implements DatabaseChangeEvent {
+/**
+ * Think of this as a document change event without a document.
+ */
+public class SeqnoAdvanced implements DatabaseChangeEvent {
   private final int vbucket;
-  private final StreamEndReason reason;
+  private final StreamOffset offset;
 
-  public StreamEnd(int vbucket, StreamEndReason reason) {
+  public SeqnoAdvanced(int vbucket, StreamOffset offset) {
     this.vbucket = vbucket;
-    this.reason = requireNonNull(reason);
+    this.offset = requireNonNull(offset);
   }
 
   @Override
   public void dispatch(DatabaseChangeListener listener) {
-    listener.onStreamEnd(this);
+    listener.onSeqnoAdvanced(this);
   }
 
-  @Override
   public int getVbucket() {
     return vbucket;
   }
 
-  public StreamEndReason getReason() {
-    return reason;
-  }
-
-  public String toString() {
-   return "Stream " + vbucket + " ended: " + reason;
+  public StreamOffset getOffset() {
+    return offset;
   }
 }

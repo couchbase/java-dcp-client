@@ -16,14 +16,15 @@
 
 package com.couchbase.client.dcp.highlevel;
 
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.FlowControlReceipt;
 import io.netty.buffer.ByteBuf;
 
 public class Deletion extends DocumentChange {
   private final boolean dueToExpiration;
 
-  public Deletion(ByteBuf byteBuf, FlowControlReceipt receipt, long vbucketUuid, SnapshotMarker snapshot, boolean dueToExpiration) {
-    super(byteBuf, receipt, vbucketUuid, snapshot);
+  public Deletion(ByteBuf byteBuf, CollectionsManifest.CollectionInfo collectionInfo, String key, FlowControlReceipt receipt, StreamOffset offset, boolean dueToExpiration) {
+    super(byteBuf, collectionInfo, key, receipt, offset);
 
     this.dueToExpiration = dueToExpiration;
   }

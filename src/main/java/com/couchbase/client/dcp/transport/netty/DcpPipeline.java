@@ -119,7 +119,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
         // BucketConfigHandler comes before connect handler because a clustermap change notification
         // could arrive at any time during the connection setup.
         .addLast(new BucketConfigHandler(bucketConfigArbiter, environment.configRefreshInterval()))
-        .addLast(new DcpConnectHandler(environment.connectionNameGenerator(), environment.bucket(), control))
+        .addLast(new DcpConnectHandler(environment))
         .addLast(new DcpControlHandler(control));
 
     if (control.noopEnabled()) {

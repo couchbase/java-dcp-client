@@ -18,6 +18,8 @@ package com.couchbase.client.dcp.message;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+import java.util.Set;
+
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_REQUEST_OPCODE;
 
 public enum DcpOpenStreamRequest {
@@ -36,13 +38,13 @@ public enum DcpOpenStreamRequest {
    * Initializes the complete extras needed with 0 and can be overridden through the setters available.
    * If no setters are used this message is effectively a backfill for the given vbucket.
    */
-  public static void init(final ByteBuf buffer, short vbucket) {
+  public static void init(final ByteBuf buffer, Set<StreamFlags> flags, short vbucket) {
     MessageUtil.initRequest(DCP_STREAM_REQUEST_OPCODE, buffer);
 
     MessageUtil.setVbucket(vbucket, buffer);
     MessageUtil.setExtras(Unpooled
             .buffer(48)
-            .writeInt(0) // flags
+            .writeInt(StreamFlags.encode(flags)) // flags
             .writeInt(0) // reserved
             .writeLong(0) // start sequence number
             .writeLong(0) // end sequence number

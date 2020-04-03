@@ -32,13 +32,18 @@ import com.couchbase.client.dcp.highlevel.FlowControlMode;
 import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.highlevel.internal.AsyncEventDispatcher;
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.EventHandlerAdapter;
 import com.couchbase.client.dcp.highlevel.internal.ImmediateEventDispatcher;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSeqnoAdvancedRequest;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.message.DcpSystemEvent;
+import com.couchbase.client.dcp.message.DcpSystemEventRequest;
+import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
@@ -48,7 +53,6 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import com.couchbase.client.dcp.util.MathUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -73,16 +77,22 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.utils.CbCollections.isNullOrEmpty;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
+import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -134,6 +144,11 @@ public class Client implements Closeable {
         .setNetworkResolution(builder.networkResolution)
         .setConnectionNameGenerator(builder.connectionNameGenerator)
         .setBucket(builder.bucket)
+        .setCollectionsAware(builder.collectionsAware)
+        .setScopeId(builder.scopeId)
+        .setScopeName(builder.scopeName)
+        .setCollectionIds(builder.collectionIds)
+        .setCollectionNames(builder.collectionNames)
         .setCredentialsProvider(builder.credentialsProvider)
         .setDcpControl(builder.dcpControl)
         .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
@@ -312,10 +327,55 @@ public class Client implements Closeable {
               RollbackMessage.vbucket(event),
               RollbackMessage.seqno(event)
           );
+        } else if (DcpSeqnoAdvancedRequest.is(event)) {
+          handleSeqnoAdvanced(event);
+
+        } else if (DcpSystemEventRequest.is(event)) {
+          handleDcpSystemEvent(event);
         }
 
         // Forward event to user.
         controlEventHandler.onEvent(flowController, event);
+      }
+
+      private void handleSeqnoAdvanced(ByteBuf event) {
+        final int vbucket = MessageUtil.getVbucket(event);
+        final long seqno = DcpSeqnoAdvancedRequest.getSeqno(event);
+        LOGGER.debug("Seqno for vbucket {} advanced to {}", vbucket, seqno);
+        sessionState().get(vbucket).setStartSeqno(seqno);
+      }
+
+      private void handleDcpSystemEvent(ByteBuf event) {
+        final long seqno = DcpSystemEventRequest.getSeqno(event);
+        final int vbucket = MessageUtil.getVbucket(event);
+
+        final PartitionState ps = sessionState().get(vbucket);
+        ps.setStartSeqno(seqno);
+
+        final DcpSystemEvent sysEvent = DcpSystemEvent.parse(event);
+        if (!(sysEvent instanceof DcpSystemEvent.CollectionsManifestEvent)) {
+          LOGGER.warn("Ignoring unrecognized DCP system event!\n{}", meta(MessageUtil.humanize(event)));
+
+        } else {
+          final DcpSystemEvent.CollectionsManifestEvent manifestEvent = (DcpSystemEvent.CollectionsManifestEvent) sysEvent;
+          final CollectionsManifest existingManifest = ps.getCollectionsManifest();
+
+          // If the manifest IDs are equal, the update might still be relevant since
+          // multiple events may have the same manifest ID. So only ignore if the event's UID
+          // is less than the
+          if (lessThanUnsigned(manifestEvent.getManifestId(), existingManifest.getId())) {
+            LOGGER.debug("Ignoring collection manifest event; UID {} is < current manifest UID {}",
+                manifestEvent.getManifestId(), existingManifest.getId());
+          } else {
+            // If the server has caught up with the manifest we fetched when opening the stream,
+            // this *might* be a redundant change. That's okay because the collections manifest
+            // class allows redundant modifications.
+            LOGGER.debug("Applying collection manifest change; UID {} is >= current manifest UID {}",
+                manifestEvent.getManifestId(), existingManifest.getId());
+
+            ps.setCollectionsManifest(manifestEvent.apply(existingManifest));
+          }
+        }
       }
     });
   }
@@ -564,7 +624,7 @@ public class Client implements Closeable {
     for (short partition : partitions) {
       PartitionState ps = state.get(partition);
       if (ps != null) {
-        if (MathUtils.lessThanUnsigned(ps.getStartSeqno(), ps.getEndSeqno())) {
+        if (lessThanUnsigned(ps.getStartSeqno(), ps.getEndSeqno())) {
           initializedPartitions.add(partition);
         } else {
           LOGGER.debug("Skipping partition {}, because startSeqno({}) >= endSeqno({})",
@@ -907,9 +967,15 @@ public class Client implements Closeable {
     private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private EventLoopGroup eventLoopGroup;
     private String bucket = "default";
+    private boolean collectionsAware;
+    private Set<Long> collectionIds = new HashSet<>();
+    private Set<String> collectionNames = new HashSet<>();
+    private OptionalLong scopeId = OptionalLong.empty();
+    private Optional<String> scopeName = Optional.empty();
     private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
     private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
-    private DcpControl dcpControl = new DcpControl();
+    private DcpControl dcpControl = new DcpControl()
+        .put(DcpControl.Names.ENABLE_NOOP, "true"); // required for collections, and a good idea anyway
     private int bufferAckWatermark;
     private boolean poolBuffers = true;
     private long connectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
@@ -1007,7 +1073,7 @@ public class Client implements Closeable {
     private static List<HostAndPort> getSeedNodes(ConnectionString cs) {
       return cs.hosts().stream()
           .map(s -> new HostAndPort(s.hostname(), s.port()))
-          .collect(Collectors.toList());
+          .collect(toList());
     }
 
     /**
@@ -1050,6 +1116,83 @@ public class Client implements Closeable {
       return this;
     }
 
+    /**
+     * Controls whether the client operates in collections-aware mode (defaults to false).
+     * <p>
+     * A client that is not collections-aware only receives events from the default collection.
+     * <p>
+     * A collections-aware client receives events from all collections (or the subset specified by
+     * the collections/scope filter, configured separately). In this mode, users of the low-level API
+     * are responsible for handling "DCP System Event" and "DCP Seqno Advanced" events in their
+     * {@link ControlEventHandler}. Users of the high-level API should implement
+     * {@link DatabaseChangeListener#onSeqnoAdvanced}.
+     * <p>
+     * It is fine to enable collections awareness even when connecting to a server that does
+     * not support collections, as long as no collections/scope filter is configured.
+     *
+     * @return this {@link Builder} for nice chainability.
+     * @see #scopeId(long)
+     * @see #scopeName(String)
+     * @see #collectionIds(Collection)
+     * @see #collectionNames(Collection)
+     */
+    public Builder collectionsAware(boolean enable) {
+      this.collectionsAware = enable;
+      return this;
+    }
+
+    public Builder collectionNames(Collection<String> collectionNames) {
+      if (collectionNames.stream().anyMatch(Objects::isNull)) {
+        throw new IllegalArgumentException("Collection name must not be null");
+      }
+      this.collectionNames = new HashSet<>(collectionNames);
+      return this;
+    }
+
+    public Builder collectionNames(String... collectionNames) {
+      return collectionNames(Arrays.asList(collectionNames));
+    }
+
+    /**
+     * Configures the client to stream only from the collections identified by the given IDs.
+     *
+     * @param collectionIds IDs of the collections to stream.
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder collectionIds(Collection<Long> collectionIds) {
+      if (collectionIds.stream().anyMatch(Objects::isNull)) {
+        throw new IllegalArgumentException("Collection ID must not be null");
+      }
+      this.collectionIds = new HashSet<>(collectionIds);
+      return this;
+    }
+
+    public Builder collectionIds(long... collectionIds) {
+      return collectionIds(Arrays.stream(collectionIds).boxed().collect(toList()));
+    }
+
+    /**
+     * Configures the client to stream only from the scope identified by the given ID.
+     *
+     * @param scopeName name of the scope to stream (may be null, in which case this method has no effect)
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder scopeName(String scopeName) {
+      this.scopeName = isNullOrEmpty(scopeName) ? Optional.empty() : Optional.of(scopeName);
+      return this;
+    }
+
+    /**
+     * Configures the client to stream only from the scope identified by the given ID.
+     *
+     * @param scopeId IDs of the scope to stream.
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder scopeId(long scopeId) {
+      this.scopeId = OptionalLong.of(scopeId);
+      return this;
+    }
+
     public Builder credentials(String username, String password) {
       this.credentialsProvider = new StaticCredentialsProvider(username, password);
       return this;
@@ -1066,7 +1209,7 @@ public class Client implements Closeable {
     }
 
     public Builder credentialsProvider(final CredentialsProvider credentialsProvider) {
-      this.credentialsProvider = credentialsProvider;
+      this.credentialsProvider = requireNonNull(credentialsProvider);
       return this;
     }
 
@@ -1313,6 +1456,26 @@ public class Client implements Closeable {
      * @return the built client instance.
      */
     public Client build() {
+      if (collectionsAware && !dcpControl.noopEnabled()) {
+        throw new IllegalStateException("Collections awareness requires NOOPs; must not disable NOOPs.");
+      }
+
+      // it's fine to specify both collection UIDs and names, but there can be only one scope, so...
+      if (scopeName.isPresent() && scopeId.isPresent()) {
+        throw new IllegalStateException("May specify scope name or ID, but not both.");
+      }
+
+      final boolean hasCollections = !collectionIds.isEmpty() || !collectionNames.isEmpty();
+      final boolean hasScope = scopeId.isPresent() || scopeName.isPresent();
+
+      if (hasCollections && hasScope) {
+        throw new IllegalStateException("May specify scope or collections, but not both.");
+      }
+
+      if ((hasCollections || hasScope) && !collectionsAware) {
+        throw new IllegalStateException("Must call collectionsAware(true) when specifying scope or collections.");
+      }
+
       return new Client(this);
     }
   }

@@ -15,13 +15,16 @@
  */
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.dcp.core.time.Delay;
+import com.couchbase.client.dcp.buffer.DcpOps;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.core.state.AbstractStateMachine;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
+import com.couchbase.client.dcp.core.time.Delay;
+import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
 import com.couchbase.client.dcp.message.DcpFailoverLogRequest;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
@@ -42,6 +45,7 @@ import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.dcp.transport.netty.DcpResponseListener;
 import com.couchbase.client.dcp.util.AdaptiveDelay;
 import com.couchbase.client.dcp.util.AtomicBooleanArray;
+import io.micrometer.core.instrument.Tags;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -55,7 +59,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.ImmediateEventExecutor;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -68,15 +71,29 @@ import rx.functions.Action4;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.user;
+import static com.couchbase.client.dcp.message.HelloFeature.COLLECTIONS;
+import static com.couchbase.client.dcp.message.MessageUtil.GET_COLLECTIONS_MANIFEST_OPCODE;
 import static com.couchbase.client.dcp.message.ResponseStatus.KEY_EXISTS;
 import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static io.netty.util.ReferenceCountUtil.safeRelease;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Logical representation of a DCP cluster connection.
@@ -326,7 +343,71 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     return inetAddress;
   }
 
-  public Completable openStream(final short vbid, final StreamOffset startOffset, final long endSeqno) {
+  /**
+   * Returns empty optional if collections are not enabled for this channel,
+   * otherwise the current collections manifest.
+   */
+  public Single<Optional<CollectionsManifest>> getCollectionsManifest() {
+    return Single.create(new Single.OnSubscribe<Optional<CollectionsManifest>>() {
+      @Override
+      public void call(final SingleSubscriber<? super Optional<CollectionsManifest>> subscriber) {
+        if (state() != LifecycleState.CONNECTED) {
+          subscriber.onError(new NotConnectedException());
+          return;
+        }
+
+        if (!COLLECTIONS.isEnabled(channel)) {
+          subscriber.onSuccess(Optional.empty());
+          return;
+        }
+
+        ByteBuf buffer = Unpooled.buffer();
+        MessageUtil.initRequest(GET_COLLECTIONS_MANIFEST_OPCODE, buffer);
+
+        sendRequest(buffer).addListener(new DcpResponseListener() {
+          @Override
+          public void operationComplete(Future<DcpResponse> future) throws Exception {
+            if (!future.isSuccess()) {
+
+              if (future.cause() instanceof NotConnectedException) {
+                LOGGER.debug("Failed to get collections manifest from {}; {}", inetAddress, future.cause().toString());
+              } else {
+                LOGGER.warn("Failed to get collections manifest from {}; {}", inetAddress, future.cause().toString());
+              }
+              subscriber.onError(future.cause());
+              return;
+            }
+
+            final DcpResponse dcpResponse = future.getNow();
+            final ByteBuf buf = dcpResponse.buffer();
+            try {
+              final ResponseStatus status = dcpResponse.status();
+              if (!status.isSuccess()) {
+                LOGGER.warn("Failed to get collections manifest from {}, response status: {}", inetAddress, status);
+                subscriber.onError(new DcpOps.BadResponseStatusException(status));
+                return;
+              }
+
+              byte[] manifestJsonBytes = MessageUtil.getContentAsByteArray(buf);
+              LOGGER.debug("Got collections manifest from {} ; {}", inetAddress, new String(manifestJsonBytes, UTF_8));
+              try {
+                CollectionsManifest manifest = CollectionsManifest.fromJson(manifestJsonBytes);
+                subscriber.onSuccess(Optional.of(manifest));
+              } catch (Exception e) {
+                LOGGER.error("Unparsable collections manifest from {} ; {}", system(inetAddress), user(new String(manifestJsonBytes, UTF_8)), e);
+                subscriber.onError(new RuntimeException("Failed to parse collections manifest", e));
+              }
+
+            } finally {
+              buf.release();
+            }
+          }
+        });
+      }
+    });
+  }
+
+  public Completable openStream(final short vbid, final StreamOffset startOffset, final long endSeqno, CollectionsManifest manifest) {
     return Completable.create(new Completable.OnSubscribe() {
       @Override
       public void call(final CompletableSubscriber subscriber) {
@@ -358,16 +439,62 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         }
 
         LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
-                "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}",
-            inetAddress, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno);
+                "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}, manifest: {}",
+            inetAddress, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, manifest);
 
         ByteBuf buffer = Unpooled.buffer();
-        DcpOpenStreamRequest.init(buffer, vbid);
+        DcpOpenStreamRequest.init(buffer, emptySet(), vbid);
         DcpOpenStreamRequest.vbuuid(buffer, vbuuid);
         DcpOpenStreamRequest.startSeqno(buffer, startSeqno);
         DcpOpenStreamRequest.endSeqno(buffer, endSeqno);
         DcpOpenStreamRequest.snapshotStartSeqno(buffer, snapshotStartSeqno);
         DcpOpenStreamRequest.snapshotEndSeqno(buffer, snapshotEndSeqno);
+
+
+        if (COLLECTIONS.isEnabled(channel)) {
+          final Set<Long> collectionIds = new HashSet<>(env.collectionIds());
+          env.collectionNames().forEach(name -> {
+            CollectionsManifest.CollectionInfo c = manifest.getCollection(name);
+            if (c == null) {
+              subscriber.onError(new RuntimeException("Can't stream from collection '" + name + "' because it does not exist (not present in the collections manifest)."));
+              return;
+            }
+            LOGGER.debug("resolved collection name '{}' to UID {}", name, c.id());
+            collectionIds.add(c.id());
+          });
+
+          final OptionalLong scopeId;
+
+          if (env.scopeName().isPresent()) {
+            final String scopeName = env.scopeName().get();
+            CollectionsManifest.ScopeInfo s = manifest.getScope(scopeName);
+            if (s == null) {
+              subscriber.onError(new RuntimeException("Can't stream from scope '" + scopeName + "' because it does not exist (not present in the collections manifest)."));
+              return;
+            }
+            LOGGER.debug("resolved scope name '{}' to UID {}", scopeName, s.id());
+            scopeId = OptionalLong.of(s.id());
+          } else {
+            scopeId = env.scopeId();
+          }
+
+          final Map<String, Object> value = new HashMap<>();
+          value.put("uid", formatUid(manifest.getId()));
+
+          if (!collectionIds.isEmpty()) {
+            value.put("collections", formatUids(collectionIds));
+          } else if (scopeId.isPresent()) {
+            value.put("scope", formatUid(scopeId.getAsLong()));
+          }
+
+          try {
+            byte[] bytes = DefaultObjectMapper.writeValueAsBytes(value);
+            LOGGER.debug("opening stream for partition {} with value: {}", vbid, new String(bytes, UTF_8));
+            MessageUtil.setContent(bytes, buffer);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        }
 
         sendRequest(buffer).addListener(new DcpResponseListener() {
           @Override
@@ -421,7 +548,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 subscriber.onError(new NotMyVbucketException());
 
               } else {
-                subscriber.onError(new IllegalStateException("Unhandled Status: " + status));
+                subscriber.onError(new DcpOps.BadResponseStatusException(status));
               }
             } finally {
               buf.release();
@@ -430,6 +557,16 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         });
       }
     });
+  }
+
+  private static String formatUid(long uid) {
+    return Long.toHexString(uid);
+  }
+
+  private static List<String> formatUids(Collection<Long> uids) {
+    return uids.stream()
+        .map(DcpChannel::formatUid)
+        .collect(toList());
   }
 
   public Completable closeStream(final short vbid) {

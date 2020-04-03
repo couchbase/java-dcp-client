@@ -23,7 +23,9 @@ import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
+import com.couchbase.client.dcp.message.DcpSeqnoAdvancedRequest;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
@@ -125,6 +127,16 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     } else if (RollbackMessage.is(event)) {
       rollback(RollbackMessage.vbucket(event), RollbackMessage.seqno(event));
       controlEventHandler.onEvent(flowController, event);
+
+    } else if (DcpSystemEventRequest.is(event)) {
+      final short vbucket = MessageUtil.getVbucket(event);
+      final long seqno = DcpSystemEventRequest.getSeqno(event);
+      enqueue(vbucket, new BufferedEvent(seqno, event, flowController, CONTROL));
+
+    } else if (DcpSeqnoAdvancedRequest.is(event)) {
+      final short vbucket = MessageUtil.getVbucket(event);
+      final long seqno = DcpSeqnoAdvancedRequest.getSeqno(event);
+      enqueue(vbucket, new BufferedEvent(seqno, event, flowController, CONTROL));
 
     } else {
       if (LOGGER.isDebugEnabled()) {

@@ -15,8 +15,12 @@
  */
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.dcp.highlevel.internal.CollectionIdAndKey;
+import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
 import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledByteBufAllocator;
 
 import java.lang.reflect.Field;
@@ -67,9 +71,13 @@ public enum MessageUtil {
   public static final byte DCP_NOOP_OPCODE = 0x5c;
   public static final byte DCP_BUFFER_ACK_OPCODE = 0x5d;
   public static final byte DCP_CONTROL_OPCODE = 0x5e;
+  public static final byte DCP_SYSTEM_EVENT_OPCODE = 0x5f;
+  public static final byte DCP_SEQNO_ADVANCED_OPCODE = 0x64;
+  public static final byte DCP_OSO_SNAPSHOT_MARKER_OPCODE = 0x65;
   public static final byte SELECT_BUCKET_OPCODE = (byte) 0x89;
   public static final byte OBSERVE_SEQNO_OPCODE = (byte) 0x91;
   public static final byte GET_CLUSTER_CONFIG_OPCODE = (byte) 0xb5;
+  public static final byte GET_COLLECTIONS_MANIFEST_OPCODE = (byte) 0xba;
 
   public static final byte INTERNAL_ROLLBACK_OPCODE = 0x00;
 
@@ -168,16 +176,22 @@ public enum MessageUtil {
     sb.append(String.format("CAS            (16-23)  0x%016x\n", buffer.getLong(CAS_OFFSET)));
 
     if (extrasLength > 0) {
-      sb.append("+ Extras with " + extrasLength + " bytes\n");
+      sb.append("+ Extras: \n" + ByteBufUtil.prettyHexDump(getExtras(buffer)) + "\n");
+    } else {
+      sb.append("No Extras\n");
+    }
+    if (keyLength > 0) {
+      sb.append("+ Key: \n" + ByteBufUtil.prettyHexDump(getKey(buffer)) + "\n");
+    } else {
+      sb.append("No Key\n");
     }
 
-    if (keyLength > 0) {
-      sb.append("+ Key with " + keyLength + " bytes\n");
-    }
 
     int contentLength = bodyLength - extrasLength - keyLength;
     if (contentLength > 0) {
-      sb.append("+ Content with " + contentLength + " bytes\n");
+      sb.append("+ Value: \n" + ByteBufUtil.prettyHexDump(getContent(buffer)) + "\n");
+    } else {
+      sb.append("No Value\n");
     }
 
     return sb.toString();
@@ -260,6 +274,11 @@ public enum MessageUtil {
     return buffer.toString(HEADER_SIZE + extrasLength, keyLength, UTF_8);
   }
 
+  public static CollectionIdAndKey getCollectionIdAndKey(ByteBuf buffer, boolean collectionsEnabled) {
+    return (collectionsEnabled ? KeyExtractor.COLLECTIONS : KeyExtractor.NO_COLLECTIONS)
+        .getCollectionIdAndKey(buffer);
+  }
+
   /**
    * Sets the content payload of the buffer, updating the content length as well.
    */
@@ -274,6 +293,10 @@ public enum MessageUtil {
     buffer.ensureWritable(content.readableBytes());
     buffer.writeBytes(content);
     buffer.writerIndex(HEADER_SIZE + bodyLength);
+  }
+
+  public static void setContent(byte[] content, ByteBuf buffer) {
+    setContent(Unpooled.wrappedBuffer(content), buffer);
   }
 
   public static ByteBuf getRawContent(ByteBuf buffer) {

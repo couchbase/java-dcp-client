@@ -25,8 +25,10 @@ import com.couchbase.client.dcp.message.DcpExpirationMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpNoopRequest;
 import com.couchbase.client.dcp.message.DcpNoopResponse;
+import com.couchbase.client.dcp.message.DcpSeqnoAdvancedRequest;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.DcpStreamEndMessage;
+import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import io.netty.buffer.ByteBuf;
@@ -389,7 +391,10 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
    * @return true if it is, false otherwise.
    */
   private static boolean isControlMessage(final ByteBuf msg) {
-    return DcpStreamEndMessage.is(msg) || DcpSnapshotMarkerRequest.is(msg);
+    return DcpStreamEndMessage.is(msg)
+        || DcpSnapshotMarkerRequest.is(msg)
+        || DcpSeqnoAdvancedRequest.is(msg)
+        || DcpSystemEventRequest.is(msg);
   }
 
   /**

@@ -28,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.function.BiConsumer;
 
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
 
@@ -193,6 +194,17 @@ public class SessionState {
         continue;
       }
       action.call(ps);
+    }
+  }
+
+  public void foreachPartition(final BiConsumer<Integer, PartitionState> consumer) {
+    int len = partitionStates.length();
+    for (int i = 0; i < len; i++) {
+      PartitionState ps = partitionStates.get(i);
+      if (ps == null) {
+        continue;
+      }
+      consumer.accept(i, ps);
     }
   }
 

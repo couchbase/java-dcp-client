@@ -26,6 +26,8 @@ import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
 import com.couchbase.client.dcp.events.FailedToRemoveNodeEvent;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
+import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -166,7 +168,16 @@ public class Conductor {
     return Observable
         .just(partition)
         .map(ignored -> activeChannelByPartition(partition))
-        .flatMapCompletable(channel -> channel.openStream(partition, startOffset, endSeqno))
+        .flatMapCompletable(channel ->
+            channel.getCollectionsManifest()
+                .flatMapCompletable(manifest -> {
+                  final CollectionsManifest m = manifest.orElse(CollectionsManifest.DEFAULT);
+                  final PartitionState ps = sessionState.get(partition);
+                  ps.setCollectionsManifest(m);
+                  ps.setKeyExtractor(manifest.isPresent() ? KeyExtractor.COLLECTIONS : KeyExtractor.NO_COLLECTIONS);
+                  return channel.openStream(partition, startOffset, endSeqno, m);
+                })
+        )
         .retryWhen(anyOf(NotConnectedException.class)
             .max(Integer.MAX_VALUE)
             .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))

@@ -16,6 +16,9 @@
 
 package com.couchbase.client.dcp.message;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * Flags, that could be used when initiating new vBucket stream.
  */
@@ -41,7 +44,10 @@ public enum StreamFlags {
   /**
    * Specifies that the server should stream only item key and metadata in the mutations
    * and not stream the value of the item.
+   *
+   * @deprecated (Removed in 5.0, use OpenConnectionFlag.NO_VALUE when opening the connection instead)
    */
+  @Deprecated
   NO_VALUE(0x08),
   /**
    * Indicate the server to add stream only if the VBucket is active.
@@ -68,5 +74,23 @@ public enum StreamFlags {
 
   public boolean isSet(int flags) {
     return (flags & value) == value;
+  }
+
+  public static int encode(Set<StreamFlags> flags) {
+    int result = 0;
+    for (StreamFlags f : flags) {
+      result |= f.value();
+    }
+    return result;
+  }
+
+  public static Set<StreamFlags> decode(int flags) {
+    final Set<StreamFlags> result = EnumSet.noneOf(StreamFlags.class);
+    for (StreamFlags f : StreamFlags.values()) {
+      if (f.isSet(flags)) {
+        result.add(f);
+      }
+    }
+    return result;
   }
 }

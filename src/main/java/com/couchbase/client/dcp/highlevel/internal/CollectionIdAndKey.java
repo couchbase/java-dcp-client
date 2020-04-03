@@ -14,37 +14,33 @@
  * limitations under the License.
  */
 
-package com.couchbase.client.dcp.highlevel;
-
-import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
-import com.couchbase.client.dcp.message.StreamEndReason;
+package com.couchbase.client.dcp.highlevel.internal;
 
 import static java.util.Objects.requireNonNull;
 
-public class StreamEnd implements DatabaseChangeEvent {
-  private final int vbucket;
-  private final StreamEndReason reason;
+public class CollectionIdAndKey {
+  private final long collectionId;
+  private final String key;
 
-  public StreamEnd(int vbucket, StreamEndReason reason) {
-    this.vbucket = vbucket;
-    this.reason = requireNonNull(reason);
+  public CollectionIdAndKey(long collectionId, String key) {
+    this.collectionId = collectionId;
+    this.key = requireNonNull(key);
+  }
+
+  public static CollectionIdAndKey forDefaultCollection(String key) {
+    return new CollectionIdAndKey(0, key);
+  }
+
+  public long collectionId() {
+    return collectionId;
+  }
+
+  public String key() {
+    return key;
   }
 
   @Override
-  public void dispatch(DatabaseChangeListener listener) {
-    listener.onStreamEnd(this);
-  }
-
-  @Override
-  public int getVbucket() {
-    return vbucket;
-  }
-
-  public StreamEndReason getReason() {
-    return reason;
-  }
-
   public String toString() {
-   return "Stream " + vbucket + " ended: " + reason;
+    return collectionId + "/" + key;
   }
 }

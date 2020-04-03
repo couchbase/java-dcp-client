@@ -16,6 +16,7 @@
 
 package com.couchbase.client.dcp.highlevel;
 
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.FlowControlReceipt;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import io.netty.buffer.ByteBuf;
@@ -25,8 +26,8 @@ public class Mutation extends DocumentChange {
   private final int expiry;
   private final int lockTime;
 
-  public Mutation(ByteBuf byteBuf, FlowControlReceipt receipt, long vbucketUuid, SnapshotMarker snapshot) {
-    super(byteBuf, receipt, vbucketUuid, snapshot);
+  public Mutation(ByteBuf byteBuf, CollectionsManifest.CollectionInfo collectionInfo, String key, FlowControlReceipt receipt, StreamOffset offset) {
+    super(byteBuf, collectionInfo, key, receipt, offset);
 
     this.flags = DcpMutationMessage.flags(byteBuf);
     this.expiry = DcpMutationMessage.expiry(byteBuf);

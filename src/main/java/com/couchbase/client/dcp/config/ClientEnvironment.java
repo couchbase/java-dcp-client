@@ -46,7 +46,11 @@ import rx.Subscription;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
@@ -87,6 +91,31 @@ public class ClientEnvironment implements SecureEnvironment {
    * The name of the bucket.
    */
   private final String bucket;
+
+  /**
+   * Whether the client should operate in collections-aware mode
+   */
+  private final boolean collectionsAware;
+
+  /**
+   * Scope to filter on, or empty to filter by collection IDs.
+   */
+  private final OptionalLong scopeId;
+
+  /**
+   * Scope to filter on, or empty to filter by collection IDs.
+   */
+  private final Optional<String> scopeName;
+
+  /**
+   * Collection IDs to filter on, or empty for all collections.
+   */
+  private final Set<Long> collectionIds;
+
+  /**
+   * Collection names to filter on, or empty for all collections.
+   */
+  private final Set<String> collectionNames;
 
   /**
    * The connecting credentialsProvider.
@@ -198,6 +227,11 @@ public class ClientEnvironment implements SecureEnvironment {
     socketConnectTimeout = builder.socketConnectTimeout;
     dcpChannelsReconnectDelay = builder.dcpChannelsReconnectDelay;
     dcpChannelsReconnectMaxAttempts = builder.dcpChannelsReconnectMaxAttempts;
+    collectionsAware = builder.collectionsAware;
+    collectionIds = Collections.unmodifiableSet(builder.collectionIds);
+    collectionNames = Collections.unmodifiableSet(builder.collectionNames);
+    scopeId = builder.scopeId;
+    scopeName = builder.scopeName;
     if (builder.eventBus != null) {
       eventBus = builder.eventBus;
       this.scheduler = null;
@@ -309,6 +343,26 @@ public class ClientEnvironment implements SecureEnvironment {
    */
   public String bucket() {
     return bucket;
+  }
+
+  public boolean collectionsAware() {
+    return collectionsAware;
+  }
+
+  public Set<Long> collectionIds() {
+    return collectionIds;
+  }
+
+  public Set<String> collectionNames() {
+    return collectionNames;
+  }
+
+  public OptionalLong scopeId() {
+    return scopeId;
+  }
+
+  public Optional<String> scopeName() {
+    return scopeName;
   }
 
   /**
@@ -473,6 +527,11 @@ public class ClientEnvironment implements SecureEnvironment {
     private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private ConnectionNameGenerator connectionNameGenerator;
     private String bucket;
+    private boolean collectionsAware;
+    private Set<Long> collectionIds;
+    private Set<String> collectionNames;
+    private OptionalLong scopeId;
+    private Optional<String> scopeName;
     private CredentialsProvider credentialsProvider;
     private Duration configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
     private Duration bootstrapTimeout = DEFAULT_BOOTSTRAP_TIMEOUT;
@@ -515,6 +574,30 @@ public class ClientEnvironment implements SecureEnvironment {
 
     public Builder setBucket(String bucket) {
       this.bucket = bucket;
+      return this;
+    }
+
+    public Builder setCollectionsAware(boolean collectionsAware) {
+      this.collectionsAware = collectionsAware;
+      return this;
+    }
+
+    public Builder setCollectionIds(Set<Long> collectionIds) {
+      this.collectionIds = collectionIds;
+      return this;
+    }
+
+    public Builder setCollectionNames(Set<String> collectionNames) {
+      this.collectionNames = collectionNames;
+      return this;
+    }
+
+    public Builder setScopeId(OptionalLong scopeId) {
+      this.scopeId = scopeId;
+      return this;
+    }
+    public Builder setScopeName(Optional<String> scopeName) {
+      this.scopeName = scopeName;
       return this;
     }
 
@@ -695,6 +778,11 @@ public class ClientEnvironment implements SecureEnvironment {
         "clusterAt=" + clusterAt +
         ", connectionNameGenerator=" + connectionNameGenerator +
         ", bucket='" + bucket + '\'' +
+        ", collectionsAware=" + collectionsAware +
+        ", collectionIds=" + collectionIds +
+        ", collectionNames=" + collectionNames +
+        ", scopeId=" + scopeId +
+        ", scopeName=" + scopeName +
         ", dcpControl=" + dcpControl +
         ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +
         ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +

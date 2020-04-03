@@ -17,6 +17,7 @@ package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.buffer.DcpOps;
+import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
@@ -34,9 +35,11 @@ import io.netty.util.AttributeKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.message.HelloFeature.COLLECTIONS;
 import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
 import static com.couchbase.client.dcp.message.MessageUtil.GET_CLUSTER_CONFIG_OPCODE;
 import static java.util.Collections.unmodifiableSet;
@@ -91,7 +94,14 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     void issueRequest(ChannelHandlerContext ctx) {
       final Version serverVersion = getServerVersion(ctx.channel());
       final CompressionMode compressionMode = dcpControl.compression(serverVersion);
-      final Set<HelloFeature> extraFeatures = compressionMode.getHelloFeatures(serverVersion);
+      final EnumSet<HelloFeature> extraFeatures = EnumSet.copyOf(compressionMode.getHelloFeatures(serverVersion));
+
+      if (env.collectionsAware()) {
+        // todo check first to see if the bucket config capabilities include collections?
+        // Apparently in a mixed cluster with some nodes on pre-7.0, it's possible to
+        // negotiate collections during HELO even if not all nodes support it.
+        extraFeatures.add(COLLECTIONS);
+      }
 
       ByteBuf request = ctx.alloc().buffer();
       HelloRequest.init(request, connectionName, extraFeatures);
@@ -174,6 +184,8 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
    */
   private static final AttributeKey<Set<HelloFeature>> NEGOTIATED_FEATURES = AttributeKey.valueOf("negotiatedFeatures");
 
+  private final ClientEnvironment env;
+
   /**
    * Generates the connection name for the dcp connection.
    */
@@ -230,15 +242,11 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     return features;
   }
 
-  /**
-   * Creates a new connect handler.
-   *
-   * @param connectionNameGenerator the generator of the connection names.
-   */
-  DcpConnectHandler(final ConnectionNameGenerator connectionNameGenerator, final String bucket, final DcpControl dcpControl) {
-    this.connectionNameGenerator = connectionNameGenerator;
-    this.bucket = bucket;
-    this.dcpControl = dcpControl;
+  DcpConnectHandler(final ClientEnvironment env) {
+    this.env = requireNonNull(env);
+    this.connectionNameGenerator = env.connectionNameGenerator();
+    this.bucket = env.bucket();
+    this.dcpControl = env.dcpControl();
   }
 
   /**

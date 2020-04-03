@@ -17,6 +17,8 @@ package com.couchbase.client.dcp.state;
 
 import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
+import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -28,9 +30,6 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Represents the individual current session state for a given partition.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class PartitionState {
 
@@ -57,6 +56,42 @@ public class PartitionState {
    */
   private volatile SnapshotMarker snapshot = SnapshotMarker.NONE;
 
+  /**
+   * This partition's view of the collection manifest.
+   * Useful while the stream is open, but not part of the stream offset
+   * (don't need to persist it in order to resume the stream).
+   */
+  private volatile CollectionsManifest collectionsManifest;
+
+  /**
+   * This is logically scoped to the channel, but it's convenient
+   * to have one per partition.
+   */
+  private volatile KeyExtractor keyExtractor;
+
+  @JsonIgnore
+  public CollectionsManifest getCollectionsManifest() {
+    if (collectionsManifest == null) {
+      throw new IllegalStateException("Collection manifest not yet set.");
+    }
+    return collectionsManifest;
+  }
+
+  public void setCollectionsManifest(CollectionsManifest collectionsManifest) {
+    this.collectionsManifest = requireNonNull(collectionsManifest);
+  }
+
+  @JsonIgnore
+  public KeyExtractor getKeyExtractor() {
+    if (keyExtractor == null) {
+      throw new IllegalStateException("Key extractor not yet set.");
+    }
+    return keyExtractor;
+  }
+
+  public void setKeyExtractor(KeyExtractor keyExtractor) {
+    this.keyExtractor = keyExtractor;
+  }
 
   /**
    * Returns the current end sequence number.

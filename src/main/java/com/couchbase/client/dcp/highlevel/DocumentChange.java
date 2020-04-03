@@ -17,6 +17,7 @@
 package com.couchbase.client.dcp.highlevel;
 
 import com.couchbase.client.dcp.core.logging.RedactableArgument;
+import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import com.couchbase.client.dcp.highlevel.internal.FlowControlReceipt;
 import com.couchbase.client.dcp.highlevel.internal.FlowControllable;
@@ -29,23 +30,24 @@ import static java.util.Objects.requireNonNull;
 public abstract class DocumentChange implements DatabaseChangeEvent, FlowControllable {
   private final int vbucket;
   private final StreamOffset offset;
-  private final String key;
   private final byte[] content;
   private final boolean mutation;
   private final long revision;
   private final long cas;
+  private final CollectionsManifest.CollectionInfo collectionInfo;
+  private final String key;
 
   private final FlowControlReceipt receipt;
 
-  public DocumentChange(ByteBuf byteBuf, FlowControlReceipt receipt, long vbucketUuid, SnapshotMarker snapshot) {
+  public DocumentChange(ByteBuf byteBuf, CollectionsManifest.CollectionInfo collectionInfo, String key, FlowControlReceipt receipt, StreamOffset offset) {
     this.vbucket = MessageUtil.getVbucket(byteBuf);
-    this.key = MessageUtil.getKeyAsString(byteBuf);
     this.mutation = DcpMutationMessage.is(byteBuf);
+    this.collectionInfo = requireNonNull(collectionInfo);
+    this.key = requireNonNull(key);
 
-    final long seqno = DcpMutationMessage.bySeqno(byteBuf); // same method works for deletion and expiration, too
     this.revision = DcpMutationMessage.revisionSeqno(byteBuf); // same method works for deletion and expiration, too
 
-    this.offset = new StreamOffset(vbucketUuid, seqno, snapshot);
+    this.offset = requireNonNull(offset);
     this.receipt = requireNonNull(receipt);
     this.content = MessageUtil.getContentAsByteArray(byteBuf);
     this.cas = MessageUtil.getCas(byteBuf);
@@ -65,6 +67,17 @@ public abstract class DocumentChange implements DatabaseChangeEvent, FlowControl
 
   public String getKey() {
     return key;
+  }
+
+  /**
+   * Returns the document key prefixed by the names of the containing scope and collection.
+   */
+  public String getQualifiedKey() {
+    return collectionInfo.scope().name() + "." + collectionInfo.name() + "." + key;
+  }
+
+  public CollectionsManifest.CollectionInfo getCollection() {
+    return collectionInfo;
   }
 
   public boolean isMutation() {
@@ -100,6 +113,6 @@ public abstract class DocumentChange implements DatabaseChangeEvent, FlowControl
   @Override
   public String toString() {
     final String type = isMutation() ? "MUT" : "DEL";
-    return type + ":" + getVbucket() + "/" + getOffset() + "=" + RedactableArgument.user(getKey());
+    return type + ":" + getVbucket() + "/" + getOffset() + "=" + RedactableArgument.user(getQualifiedKey());
   }
 }

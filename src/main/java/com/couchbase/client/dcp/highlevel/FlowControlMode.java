@@ -23,7 +23,7 @@ public enum FlowControlMode {
    * <p>
    * Suitable for listeners whose {@link DatabaseChangeListener#onMutation(Mutation)}
    * and {@link DatabaseChangeListener#onDeletion(Deletion)} methods either completely process
-   * the event (for example, by writing it to disk) or generate backpressure (for example,
+   * the event (for example, by writing it to disk) or implictly generate backpressure (for example,
    * by writing the event to a bounded blocking queue).
    */
   AUTOMATIC,
