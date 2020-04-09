@@ -24,15 +24,7 @@ import static java.util.Objects.requireNonNull;
  * Code describing why producer decided to close the stream.
  */
 public class StreamEndReason {
-  private final int value;
-  private final String name;
-  private final String description;
-
-  private StreamEndReason(int value, String name, String description) {
-    this.value = value;
-    this.name = requireNonNull(name);
-    this.description = requireNonNull(description);
-  }
+  private static final StreamEndReason[] values = new StreamEndReason[256];
 
   public static final StreamEndReason OK = new StreamEndReason(0, "OK", "The stream has finished without error.");
   public static final StreamEndReason CLOSED = new StreamEndReason(1, "CLOSED", "The close stream command was invoked on this stream causing it to be closed by force.");
@@ -41,8 +33,32 @@ public class StreamEndReason {
   public static final StreamEndReason TOO_SLOW = new StreamEndReason(4, "TOO_SLOW", "The stream is closing because the client cannot read from the stream fast enough." +
       " This is done to prevent the server from running out of resources trying while" +
       " trying to serve the client. When the client is ready to read from the stream" +
-      " again it should reconnect. This flag is available starting in Couchbase 4.5.");
-  public static final StreamEndReason BACKFILL_FAILED = new StreamEndReason(5, "BACKFILL_FAILED", "The stream is closed because the backfill failed");
+      " again it should reconnect.");
+  public static final StreamEndReason BACKFILL_FAILED = new StreamEndReason(5, "BACKFILL_FAILED", "The stream is closed because the backfill failed.");
+  public static final StreamEndReason ROLLBACK = new StreamEndReason(6, "ROLLBACK", "The stream closed because the vbucket is rolling back. Client must reopen stream and follow rollback protocol.");
+  public static final StreamEndReason FILTER_EMPTY = new StreamEndReason(7, "FILTER_EMPTY", "The stream closed because all filtered collections or scope are now deleted and no more data is coming.");
+  public static final StreamEndReason LOST_PRIVILEGES = new StreamEndReason(8, "LOST_PRIVILEGES", "The stream closed because the connection no longer has the required access for the stream's configuration (e.g. no DcpStream on a filtered collection).");
+
+  private final int value;
+  private final String name;
+  private final String description;
+
+  private StreamEndReason(int value, String name, String description) {
+    this.value = value;
+    this.name = requireNonNull(name);
+    this.description = requireNonNull(description);
+    if (values[value] != null) {
+      throw new IllegalStateException("already initialized stream end reason " + values[value]);
+    }
+    values[value] = this;
+  }
+
+  private StreamEndReason(int value) {
+    // don't delegate to other c'tor, because we don't want this ending up in the cached value map.
+    this.value = value;
+    this.name = String.valueOf(value);
+    this.description = "The stream closed with reason code " + value + " (which this client does not recognize).";
+  }
 
   public int value() {
     return value;
@@ -57,23 +73,11 @@ public class StreamEndReason {
   }
 
   static StreamEndReason of(int value) {
-    switch (value) {
-      case 0x00:
-        return OK;
-      case 0x01:
-        return CLOSED;
-      case 0x02:
-        return STATE_CHANGED;
-      case 0x03:
-        return DISCONNECTED;
-      case 0x04:
-        return TOO_SLOW;
-      case 0x05:
-        return BACKFILL_FAILED;
-      default:
-        return new StreamEndReason(value, Integer.toString(value),
-            "Stream end reason " + value + " is not recognized by this DCP client.");
+    StreamEndReason reason = null;
+    if (value >= 0 && value < values.length) {
+      reason = values[value]; // might be undefined, so can't return right away
     }
+    return reason == null ? new StreamEndReason(value) : reason;
   }
 
   @Override
