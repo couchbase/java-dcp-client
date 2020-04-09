@@ -14,8 +14,10 @@
         <java-compat.version>1.8</java-compat.version>
 
         <native.folder>${project.build.directory}/native</native.folder>
-        <native.original>libnetty_transport_native_epoll_x86_64.so</native.original>
-        <native.renamed>libcom_couchbase_client_dcp_deps_netty_transport_native_epoll_x86_64.so</native.renamed>
+        <native-epoll.original>libnetty_transport_native_epoll_x86_64.so</native-epoll.original>
+        <native-epoll.renamed>libcom_couchbase_client_deps_netty_transport_native_epoll_x86_64.so</native-epoll.renamed>
+        <native-kqueue.original>libnetty_transport_native_kqueue_x86_64.jnilib</native-kqueue.original>
+        <native-kqueue.renamed>libcom_couchbase_client_deps_netty_transport_native_kqueue_x86_64.jnilib</native-kqueue.renamed>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -268,7 +270,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>2.10</version>
+                <version>3.1.2</version>
                 <executions>
                     <execution>
                         <id>unpack</id>
@@ -282,7 +284,7 @@
                                     <groupId>io.netty</groupId>
                                     <artifactId>netty-all</artifactId>
                                     <outputDirectory>${native.folder}</outputDirectory>
-                                    <includes>META-INF/native/libnetty_transport_native_epoll_x86_64.so</includes>
+                                    <includes>META-INF/native/*</includes>
                                 </artifactItem>
                             </artifactItems>
                             <includes>META-INF/native/libnetty_transport_native_epoll_x86_64.so</includes>
@@ -310,7 +312,9 @@
                         <filter>
                             <artifact>*:*</artifact>
                             <excludes>
-                                <exclude>META-INF/native/${native.original}</exclude>
+                                <exclude>META-INF/native/${native-epoll.original}</exclude>
+                                <exclude>META-INF/native/${native-kqueue.original}</exclude>
+                                <exclude>META-INF/native/libnetty_resolver_dns_native_macos_x86_64.jnilib</exclude>
                             </excludes>
                         </filter>
                         <filter>
@@ -325,8 +329,12 @@
                         <!-- Netty Native: with the unpacked .so (see unpack config), rename
                              it so it has the shaded namespace -->
                         <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.original}</file>
-                            <resource>META-INF/native/${native.renamed}</resource>
+                            <file>${native.folder}/META-INF/native/${native-epoll.original}</file>
+                            <resource>META-INF/native/${native-epoll.renamed}</resource>
+                        </transformer>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                            <file>${native.folder}/META-INF/native/${native-kqueue.original}</file>
+                            <resource>META-INF/native/${native-kqueue.renamed}</resource>
                         </transformer>
                     </transformers>
                     <relocations>

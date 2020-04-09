@@ -19,6 +19,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollSocketChannel;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
+import io.netty.channel.kqueue.KQueueSocketChannel;
 import io.netty.channel.oio.OioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.socket.oio.OioSocketChannel;
@@ -26,7 +28,6 @@ import io.netty.channel.socket.oio.OioSocketChannel;
 /**
  * Various netty channel related utility methods.
  *
- * @author Michael Nitschinger
  * @since 1.0.0
  */
 public enum ChannelUtils {
@@ -35,7 +36,7 @@ public enum ChannelUtils {
   /**
    * Helper method to detect the right channel for the given event loop group.
    * <p>
-   * Supports Epoll, Nio and Oio.
+   * Supports Epoll, KQueue, Nio and Oio.
    *
    * @param group the event loop group passed in.
    * @return returns the right channel class for the group.
@@ -46,6 +47,8 @@ public enum ChannelUtils {
       channelClass = EpollSocketChannel.class;
     } else if (group instanceof OioEventLoopGroup) {
       channelClass = OioSocketChannel.class;
+    } else if (group instanceof KQueueEventLoopGroup) {
+      channelClass = KQueueSocketChannel.class;
     }
     return channelClass;
   }
