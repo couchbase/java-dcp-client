@@ -55,7 +55,12 @@ import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.kqueue.KQueue;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -81,6 +86,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -99,10 +105,14 @@ import static java.util.stream.Collectors.toList;
  */
 public class Client implements Closeable {
 
-  /**
-   * The logger used.
-   */
   private static final Logger LOGGER = LoggerFactory.getLogger(Client.class);
+
+  /**
+   * Thread factory for default event loop group. Static so the thread name counter
+   * is shared if multiple clients are created (although in that case the user
+   * should ideally provide their own event loop group).
+   */
+  private static final ThreadFactory threadFactory = new DefaultThreadFactory("dcp-io");
 
   /**
    * The {@link Conductor} handles channels and streams. It's the orchestrator of everything.
@@ -137,8 +147,7 @@ public class Client implements Closeable {
    */
   private Client(Builder builder) {
     EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
-        ? new NioEventLoopGroup() : builder.eventLoopGroup;
-
+        ? newEventLoopGroup() : builder.eventLoopGroup;
     env = ClientEnvironment.builder()
         .setClusterAt(builder.clusterAt)
         .setNetworkResolution(builder.networkResolution)
@@ -196,6 +205,21 @@ public class Client implements Closeable {
     MetricsContext metricsContext = new MetricsContext("dcp");
     conductor = new Conductor(env, new DcpClientMetrics(metricsContext));
     LOGGER.info("Environment Configuration Used: {}", system(env));
+  }
+
+  private EventLoopGroup newEventLoopGroup() {
+    if (Epoll.isAvailable()) {
+      LOGGER.info("Using Netty epoll native transport.");
+      return new EpollEventLoopGroup(threadFactory);
+    }
+
+    if (KQueue.isAvailable()) {
+      LOGGER.info("Using Netty kqueue native transport.");
+      return new KQueueEventLoopGroup(threadFactory);
+    }
+
+    LOGGER.info("Using Netty NIO transport.");
+    return new NioEventLoopGroup(threadFactory);
   }
 
   /**
