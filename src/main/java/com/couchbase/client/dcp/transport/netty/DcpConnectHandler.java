@@ -35,7 +35,7 @@ import io.netty.util.AttributeKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Set;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
@@ -94,7 +94,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     void issueRequest(ChannelHandlerContext ctx) {
       final Version serverVersion = getServerVersion(ctx.channel());
       final CompressionMode compressionMode = dcpControl.compression(serverVersion);
-      final EnumSet<HelloFeature> extraFeatures = EnumSet.copyOf(compressionMode.getHelloFeatures(serverVersion));
+      final Set<HelloFeature> extraFeatures = new HashSet<>(compressionMode.getHelloFeatures(serverVersion));
 
       if (env.collectionsAware()) {
         // todo check first to see if the bucket config capabilities include collections?
