@@ -48,9 +48,8 @@ public interface DatabaseChangeListener {
   }
 
   /**
-   * Called when the vbucket seqno has advanced due to an event that the consumer is
-   * not subscribed too. For instance this might be sync-write prepares or mutations
-   * from a collection that the consumer is not subscribed too.
+   * Called when a vbucket sequence number has advanced due to an event other than
+   * a document change, or for events the consumer is not subscribed to.
    * <p>
    * Collections-aware listeners SHOULD use the offset from this notification
    * to update their stream state just as if they had received a document change
@@ -60,6 +59,83 @@ public interface DatabaseChangeListener {
    * Only sent if the client is collections-aware.
    */
   default void onSeqnoAdvanced(SeqnoAdvanced seqnoAdvanced) {
+  }
+
+  /**
+   * Called when a new scope is created.
+   * <p>
+   * The listener will only receive this notification if all of the following
+   * conditions are met:
+   * <ul>
+   * <li>The client is collections-aware.
+   * <li>The client is not configured with a scope or collections filter.
+   * <li>The user has permission to view the new scope.
+   * </ul>
+   */
+  default void onScopeCreated(ScopeCreated scopeCreated) {
+  }
+
+  /**
+   * Called when a scope is dropped.
+   * <p>
+   * The listener will only receive this notification if all of the following
+   * conditions are met:
+   * <ul>
+   * <li>The client is collections-aware.
+   * <li>The client is not configured with a scope or collections filter,
+   * OR the scope filter specifies the dropped scope.
+   * <li>The user had permission to view the dropped scope.
+   * </ul>
+   */
+  default void onScopeDropped(ScopeDropped scopeDropped) {
+  }
+
+  /**
+   * Called when a collection is created.
+   * <p>
+   * The listener will only receive this notification if all of the following
+   * conditions are met:
+   * <ul>
+   * <li>The client is collections-aware.
+   * <li>The client is not configured with a scope or collections filter,
+   * OR the scope filter matches the new collection's parent scope,
+   * OR the collections filter includes the collection.
+   * <li>The user has permission to view the new collection.
+   * </ul>
+   */
+  default void onCollectionCreated(CollectionCreated collectionCreated) {
+  }
+
+  /**
+   * Called when a collection is dropped.
+   * <p>
+   * The listener will only receive this notification if all of the following
+   * conditions are met:
+   * <ul>
+   * <li>The client is collections-aware.
+   * <li>The client is not configured with a scope or collections filter,
+   * OR the scope filter matches the new collection's parent scope,
+   * OR the collections filter includes the collection.
+   * <li>The user had permission to view the dropped collection.
+   * </ul>
+   */
+  default void onCollectionDropped(CollectionDropped collectionDropped) {
+  }
+
+  /**
+   * Called when a collection is flushed.
+   * <p>
+   * The listener will only receive this notification if all of the following
+   * conditions are met:
+   * <ul>
+   * <li>The client is collections-aware.
+   * <li>The client is not configured with a scope or collections filter,
+   * OR the scope filter matches the new collection's parent scope,
+   * OR the collections filter includes the collection.
+   * <li>The user has permission to view the flushed collection.
+   * </ul>
+   */
+  default void onCollectionFlushed(CollectionFlushed collectionFlushed) {
   }
 
   default void onRollback(Rollback rollback) {

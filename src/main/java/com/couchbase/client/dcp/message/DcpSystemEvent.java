@@ -16,6 +16,11 @@
 
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.dcp.highlevel.CollectionCreated;
+import com.couchbase.client.dcp.highlevel.CollectionDropped;
+import com.couchbase.client.dcp.highlevel.CollectionFlushed;
+import com.couchbase.client.dcp.highlevel.ScopeCreated;
+import com.couchbase.client.dcp.highlevel.ScopeDropped;
 import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import io.netty.buffer.ByteBuf;
 import org.slf4j.Logger;
@@ -28,201 +33,6 @@ public class DcpSystemEvent {
     CollectionsManifest apply(CollectionsManifest currentManifest);
 
     long getManifestId();
-  }
-
-  public static class CollectionCreated extends DcpSystemEvent implements CollectionsManifestEvent {
-    final long newManifestId;
-    final long scopeId;
-    final long collectionId;
-    final String collectionName;
-    final Long maxTtl;
-
-    public CollectionCreated(int vbucket, long seqno, int version, ByteBuf buffer) {
-      super(Type.COLLECTION_CREATED, vbucket, seqno, version);
-
-      collectionName = MessageUtil.getKeyAsString(buffer);
-      ByteBuf value = MessageUtil.getContent(buffer);
-
-      newManifestId = value.readLong();
-      scopeId = value.readUnsignedInt();
-      collectionId = value.readUnsignedInt();
-
-      // absent in version 0
-      maxTtl = value.isReadable() ? value.readUnsignedInt() : null;
-    }
-
-    @Override
-    public CollectionsManifest apply(CollectionsManifest currentManifest) {
-      return currentManifest.withCollection(newManifestId, scopeId, collectionId, collectionName, maxTtl);
-    }
-
-    @Override
-    public long getManifestId() {
-      return newManifestId;
-    }
-
-    @Override
-    public String toString() {
-      return "CollectionCreated{" +
-          "newManifestId=" + newManifestId +
-          ", scopeId=" + scopeId +
-          ", collectionId=" + collectionId +
-          ", collectionName='" + collectionName + '\'' +
-          ", maxTtl=" + maxTtl +
-          ", vbucket=" + getVbucket() +
-          ", seqno=" + getSeqno() +
-          ", version=" + getVersion() +
-          '}';
-    }
-  }
-
-  public static class CollectionDropped extends DcpSystemEvent implements CollectionsManifestEvent {
-    final long newManifestId;
-    final long collectionId;
-    final long scopeId; // not useful, ignored
-
-    public CollectionDropped(int vbucket, long seqno, int version, ByteBuf buffer) {
-      super(Type.COLLECTION_DROPPED, vbucket, seqno, version);
-
-      ByteBuf value = MessageUtil.getContent(buffer);
-
-      newManifestId = value.readLong();
-      scopeId = value.readUnsignedInt();
-      collectionId = value.readUnsignedInt();
-    }
-
-    @Override
-    public String toString() {
-      return "CollectionDropped{" +
-          "newManifestId=" + newManifestId +
-          ", collectionId=" + collectionId +
-          ", scopeId=" + scopeId +
-          ", vbucket=" + getVbucket() +
-          ", seqno=" + getSeqno() +
-          ", version=" + getVersion() +
-          '}';
-    }
-
-    @Override
-    public CollectionsManifest apply(CollectionsManifest currentManifest) {
-      return currentManifest.withoutCollection(newManifestId, collectionId);
-    }
-
-    @Override
-    public long getManifestId() {
-      return newManifestId;
-    }
-  }
-
-  public static class CollectionFlushed extends DcpSystemEvent implements CollectionsManifestEvent {
-    final long newManifestId;
-    final long collectionId;
-    final long scopeId; // not useful, ignored
-
-    public CollectionFlushed(int vbucket, long seqno, int version, ByteBuf buffer) {
-      super(Type.COLLECTION_FLUSHED, vbucket, seqno, version);
-
-      ByteBuf value = MessageUtil.getContent(buffer);
-
-      newManifestId = value.readLong();
-      scopeId = value.readUnsignedInt();
-      collectionId = value.readUnsignedInt();
-    }
-
-    @Override
-    public CollectionsManifest apply(CollectionsManifest currentManifest) {
-      return currentManifest.withManifestId(newManifestId);
-    }
-
-    @Override
-    public long getManifestId() {
-      return newManifestId;
-    }
-
-    @Override
-    public String toString() {
-      return "CollectionFlushed{" +
-          "newManifestId=" + newManifestId +
-          ", collectionId=" + collectionId +
-          ", scopeId=" + scopeId +
-          ", vbucket=" + getVbucket() +
-          ", seqno=" + getSeqno() +
-          ", version=" + getVersion() +
-          '}';
-    }
-  }
-
-  public static class ScopeCreated extends DcpSystemEvent implements CollectionsManifestEvent {
-    final long newManifestId;
-    final long scopeId;
-    final String scopeName;
-
-    public ScopeCreated(int vbucket, long seqno, int version, ByteBuf buffer) {
-      super(Type.SCOPE_CREATED, vbucket, seqno, version);
-
-      scopeName = MessageUtil.getKeyAsString(buffer);
-      ByteBuf value = MessageUtil.getContent(buffer);
-
-      newManifestId = value.readLong();
-      scopeId = value.readUnsignedInt();
-    }
-
-    @Override
-    public CollectionsManifest apply(CollectionsManifest currentManifest) {
-      return currentManifest.withScope(newManifestId, scopeId, scopeName);
-    }
-
-    @Override
-    public long getManifestId() {
-      return newManifestId;
-    }
-
-    @Override
-    public String toString() {
-      return "ScopeCreated{" +
-          "newManifestId=" + newManifestId +
-          ", scopeId=" + scopeId +
-          ", scopeName='" + scopeName + '\'' +
-          ", vbucket=" + getVbucket() +
-          ", seqno=" + getSeqno() +
-          ", version=" + getVersion() +
-          '}';
-    }
-  }
-
-  public static class ScopeDropped extends DcpSystemEvent implements CollectionsManifestEvent {
-    final long newManifestId;
-    final long scopeId;
-
-    public ScopeDropped(int vbucket, long seqno, int version, ByteBuf buffer) {
-      super(Type.SCOPE_DROPPED, vbucket, seqno, version);
-
-      ByteBuf value = MessageUtil.getContent(buffer);
-
-      newManifestId = value.readLong();
-      scopeId = value.readUnsignedInt();
-    }
-
-    @Override
-    public CollectionsManifest apply(CollectionsManifest currentManifest) {
-      return currentManifest.withoutScope(newManifestId, scopeId);
-    }
-
-    @Override
-    public long getManifestId() {
-      return newManifestId;
-    }
-
-    @Override
-    public String toString() {
-      return "ScopeDropped{" +
-          "newManifestId=" + newManifestId +
-          ", scopeId=" + scopeId +
-          ", vbucket=" + getVbucket() +
-          ", seqno=" + getSeqno() +
-          ", version=" + getVersion() +
-          '}';
-    }
   }
 
   public enum Type {
@@ -248,7 +58,7 @@ public class DcpSystemEvent {
   private final long seqno;
   private final int version;
 
-  private DcpSystemEvent(Type type, int vbucket, long seqno, int version) {
+  protected DcpSystemEvent(Type type, int vbucket, long seqno, int version) {
     this.vbucket = vbucket;
     this.type = type;
     this.seqno = seqno;

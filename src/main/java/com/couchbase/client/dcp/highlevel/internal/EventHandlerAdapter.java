@@ -37,6 +37,7 @@ import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSeqnoAdvancedRequest;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
+import com.couchbase.client.dcp.message.DcpSystemEvent;
 import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
@@ -160,8 +161,16 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
         }
 
         case MessageUtil.DCP_SYSTEM_EVENT_OPCODE: {
-          // Collection manifest updates are handled by the low-level control event handler.
-          // All we need to do here is notify the user of the sequence number advancement.
+          // Partition state updates are handled by the low-level control event handler.
+          // All we need to do here is dispatch the event to the high-level listener.
+          final DcpSystemEvent sysEvent = DcpSystemEvent.parse(event);
+          if (sysEvent instanceof DatabaseChangeEvent) {
+            log.info("Received system event: {}", sysEvent);
+            dispatch((DatabaseChangeEvent) sysEvent);
+          } else {
+            log.warn("Received unrecognized system event:\n{}", MessageUtil.humanize(event));
+          }
+
           final int vbucket = MessageUtil.getVbucket(event);
           final long seqno = DcpSystemEventRequest.getSeqno(event);
           log.debug("vbucket {} seqno advanced to {} due to system event", vbucket, seqno);
