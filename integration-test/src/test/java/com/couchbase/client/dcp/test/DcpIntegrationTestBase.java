@@ -17,6 +17,7 @@
 package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
+import com.couchbase.client.dcp.util.Version;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
@@ -28,12 +29,12 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeFalse;
 
 public abstract class DcpIntegrationTestBase {
   private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
@@ -182,6 +183,11 @@ public abstract class DcpIntegrationTestBase {
     }
 
     public void stopPersistence() {
+      // Stopping persistence doesn't seem to work in 6.5.0 (or I'm doing it wrong...)
+      // Skip any tests that rely on this feature.
+      Version version = couchbase().getVersion().orElseThrow(() -> new RuntimeException("missing couchbase version"));
+      assumeFalse(version.equals(new Version(6, 5, 0)));
+
       couchbase().stopPersistence(name);
     }
 
