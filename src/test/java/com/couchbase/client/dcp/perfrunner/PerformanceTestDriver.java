@@ -17,16 +17,17 @@
 package com.couchbase.client.dcp.perfrunner;
 
 import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.ControlEventHandler;
-import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.config.CompressionMode;
+import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
+import com.couchbase.client.dcp.highlevel.Deletion;
+import com.couchbase.client.dcp.highlevel.DocumentChange;
+import com.couchbase.client.dcp.highlevel.Mutation;
+import com.couchbase.client.dcp.highlevel.StreamFailure;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.netty.buffer.ByteBuf;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,7 +46,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
@@ -61,10 +62,10 @@ class PerformanceTestDriver {
     private Properties settings;
   }
 
-  private static final AtomicLong totalCompressedBytes = new AtomicLong();
-  private static final AtomicLong totalDecompressedBytes = new AtomicLong();
-  private static final AtomicLong totalMessageCount = new AtomicLong();
-  private static final AtomicLong compressedMessageCount = new AtomicLong();
+  private static final LongAdder totalCompressedBytes = new LongAdder();
+  private static final LongAdder totalDecompressedBytes = new LongAdder();
+  private static final LongAdder totalMessageCount = new LongAdder();
+  private static final LongAdder compressedMessageCount = new LongAdder();
 
   public static void main(String[] commandLineArguments) throws Exception {
     Args args = parseArgs(commandLineArguments);
@@ -113,38 +114,70 @@ class PerformanceTestDriver {
     return result;
   }
 
-  private static void runTest(final Client client, Args args) throws InterruptedException {
+  private static void registerLowLevelListeners(CountDownLatch latch, Client client) {
     // Don't do anything with control events in this example
-    client.controlEventHandler(new ControlEventHandler() {
-      @Override
-      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        if (DcpSnapshotMarkerRequest.is(event)) {
-          flowController.ack(event);
-        }
-        event.release();
+    client.controlEventHandler((flowController, event) -> {
+      if (DcpSnapshotMarkerRequest.is(event)) {
+        flowController.ack(event);
       }
+      event.release();
     });
 
+    client.dataEventHandler((flowController, event) -> {
+      totalMessageCount.increment();
+
+      if (MessageUtil.isSnappyCompressed(event)) {
+        compressedMessageCount.increment();
+        totalCompressedBytes.add(MessageUtil.getRawContent(event).readableBytes());
+
+        // getContent() triggers decompression, so it's important for perf test to call it.
+        totalDecompressedBytes.add(MessageUtil.getContent(event).readableBytes());
+      }
+
+      latch.countDown();
+      flowController.ack(event);
+      event.release();
+    });
+  }
+
+  private static void registerHighLevelListeners(CountDownLatch latch, Client client) {
+    client.nonBlockingListener(new DatabaseChangeListener() {
+      @Override
+      public void onFailure(StreamFailure streamFailure) {
+        System.err.println("Stream failure for vbucket " + streamFailure.getVbucket() + "; " + streamFailure.getCause());
+        streamFailure.getCause().printStackTrace();
+      }
+
+      @Override
+      public void onMutation(Mutation event) {
+        process(event);
+      }
+
+      @Override
+      public void onDeletion(Deletion event) {
+        process(event);
+      }
+
+      private void process(DocumentChange event) {
+        // High-level API can't tell if the original was compressed or not, so just count the messages.
+        totalMessageCount.increment();
+        event.flowControlAck();
+        latch.countDown();
+      }
+    });
+  }
+
+  private static void runTest(final Client client, Args args) throws InterruptedException {
     final CountDownLatch latch = new CountDownLatch(args.dcpMessageCount);
 
-    client.dataEventHandler(new DataEventHandler() {
-      @Override
-      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        totalMessageCount.incrementAndGet();
-
-        if (MessageUtil.isSnappyCompressed(event)) {
-          compressedMessageCount.incrementAndGet();
-          totalCompressedBytes.addAndGet(MessageUtil.getRawContent(event).readableBytes());
-
-          // getContent() triggers decompression, so it's important for perf test to call it.
-          totalDecompressedBytes.addAndGet(MessageUtil.getContent(event).readableBytes());
-        }
-
-        latch.countDown();
-        flowController.ack(event);
-        event.release();
-      }
-    });
+    final boolean highLevelApi = Boolean.parseBoolean(args.settings.getProperty("highLevelApi", "false"));
+    if (highLevelApi) {
+      System.out.println("Using high-level API. Won't be collecting compression metrics.");
+      registerHighLevelListeners(latch, client);
+    } else {
+      System.out.println("Using low-level API.");
+      registerLowLevelListeners(latch, client);
+    }
 
     long startNanos = System.nanoTime();
     client.connect().await();
@@ -171,17 +204,17 @@ class PerformanceTestDriver {
 
     List<String> hostnames = new ArrayList<>();
     for (InetSocketAddress host : connectionString.hosts()) {
-      if (host.getPort() != 0) {
-        throw new IllegalArgumentException("Connection string must not specify port");
-      }
-      hostnames.add(host.getHostName());
+      final String hostAndMaybePort = host.getPort() == 0
+          ? host.getHostString()
+          : host.getHostString() + ":" + host.getPort();
+      hostnames.add(hostAndMaybePort);
     }
 
     final String username = requireNonNull(connectionString.username(), "Connection string is missing username");
     final String password = requireNonNull(connectionString.password(), "Connection string is missing password");
     final Client.Builder builder = Client.builder()
         .credentials(username, password)
-        .hostnames(hostnames)
+        .seedNodes(hostnames)
         .bucket(requireNonNull(connectionString.bucket(), "Connection string is missing bucket name"))
         .compression(compressionMode);
 
