@@ -16,12 +16,10 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.java.Bucket;
-import com.couchbase.client.java.CouchbaseCluster;
-import com.couchbase.client.java.document.JsonDocument;
-import com.couchbase.client.java.document.RawJsonDocument;
-import com.couchbase.client.java.document.json.JsonObject;
-import com.couchbase.client.java.error.DocumentDoesNotExistException;
+import com.couchbase.client.core.error.DocumentNotFoundException;
+import com.couchbase.client.java.Cluster;
+import com.couchbase.client.java.Collection;
+import com.couchbase.client.java.codec.RawJsonTranscoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,21 +29,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.couchbase.client.dcp.core.utils.CbCollections.mapOf;
 import static com.couchbase.client.dcp.test.util.IntegrationTestHelper.forceKeyToPartition;
-import static com.couchbase.client.dcp.test.util.IntegrationTestHelper.upsertWithRetry;
 import static com.couchbase.client.dcp.test.util.IntegrationTestHelper.validateJson;
+import static com.couchbase.client.java.kv.UpsertOptions.upsertOptions;
 import static java.util.Objects.requireNonNull;
 
 @Service
 public class DocumentServiceImpl implements DocumentService {
   private static final Logger LOGGER = LoggerFactory.getLogger(DocumentServiceImpl.class);
 
-  private final CouchbaseCluster cluster;
+  private final Cluster cluster;
   private final StreamerService streamerService;
   volatile int cachedPartitionCount;
 
   @Autowired
-  public DocumentServiceImpl(CouchbaseCluster cluster, StreamerService streamerService) {
+  public DocumentServiceImpl(Cluster cluster, StreamerService streamerService) {
     this.cluster = requireNonNull(cluster);
     this.streamerService = requireNonNull(streamerService);
   }
@@ -53,13 +52,15 @@ public class DocumentServiceImpl implements DocumentService {
   @Override
   public void upsert(String bucket, String documentId, String documentBodyJson) {
     // todo Open the bucket once on startup?
-    cluster.openBucket(bucket)
-        .upsert(RawJsonDocument.create(documentId, validateJson(documentBodyJson)));
+    cluster.bucket(bucket)
+        .defaultCollection()
+        .upsert(documentId, validateJson(documentBodyJson),
+            upsertOptions().transcoder(RawJsonTranscoder.INSTANCE));
   }
 
   @Override
   public Set<String> upsertOneDocumentToEachVbucket(String bucket, String documentIdPrefix) {
-    final Bucket b = cluster.openBucket(bucket);
+    final Collection c = cluster.bucket(bucket).defaultCollection();
     final Set<String> ids = new HashSet<>();
 
     final int partitionCount = getNumberOfPartitions(bucket);
@@ -69,7 +70,7 @@ public class DocumentServiceImpl implements DocumentService {
           .orElseThrow(() -> new RuntimeException("Failed to force id " + documentIdPrefix + " to partition " + partition));
       ids.add(id);
       try {
-        upsertWithRetry(b, JsonDocument.create(id, JsonObject.create().put("id", id)));
+        c.upsert(id, mapOf("id", id));
       } catch (Exception e) {
         LOGGER.error("failed to upsert {}", id, e);
         throw new RuntimeException(e);
@@ -85,12 +86,12 @@ public class DocumentServiceImpl implements DocumentService {
 
   @Override
   public void delete(String bucket, List<String> documentIds) {
-    Bucket b = cluster.openBucket(bucket);
+    Collection c = cluster.bucket(bucket).defaultCollection();
 
     for (String id : documentIds) {
       try {
-        b.remove(id);
-      } catch (DocumentDoesNotExistException ignore) {
+        c.remove(id);
+      } catch (DocumentNotFoundException ignore) {
       }
     }
   }

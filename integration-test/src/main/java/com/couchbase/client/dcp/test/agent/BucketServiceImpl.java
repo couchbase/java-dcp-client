@@ -16,9 +16,9 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.java.cluster.BucketSettings;
-import com.couchbase.client.java.cluster.ClusterManager;
-import com.couchbase.client.java.cluster.DefaultBucketSettings;
+import com.couchbase.client.core.error.BucketNotFoundException;
+import com.couchbase.client.java.manager.bucket.BucketManager;
+import com.couchbase.client.java.manager.bucket.BucketSettings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,42 +27,37 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 
 @Service
 public class BucketServiceImpl implements BucketService {
 
-  private final ClusterManager clusterManager;
+  private final BucketManager bucketManager;
 
   @Autowired
-  public BucketServiceImpl(ClusterManager clusterManager) {
-    this.clusterManager = requireNonNull(clusterManager);
+  public BucketServiceImpl(BucketManager bucketManager) {
+    this.bucketManager = requireNonNull(bucketManager);
   }
 
   @Override
   public Set<String> list() {
-    return clusterManager
-        .getBuckets()
-        .stream()
-        .map(BucketSettings::name)
-        .collect(toSet());
+    return bucketManager
+        .getAllBuckets()
+        .keySet();
   }
 
   @Override
   public void create(String bucket, @Nullable String password, int quotaMb, int replicas, boolean enableFlush) {
-    if (clusterManager.hasBucket(bucket)) {
+    if (bucketManager.getAllBuckets().containsKey(bucket)) {
       return;
     }
 
     while (true) {
       try {
-        DefaultBucketSettings.Builder builder = new DefaultBucketSettings.Builder()
-            .enableFlush(enableFlush)
-            .name(bucket)
-            .password(password)
-            .quota(quotaMb)
-            .replicas(replicas);
-        clusterManager.insertBucket(builder.build());
+        BucketSettings settings = BucketSettings.create(bucket)
+            .flushEnabled(true)
+            .ramQuotaMB(quotaMb)
+            .numReplicas(replicas);
+        bucketManager.createBucket(settings);
         TimeUnit.SECONDS.sleep(3);
         break;
 
@@ -82,12 +77,14 @@ public class BucketServiceImpl implements BucketService {
 
   @Override
   public void delete(String bucket) {
-    if (!clusterManager.hasBucket(bucket)) {
+    if (!bucketManager.getAllBuckets().containsKey(bucket)) {
       return;
     }
 
-    if (!clusterManager.removeBucket(bucket)) {
-      throw new RuntimeException("Failed to remove bucket");
+    try {
+      bucketManager.dropBucket(bucket);
+    } catch (BucketNotFoundException ignore) {
+      // that's fine
     }
 
     /*

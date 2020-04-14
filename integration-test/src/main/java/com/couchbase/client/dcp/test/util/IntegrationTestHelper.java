@@ -16,9 +16,6 @@
 
 package com.couchbase.client.dcp.test.util;
 
-import com.couchbase.client.java.Bucket;
-import com.couchbase.client.java.document.Document;
-import com.couchbase.client.java.error.TemporaryFailureException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -26,11 +23,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IntegrationTestHelper {
   private static final Logger LOGGER = LoggerFactory.getLogger(IntegrationTestHelper.class);
@@ -48,26 +43,6 @@ public class IntegrationTestHelper {
     } catch (IOException e) {
       throw new IllegalArgumentException(e);
     }
-  }
-
-  public static <D extends Document<?>> D upsertWithRetry(Bucket bucket, D document) throws Exception {
-    return callWithRetry(() -> bucket.upsert(document));
-  }
-
-  private static <R> R callWithRetry(Callable<R> callable) throws Exception {
-    final int maxAttempts = 10;
-    TemporaryFailureException deferred = null;
-    for (int attempt = 0; attempt <= maxAttempts; attempt++) {
-      if (attempt != 0) {
-        SECONDS.sleep(1);
-      }
-      try {
-        return callable.call();
-      } catch (TemporaryFailureException e) {
-        deferred = e;
-      }
-    }
-    throw deferred;
   }
 
   /**

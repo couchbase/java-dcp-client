@@ -69,6 +69,10 @@ public abstract class DcpIntegrationTestBase {
     }
     final String dockerImage = "couchbase/server:" + couchbaseVersion;
     couchbase = CouchbaseContainer.newCluster(dockerImage, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
+
+    // dummy bucket for authenticating management requests (required for Couchbase versions prior to 6.5)
+    couchbase.createBucket("default");
+
     agentContainer = startAgent(network);
     agent = new RemoteAgent(agentContainer);
   }

@@ -19,7 +19,6 @@ package com.couchbase.client.dcp.test.agent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
-import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.test.agent.DcpStreamer.Status;
@@ -65,9 +64,8 @@ public class StreamerServiceImpl implements StreamerService {
         .credentials(username, password)
         .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
         .flowControl(1024 * 128)
-        .hostnames(nodes.split(","))
-        .controlParam(DcpControl.Names.ENABLE_NOOP, true)
-        .connectionNameGenerator(() -> streamerId)
+        .seedNodes(nodes.split(","))
+        .userAgent("dcp-integration-test", "0", streamerId)
         .build();
 
     idToStreamer.put(streamerId, new DcpStreamer(client, vbuckets, from, to));
@@ -81,7 +79,6 @@ public class StreamerServiceImpl implements StreamerService {
       return;
     }
     streamer.stop();
-
   }
 
   @Override
@@ -104,8 +101,8 @@ public class StreamerServiceImpl implements StreamerService {
 
   @Override
   public DcpStreamer.Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit) {
-    DcpStreamer.Status status = idToStreamer.get(streamerId).awaitMutationCount(mutationCount, timeout, unit);
-    return status;
+    return idToStreamer.get(streamerId)
+        .awaitMutationCount(mutationCount, timeout, unit);
   }
 
   @PreDestroy
@@ -123,7 +120,7 @@ public class StreamerServiceImpl implements StreamerService {
     final Client client = Client.builder()
         .bucket(bucket)
         .credentials(username, password)
-        .hostnames(nodes.split(","))
+        .seedNodes(nodes.split(","))
         .build();
 
     client.connect().await();

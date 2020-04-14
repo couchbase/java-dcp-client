@@ -16,10 +16,9 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.java.CouchbaseCluster;
-import com.couchbase.client.java.cluster.ClusterManager;
+import com.couchbase.client.java.Cluster;
+import com.couchbase.client.java.manager.bucket.BucketManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -50,15 +49,17 @@ public class Application {
     this.bootstrapHostnames = bootstrapHostnames;
   }
 
-  @Bean
-  public CouchbaseCluster cluster() {
-    return CouchbaseCluster.create(bootstrapHostnames)
-        .authenticate(username, password);
+  @Bean(destroyMethod = "disconnect")
+  public Cluster cluster() {
+    Cluster cluster = Cluster.connect(bootstrapHostnames, username, password);
+    // open a bucket so management API calls succeed against server versions prior to 6.5
+    cluster.bucket("default");
+    return cluster;
   }
 
   @Bean
-  public ClusterManager clusterManager() {
-    return cluster().clusterManager(username, password);
+  public BucketManager clusterManager() {
+    return cluster().buckets();
   }
 
   @Bean
