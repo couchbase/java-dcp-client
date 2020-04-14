@@ -17,11 +17,10 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.dcp.highlevel.internal.CollectionIdAndKey;
 import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
-import com.couchbase.client.dcp.util.PatchedNettySnappyDecoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
-import io.netty.buffer.UnpooledByteBufAllocator;
+import org.iq80.snappy.Snappy;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -299,6 +298,11 @@ public enum MessageUtil {
     setContent(Unpooled.wrappedBuffer(content), buffer);
   }
 
+  /**
+   * Returns the message content in its original form (possibly compressed).
+   * <p>
+   * The returned buffer shares its reference count with the given buffer.
+   */
   public static ByteBuf getRawContent(ByteBuf buffer) {
     short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
@@ -307,26 +311,14 @@ public enum MessageUtil {
   }
 
   /**
-   * Allocator without leak detection, since callers of {@link #getContent(ByteBuf)}
-   * are not required to release the buffer. The buffers aren't pooled, so there won't
-   * really be any leaks.
+   * Returns the message content, uncompressed.
+   * <p>
+   * Callers need not release the returned buffer, since it either shares its
+   * reference count with the given buffer, or is unpooled and not leak-aware.
    */
-  private static final UnpooledByteBufAllocator decompressedContentAllocator = new UnpooledByteBufAllocator(false, true);
-
   public static ByteBuf getContent(ByteBuf buffer) {
     final ByteBuf rawContent = getRawContent(buffer);
-
-    if (!isSnappyCompressed(buffer)) {
-      return rawContent;
-    }
-
-    final int decompressedLength = PatchedNettySnappyDecoder.readPreamble(rawContent);
-    rawContent.readerIndex(0);
-
-    final ByteBuf decompressedContent = decompressedContentAllocator.heapBuffer(decompressedLength, decompressedLength);
-
-    new PatchedNettySnappyDecoder().decode(rawContent, decompressedContent);
-    return decompressedContent;
+    return isSnappyCompressed(buffer) ? Unpooled.wrappedBuffer(getContentAsByteArray(buffer)) : rawContent;
   }
 
   public static boolean isSnappyCompressed(ByteBuf buffer) {
@@ -339,26 +331,23 @@ public enum MessageUtil {
     return getContent(buffer).toString(UTF_8);
   }
 
+  /**
+   * Returns a new array containing the uncompressed content of the given message.
+   */
   public static byte[] getContentAsByteArray(ByteBuf buffer) {
-    final ByteBuf content = getContent(buffer);
+    final ByteBuf rawContent = getRawContent(buffer);
 
-    if (isSnappyCompressed(buffer)) {
-      // Avoid a memory copy by stealing the decompressed buffer's backing array.
-
-      if (!(content.alloc() instanceof UnpooledByteBufAllocator)) {
-        throw new RuntimeException("Expected decompressed content buffer to be unpooled.");
-      }
-
-      if (content.array().length != content.readableBytes()) {
-        throw new RuntimeException("Expected decompressed content buffer to be backed by array of exact size.");
-      }
-
-      return content.array();
+    if (!isSnappyCompressed(buffer)) {
+      return ByteBufUtil.getBytes(buffer);
     }
 
-    byte[] bytes = new byte[content.readableBytes()];
-    content.getBytes(0, bytes);
-    return bytes;
+    if (buffer.hasArray()) {
+      return Snappy.uncompress(
+          buffer.array(), buffer.arrayOffset() + buffer.readerIndex(), buffer.readableBytes());
+    }
+
+    final byte[] compressed = ByteBufUtil.getBytes(rawContent);
+    return Snappy.uncompress(compressed, 0, compressed.length);
   }
 
   /**
