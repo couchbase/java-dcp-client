@@ -46,7 +46,7 @@ public class SessionStateSerializerTest {
 
     byte[] actualJson = sessionState.export(StateFormat.JSON);
     String expectedJson =
-        "{\"v\":1,\"ps\":[{\"flog\":[{\"seqno\":5,\"uuid\":12345}],\"ss\":1,\"es\":1000,\"sss\":2,\"ses\":3}]}";
+        "{\"v\":1,\"ps\":[{\"flog\":[{\"seqno\":5,\"uuid\":12345}],\"ss\":1,\"es\":1000,\"cm\":0,\"sss\":2,\"ses\":3}]}";
 
     assertJsonEquals(expectedJson, actualJson);
   }

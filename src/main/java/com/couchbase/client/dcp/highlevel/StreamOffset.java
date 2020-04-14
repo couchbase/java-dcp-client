@@ -16,6 +16,8 @@
 
 package com.couchbase.client.dcp.highlevel;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -25,13 +27,18 @@ public class StreamOffset {
   private final long vbuuid; // vbucket uuid for which the sequence number is valid
   private final long seqno; // sequence number of a DCP event
   private final SnapshotMarker snapshot;
+  private final long collectionsManifestUid;
 
-  public static final StreamOffset ZERO = new StreamOffset(0, 0, SnapshotMarker.NONE);
+  public static final StreamOffset ZERO = new StreamOffset(0, 0, SnapshotMarker.NONE, 0);
 
-  public StreamOffset(long vbuuid, long seqno, SnapshotMarker snapshot) {
+  /**
+   * @param collectionsManifestUid pass zero if client is not collections-aware or if no UID is available.
+   */
+  public StreamOffset(long vbuuid, long seqno, SnapshotMarker snapshot, long collectionsManifestUid) {
     this.vbuuid = vbuuid;
     this.seqno = seqno;
     this.snapshot = requireNonNull(snapshot);
+    this.collectionsManifestUid = collectionsManifestUid;
   }
 
   public long getVbuuid() {
@@ -50,9 +57,13 @@ public class StreamOffset {
     return snapshot;
   }
 
+  public long getCollectionsManifestUid() {
+    return collectionsManifestUid;
+  }
+
   @Override
   public String toString() {
-    return vbuuid + "@" + seqno + snapshot;
+    return vbuuid + "@" + seqno + "m" + collectionsManifestUid + snapshot;
   }
 
   @Override
@@ -63,22 +74,15 @@ public class StreamOffset {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-
     StreamOffset that = (StreamOffset) o;
-
-    if (vbuuid != that.vbuuid) {
-      return false;
-    }
-    if (seqno != that.seqno) {
-      return false;
-    }
-    return snapshot.equals(that.snapshot);
+    return vbuuid == that.vbuuid &&
+        seqno == that.seqno &&
+        collectionsManifestUid == that.collectionsManifestUid &&
+        snapshot.equals(that.snapshot);
   }
 
   @Override
   public int hashCode() {
-    int result = (int) (vbuuid ^ (vbuuid >>> 32));
-    result = 31 * result + (int) (seqno ^ (seqno >>> 32));
-    return result;
+    return Objects.hash(vbuuid, seqno, collectionsManifestUid);
   }
 }

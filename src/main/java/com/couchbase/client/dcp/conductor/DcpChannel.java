@@ -420,6 +420,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         final long origSnapshotStartSeqno = startOffset.getSnapshot().getStartSeqno();
         final long origSnapshotEndSeqno = startOffset.getSnapshot().getEndSeqno();
         final long vbuuid = startOffset.getVbuuid();
+        final long collectionsManifestuid = startOffset.getCollectionsManifestUid();
 
         final long snapshotStartSeqno;
         final long snapshotEndSeqno;
@@ -479,7 +480,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           }
 
           final Map<String, Object> value = new HashMap<>();
-          value.put("uid", formatUid(manifest.getId()));
+
+          // NOTE: this is the manifest UID from the stream offset, which may differ from the current manifest.
+          value.put("uid", formatUid(collectionsManifestuid));
 
           if (!collectionIds.isEmpty()) {
             value.put("collections", formatUids(collectionIds));

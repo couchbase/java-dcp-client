@@ -212,7 +212,8 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
   private StreamOffset newOffset(int vbucket, long seqno) {
     final long vbuuid = vbucketToUuid.get(vbucket);
     final SnapshotMarker snapshot = vbucketToCurrentSnapshot.get(vbucket);
-    return new StreamOffset(vbuuid, seqno, snapshot);
+    final long collectionsManifestUid = dcpClient.sessionState().get(vbucket).getCollectionsManifestUid();
+    return new StreamOffset(vbuuid, seqno, snapshot, collectionsManifestUid);
   }
 
   private final DataEventHandler dataEventHandler = (flowController, event) -> {

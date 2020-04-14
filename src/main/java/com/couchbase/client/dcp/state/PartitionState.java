@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,9 +58,19 @@ public class PartitionState {
   private volatile SnapshotMarker snapshot = SnapshotMarker.NONE;
 
   /**
-   * This partition's view of the collection manifest.
-   * Useful while the stream is open, but not part of the stream offset
-   * (don't need to persist it in order to resume the stream).
+   * Stores the collections manifest UID for this partition so that the client
+   * can receive consistent manifest updates when the stream is restarted.
+   */
+  @JsonProperty("cm")
+  private volatile long collectionsManifestUid;
+
+  /**
+   * This partition's view of the collection manifest. Might be more recent
+   * than the {@link #collectionsManifestUid} property (which tracks the stream
+   * seqnos and is part of the stream offset).
+   * <p>
+   * Used while the stream is open to look up scope and collection names.
+   * Unrelated to the stream offset.
    */
   private volatile CollectionsManifest collectionsManifest;
 
@@ -68,6 +79,29 @@ public class PartitionState {
    * to have one per partition.
    */
   private volatile KeyExtractor keyExtractor;
+
+  public static PartitionState fromOffset(StreamOffset offset) {
+    PartitionState ps = new PartitionState();
+    ps.setStartSeqno(offset.getSeqno());
+    ps.setEndSeqno(-1L);
+    ps.setSnapshot(offset.getSnapshot());
+    ps.setCollectionsManifestUid(offset.getCollectionsManifestUid());
+
+    // Use seqno -1 (max unsigned) so this synthetic failover log entry will always be pruned
+    // if the initial streamOpen request gets a rollback response. If there's no rollback
+    // on initial request, then the seqno used here doesn't matter, because the failover log
+    // gets reset when the stream is opened.
+    ps.setFailoverLog(singletonList(new FailoverLogEntry(-1L, offset.getVbuuid())));
+    return ps;
+  }
+
+  public long getCollectionsManifestUid() {
+    return collectionsManifestUid;
+  }
+
+  public void setCollectionsManifestUid(long collectionsManifestUid) {
+    this.collectionsManifestUid = collectionsManifestUid;
+  }
 
   @JsonIgnore
   public CollectionsManifest getCollectionsManifest() {
@@ -219,7 +253,7 @@ public class PartitionState {
 
   @JsonIgnore
   public StreamOffset getOffset() {
-    return new StreamOffset(getLastUuid(), getStartSeqno(), getSnapshot());
+    return new StreamOffset(getLastUuid(), getStartSeqno(), getSnapshot(), getCollectionsManifestUid());
   }
 
   @Override
@@ -228,6 +262,7 @@ public class PartitionState {
         "log=" + failoverLog +
         ", ss=" + startSeqno +
         ", es=" + endSeqno +
+        ", cm=" + collectionsManifestUid +
         ", sss=" + getSnapshotStartSeqno() +
         ", ses=" + getSnapshotEndSeqno() +
         '}';

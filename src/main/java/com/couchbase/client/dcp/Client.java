@@ -48,7 +48,6 @@ import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.metrics.MetricsContext;
-import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
@@ -384,6 +383,9 @@ public class Client implements Closeable {
           final DcpSystemEvent.CollectionsManifestEvent manifestEvent = (DcpSystemEvent.CollectionsManifestEvent) sysEvent;
           final CollectionsManifest existingManifest = ps.getCollectionsManifest();
 
+          // remember the UID so it can be included in subsequent stream offsets
+          ps.setCollectionsManifestUid(manifestEvent.getManifestId());
+
           // If the manifest IDs are equal, the update might still be relevant since
           // multiple events may have the same manifest ID. So only ignore if the event's UID
           // is less than the
@@ -558,20 +560,8 @@ public class Client implements Closeable {
       return Completable.complete();
     }
 
-    vbucketToOffset.forEach((partition, offset) -> {
-      PartitionState p = new PartitionState();
-      p.setStartSeqno(offset.getSeqno());
-      p.setEndSeqno(-1L);
-      p.setSnapshot(offset.getSnapshot());
-
-      // Use seqno -1 (max unsigned) so this synthetic failover log entry will always be pruned
-      // if the initial streamOpen request gets a rollback response. If there's no rollback
-      // on initial request, then the seqno used here doesn't matter, because the failover log
-      // gets reset when the stream is opened.
-      p.setFailoverLog(singletonList(new FailoverLogEntry(-1L, offset.getVbuuid())));
-
-      sessionState().set(partition, p);
-    });
+    vbucketToOffset.forEach((partition, offset) ->
+        sessionState().set(partition, PartitionState.fromOffset(offset)));
 
     return startStreaming(toBoxedShortArray(vbucketToOffset.keySet()));
   }
