@@ -183,10 +183,9 @@ public abstract class DcpIntegrationTestBase {
     }
 
     public void stopPersistence() {
-      // Stopping persistence doesn't seem to work in 6.5.0 (or I'm doing it wrong...)
-      // Skip any tests that rely on this feature.
       Version version = couchbase().getVersion().orElseThrow(() -> new RuntimeException("missing couchbase version"));
-      assumeFalse(version.equals(new Version(6, 5, 0)));
+      assumeFalse("Skipping this test against Couchbase 6.5.0 because of MB-36904: 'cbepctl stop' command hangs when waiting to confirm Flusher is stopped on cluster with 0 mutations",
+          version.equals(new Version(6, 5, 0)));
 
       couchbase().stopPersistence(name);
     }
