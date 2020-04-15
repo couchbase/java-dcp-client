@@ -338,12 +338,12 @@ public enum MessageUtil {
     final ByteBuf rawContent = getRawContent(buffer);
 
     if (!isSnappyCompressed(buffer)) {
-      return ByteBufUtil.getBytes(buffer);
+      return ByteBufUtil.getBytes(rawContent);
     }
 
-    if (buffer.hasArray()) {
+    if (rawContent.hasArray()) {
       return Snappy.uncompress(
-          buffer.array(), buffer.arrayOffset() + buffer.readerIndex(), buffer.readableBytes());
+          rawContent.array(), rawContent.arrayOffset() + rawContent.readerIndex(), rawContent.readableBytes());
     }
 
     final byte[] compressed = ByteBufUtil.getBytes(rawContent);
