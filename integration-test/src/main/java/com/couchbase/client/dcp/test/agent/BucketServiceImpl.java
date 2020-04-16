@@ -31,23 +31,27 @@ import static java.util.Objects.requireNonNull;
 @Service
 public class BucketServiceImpl implements BucketService {
 
-  private final BucketManager bucketManager;
+  private final ClusterSupplier clusterSupplier;
 
   @Autowired
-  public BucketServiceImpl(BucketManager bucketManager) {
-    this.bucketManager = requireNonNull(bucketManager);
+  public BucketServiceImpl(ClusterSupplier clusterSupplier) {
+    this.clusterSupplier = requireNonNull(clusterSupplier);
+  }
+
+  private BucketManager bucketManager() {
+    return clusterSupplier.get().buckets();
   }
 
   @Override
   public Set<String> list() {
-    return bucketManager
+    return bucketManager()
         .getAllBuckets()
         .keySet();
   }
 
   @Override
   public void create(String bucket, @Nullable String password, int quotaMb, int replicas, boolean enableFlush) {
-    if (bucketManager.getAllBuckets().containsKey(bucket)) {
+    if (bucketManager().getAllBuckets().containsKey(bucket)) {
       return;
     }
 
@@ -57,7 +61,7 @@ public class BucketServiceImpl implements BucketService {
             .flushEnabled(true)
             .ramQuotaMB(quotaMb)
             .numReplicas(replicas);
-        bucketManager.createBucket(settings);
+        bucketManager().createBucket(settings);
         TimeUnit.SECONDS.sleep(3);
         break;
 
@@ -77,12 +81,12 @@ public class BucketServiceImpl implements BucketService {
 
   @Override
   public void delete(String bucket) {
-    if (!bucketManager.getAllBuckets().containsKey(bucket)) {
+    if (!bucketManager().getAllBuckets().containsKey(bucket)) {
       return;
     }
 
     try {
-      bucketManager.dropBucket(bucket);
+      bucketManager().dropBucket(bucket);
     } catch (BucketNotFoundException ignore) {
       // that's fine
     }

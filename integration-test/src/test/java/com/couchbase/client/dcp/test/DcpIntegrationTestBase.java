@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import com.couchbase.client.dcp.util.Version;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
@@ -70,11 +71,17 @@ public abstract class DcpIntegrationTestBase {
     final String dockerImage = "couchbase/server:" + couchbaseVersion;
     couchbase = CouchbaseContainer.newCluster(dockerImage, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
 
-    // dummy bucket for authenticating management requests (required for Couchbase versions prior to 6.5)
-    couchbase.createBucket("default");
+    // Dummy bucket for authenticating management requests (required for Couchbase versions prior to 6.5).
+    // Give it a replica so failover tests don't fail with complaint about losing vbuckets.
+    couchbase.createBucket("default", 100, 1, true);
 
     agentContainer = startAgent(network);
     agent = new RemoteAgent(agentContainer);
+  }
+
+  @After
+  public void resetClient() throws Exception {
+    agent().resetCluster();
   }
 
   @AfterClass
@@ -131,7 +138,7 @@ public abstract class DcpIntegrationTestBase {
     return new BucketBuilder(name);
   }
 
-  protected static class BucketBuilder {
+  protected class BucketBuilder {
     private final String name;
     private int ramMb = 100;
     private int replicas = 0;
@@ -161,7 +168,7 @@ public abstract class DcpIntegrationTestBase {
     }
   }
 
-  protected static class TestBucket implements Closeable {
+  protected class TestBucket implements Closeable {
     private final String name;
 
     public TestBucket(String name) {
@@ -175,6 +182,7 @@ public abstract class DcpIntegrationTestBase {
 
     @Override
     public void close() throws IOException {
+      agent().resetCluster(); // so it doesn't complain about missing bucket
       couchbase().deleteBucket(name);
     }
 

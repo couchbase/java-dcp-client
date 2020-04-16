@@ -72,6 +72,11 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
           .start()) {
 
         final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
+
+        // This assertion also acts as a barrier that ensures all documents from
+        // the first batch are observed before persistence is stopped.
+        streamer.assertMutationCount(batchSize);
+
         bucket.stopPersistence();
         bucket.createOneDocumentInEachVbucket("b");
 
@@ -120,6 +125,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
         final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
+        agent().resetCluster();
         couchbase().restart();
         bucket.createOneDocumentInEachVbucket("b").size();
         streamer.assertMutationCount(batchSize * 2);

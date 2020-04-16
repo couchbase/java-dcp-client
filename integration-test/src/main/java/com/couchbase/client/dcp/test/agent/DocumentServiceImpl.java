@@ -39,20 +39,24 @@ import static java.util.Objects.requireNonNull;
 public class DocumentServiceImpl implements DocumentService {
   private static final Logger LOGGER = LoggerFactory.getLogger(DocumentServiceImpl.class);
 
-  private final Cluster cluster;
+  private final ClusterSupplier clusterSupplier;
   private final StreamerService streamerService;
   volatile int cachedPartitionCount;
 
   @Autowired
-  public DocumentServiceImpl(Cluster cluster, StreamerService streamerService) {
-    this.cluster = requireNonNull(cluster);
+  public DocumentServiceImpl(ClusterSupplier clusterSupplier, StreamerService streamerService) {
+    this.clusterSupplier = requireNonNull(clusterSupplier);
     this.streamerService = requireNonNull(streamerService);
+  }
+
+  private Cluster cluster() {
+    return clusterSupplier.get();
   }
 
   @Override
   public void upsert(String bucket, String documentId, String documentBodyJson) {
     // todo Open the bucket once on startup?
-    cluster.bucket(bucket)
+    cluster().bucket(bucket)
         .defaultCollection()
         .upsert(documentId, validateJson(documentBodyJson),
             upsertOptions().transcoder(RawJsonTranscoder.INSTANCE));
@@ -60,7 +64,7 @@ public class DocumentServiceImpl implements DocumentService {
 
   @Override
   public Set<String> upsertOneDocumentToEachVbucket(String bucket, String documentIdPrefix) {
-    final Collection c = cluster.bucket(bucket).defaultCollection();
+    final Collection c = cluster().bucket(bucket).defaultCollection();
     final Set<String> ids = new HashSet<>();
 
     final int partitionCount = getNumberOfPartitions(bucket);
@@ -86,7 +90,7 @@ public class DocumentServiceImpl implements DocumentService {
 
   @Override
   public void delete(String bucket, List<String> documentIds) {
-    Collection c = cluster.bucket(bucket).defaultCollection();
+    Collection c = cluster().bucket(bucket).defaultCollection();
 
     for (String id : documentIds) {
       try {

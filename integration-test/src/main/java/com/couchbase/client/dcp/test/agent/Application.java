@@ -16,8 +16,6 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.java.Cluster;
-import com.couchbase.client.java.manager.bucket.BucketManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,17 +47,9 @@ public class Application {
     this.bootstrapHostnames = bootstrapHostnames;
   }
 
-  @Bean(destroyMethod = "disconnect")
-  public Cluster cluster() {
-    Cluster cluster = Cluster.connect(bootstrapHostnames, username, password);
-    // open a bucket so management API calls succeed against server versions prior to 6.5
-    cluster.bucket("default");
-    return cluster;
-  }
-
-  @Bean
-  public BucketManager clusterManager() {
-    return cluster().buckets();
+  @Bean(destroyMethod = "close")
+  public ClusterSupplier clusterSupplier() {
+    return new ClusterSupplier(username, password, bootstrapHostnames);
   }
 
   @Bean

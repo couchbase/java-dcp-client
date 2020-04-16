@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.test;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.BucketService;
+import com.couchbase.client.dcp.test.agent.ClusterService;
 import com.couchbase.client.dcp.test.agent.DocumentService;
 import com.couchbase.client.dcp.test.agent.StreamerService;
 import com.github.therapi.jsonrpc.client.JdkHttpClient;
@@ -42,6 +43,7 @@ public class RemoteAgent {
   private final BucketService bucketService;
   private final DocumentService documentService;
   private final StreamerService streamerService;
+  private final ClusterService clusterService;
 
   private static String getDockerHost() {
     try {
@@ -65,10 +67,21 @@ public class RemoteAgent {
       this.bucketService = serviceFactory.createService(BucketService.class);
       this.documentService = serviceFactory.createService(DocumentService.class);
       this.streamerService = serviceFactory.createService(StreamerService.class);
+      this.clusterService = serviceFactory.createService(ClusterService.class);
 
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  /**
+   * Tells the agent to close its Java client Cluster and lazily recreate it.
+   * <p>
+   * This suppresses all kinds of warnings about the client trying to reconnect
+   * to resources that no longer exist.
+   */
+  public void resetCluster() {
+    clusterService.reset();
   }
 
   public BucketService bucket() {
