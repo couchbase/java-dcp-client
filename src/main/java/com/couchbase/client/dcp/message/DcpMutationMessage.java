@@ -29,14 +29,29 @@ public enum DcpMutationMessage {
     return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_MUTATION_OPCODE;
   }
 
+  /**
+   * @deprecated This method parses the key incorrectly if collections are enabled.
+   * Please use {@link MessageUtil#getCollectionIdAndKey(ByteBuf, boolean)} instead.
+   */
+  @Deprecated
   public static ByteBuf key(final ByteBuf buffer) {
     return MessageUtil.getKey(buffer);
   }
 
+  /**
+   * @deprecated This method parses the key incorrectly if collections are enabled.
+   * Please use {@link MessageUtil#getCollectionIdAndKey(ByteBuf, boolean)} instead.
+   */
+  @Deprecated
   public static String keyString(final ByteBuf buffer, Charset charset) {
     return key(buffer).toString(charset);
   }
 
+  /**
+   * @deprecated This method parses the key incorrectly if collections are enabled.
+   * Please use {@link MessageUtil#getCollectionIdAndKey(ByteBuf, boolean)} instead.
+   */
+  @Deprecated
   public static String keyString(final ByteBuf buffer) {
     return keyString(buffer, UTF_8);
   }
