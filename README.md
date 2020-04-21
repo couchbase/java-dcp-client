@@ -27,7 +27,7 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.26.0</version>
+    <version>0.27.0</version>
 </dependency>
 ```
 
