@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -44,9 +45,9 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
           .range(StreamFrom.NOW, StreamTo.INFINITY)
           .start()) {
 
-        streamer.assertMutationCount(0);
+        streamer.assertStateCount(0, DcpStreamer.State.MUTATIONS);
         bucket.createOneDocumentInEachVbucket("b").size();
-        streamer.assertMutationCount(batchSize);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
       }
     }
   }
@@ -57,9 +58,9 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
       final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
       try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
-        streamer.assertMutationCount(batchSize);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
         bucket.createOneDocumentInEachVbucket("b");
-        streamer.assertMutationCount(batchSize * 2);
+        streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
       }
     }
   }
@@ -75,18 +76,18 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
 
         // This assertion also acts as a barrier that ensures all documents from
         // the first batch are observed before persistence is stopped.
-        streamer.assertMutationCount(batchSize);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
 
         bucket.stopPersistence();
         bucket.createOneDocumentInEachVbucket("b");
 
         // expect to see all of "a" and none of "b"
-        streamer.assertMutationCount(batchSize);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
 
         bucket.startPersistence();
 
         // Now wait and expect both batches
-        streamer.assertMutationCount(batchSize * 2);
+        streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
       }
     }
   }
@@ -99,13 +100,13 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
           .start()) {
 
         final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
-        streamer.assertMutationCount(batchSize);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
 
         bucket.stopPersistence();
         bucket.createOneDocumentInEachVbucket("b");
 
         // expect to see all of "a" and none of "b"
-        streamer.assertMutationCount(batchSize);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
 
         // Discard unpersisted items and force a reconnect.
         // Streaming will resume from last observed persisted state.
@@ -115,7 +116,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
         bucket.createOneDocumentInEachVbucket("c");
 
         // Expect batches "a" and "c" ("b" was never persisted)
-        streamer.assertMutationCount(batchSize * 2);
+        streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
       }
     }
   }
@@ -128,7 +129,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
         agent().resetCluster();
         couchbase().restart();
         bucket.createOneDocumentInEachVbucket("b").size();
-        streamer.assertMutationCount(batchSize * 2);
+        streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
       }
     }
   }

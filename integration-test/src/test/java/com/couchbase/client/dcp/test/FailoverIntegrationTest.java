@@ -16,6 +16,7 @@
 
 package com.couchbase.client.dcp.test;
 
+import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -42,13 +43,13 @@ public class FailoverIntegrationTest extends DcpIntegrationTestBase {
     final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
     try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
-      streamer.assertMutationCount(batchSize);
+      streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
 
       secondNode.failover();
       couchbase().rebalance();
 
       bucket.createOneDocumentInEachVbucket("b");
-      streamer.assertMutationCount(batchSize * 2);
+      streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
     }
   }
 }

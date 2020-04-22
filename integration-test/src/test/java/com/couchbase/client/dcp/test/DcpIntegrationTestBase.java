@@ -30,6 +30,8 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -113,6 +115,19 @@ public abstract class DcpIntegrationTestBase {
     assertEquals(expectedDeletions, status.getDeletions());
     assertEquals(expectedExpirations, status.getExpirations());
     assertEquals(expectedMutations, status.getMutations());
+  }
+
+  protected static void assertStatus(DcpStreamer.Status status, long expectedMutations,
+                                     long expectedDeletions, long expectedExpirations,
+                                     long expectedScopeCreations, long expectedScopeDrops,
+                                     long expectedCollectionCreations, long expectedCollectionDrops, long expectedCollectionsFlushed){
+    assertEquals(expectedDeletions, status.getDeletions());
+    assertEquals(expectedExpirations, status.getExpirations());
+    assertEquals(expectedMutations, status.getMutations());
+    assertEquals(expectedScopeCreations, status.getScopeCreations());
+    assertEquals(expectedScopeDrops, status.getScopeDrops());
+    assertEquals(expectedCollectionCreations, status.getCollectionCreations());
+    assertEquals(expectedCollectionDrops, status.getCollectionDrops());
   }
 
   protected RemoteAgent.StreamBuilder newStreamer(String bucket) {
@@ -206,6 +221,31 @@ public abstract class DcpIntegrationTestBase {
 
     public void startPersistence() {
       couchbase().startPersistence(name);
+    }
+
+    protected List<String> createScopes(int scopes, String scopeIdPrefix){
+      log.info("Creating {} scopes, on bucket {}", scopes, name);
+      return agent().collection().createScopesWithPrefix(name, scopeIdPrefix, scopes);
+    }
+
+    protected List<String> createCollections(int collections, String collectionsIdPrefix, String scope){
+      log.info("Creating {} collections, on scope {}, and bucket {}", collections, scope,  name);
+      return agent().collection().createCollectionsWithPrefix(name, scope, collectionsIdPrefix, collections);
+    }
+
+    protected void deleteScope(List<String> scopes){
+      log.info("Dropping scopes");
+      agent().collection().deleteScopes(scopes, name);
+    }
+
+    protected void deleteCollections(List<String> collections, String scope){
+      log.info("Removing collections from scope {}", scope);
+      agent().collection().deleteCollections(collections, scope, name);
+    }
+
+    protected Map<String, String> upsertOneDocumentToEachCollection(List<String> collections, String documentPrefix, String scope){
+      log.info("Creating one document in each collection, on scope {}, and bucket {}", scope, name);
+      return agent().document().upsertOneDocumentToEachCollection(name, scope, collections, documentPrefix);
     }
   }
 }

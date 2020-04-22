@@ -1,5 +1,6 @@
 package com.couchbase.client.dcp.test;
 
+import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import org.junit.Test;
 
 public class BasicRebalanceIntegrationTest extends DcpIntegrationTestBase {
@@ -12,14 +13,14 @@ public class BasicRebalanceIntegrationTest extends DcpIntegrationTestBase {
     final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
     try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
-      streamer.assertMutationCount(batchSize);
+      streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
       assertStatus(streamer.status(), batchSize, 0, 0);
 
       try (CouchbaseContainer secondNode = couchbase().addNode()) {
         couchbase().rebalance();
         bucket.createOneDocumentInEachVbucket("b");
 
-        streamer.assertMutationCount(batchSize * 2);
+        streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
         assertStatus(streamer.status(), batchSize * 2, 0, 0);
       }
     }

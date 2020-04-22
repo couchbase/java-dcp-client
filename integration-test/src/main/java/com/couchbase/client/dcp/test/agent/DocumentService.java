@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.test.agent;
 import com.github.therapi.core.annotation.Remotable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Remotable("document")
@@ -44,4 +45,14 @@ public interface DocumentService {
    * @param documentIds Document IDs to delete.
    */
   void delete(String bucket, List<String> documentIds);
+
+  /**
+   * @param bucket Name of bucket to upsert into
+   * @param scope Name of scope where collections are
+   * @param collections Names of collections to upsert documents to
+   * @param documentIdPrefix The prefix of for the ID generation
+   * @return Map of collection Ids with the document id
+   */
+  Map<String, String> upsertOneDocumentToEachCollection(String bucket, String scope, List<String> collections, String documentIdPrefix);
+
 }

@@ -48,41 +48,41 @@ public class RemoteDcpStreamer implements Closeable {
   }
 
   /**
-   * Throws {@link AssertionError} if this stream's observed mutation count does not reach the expected value
-   * before {@link #DEFAULT_TIMEOUT_SECONDS} elapse, or if additional mutations are observed within the subsequent
+   * Throws {@link AssertionError} if this stream's observed {@link com.couchbase.client.dcp.test.agent.DcpStreamer.State} count does not reach the expected value
+   * before {@link #DEFAULT_TIMEOUT_SECONDS} elapse, or if additional state occurrences are observed within the subsequent
    * {@link #DEFAULT_QUIET_PERIOD_SECONDS}.
    */
-  public void assertMutationCount(int expectedMutationCount) {
-    assertMutationCount(expectedMutationCount, DEFAULT_TIMEOUT_SECONDS, SECONDS);
+  public void assertStateCount(int expectedCount, DcpStreamer.State state) {
+    assertStateCount(expectedCount, state, DEFAULT_TIMEOUT_SECONDS, SECONDS);
   }
 
   /**
-   * Throws {@link AssertionError} if this stream's observed mutation count does not reach the expected value
-   * within the given timeout period, or if additional mutations are observed within the subsequent
+   * Throws {@link AssertionError} if this stream's observed {@link com.couchbase.client.dcp.test.agent.DcpStreamer.State} count does not reach the expected value
+   * before {@link #DEFAULT_TIMEOUT_SECONDS} elapse, or if additional state occurrences are observed within the subsequent
    * {@link #DEFAULT_QUIET_PERIOD_SECONDS}.
    */
-  public void assertMutationCount(int expectedMutationCount,
-                                  long timeout, TimeUnit timeoutUnit) {
-    assertMutationCount(expectedMutationCount, timeout, timeoutUnit, DEFAULT_QUIET_PERIOD_SECONDS, SECONDS);
+  public void assertStateCount(int expectedCount, DcpStreamer.State state, long timeout, TimeUnit unit) {
+    assertStateCount(expectedCount, state, timeout, unit, DEFAULT_QUIET_PERIOD_SECONDS, SECONDS);
   }
 
   /**
-   * Throws {@link AssertionError} if this stream's observed mutation count does not reach the expected value
-   * within the given timeout period, or if additional mutations are observed within the subsequent
-   * given quiet period.
+   * Throws {@link AssertionError} if this stream's observed {@link com.couchbase.client.dcp.test.agent.DcpStreamer.State} count does not reach the expected value
+   * before {@link #DEFAULT_TIMEOUT_SECONDS} elapse, or if additional state occurrences are observed within the subsequent
+   * {@link #DEFAULT_QUIET_PERIOD_SECONDS}.
    */
-  public void assertMutationCount(int expectedMutationCount,
-                                  long timeout, TimeUnit timeoutUnit,
-                                  long quietPeriod, TimeUnit quietPeriodUnit) {
+  public void assertStateCount(int expectedCount,
+                               DcpStreamer.State state,
+                               long timeout, TimeUnit timeoutUnit,
+                               long quietPeriod, TimeUnit quietPeriodUnit) {
     DcpStreamer.Status status;
 
     // wait until expected mutations are observed
-    status = streamerService.awaitMutationCount(streamerId, expectedMutationCount, timeout, timeoutUnit);
-    assertEquals(expectedMutationCount, status.getMutations());
+    status = streamerService.awaitStateCount(streamerId, state, expectedCount, timeout, timeoutUnit);
+    assertEquals(expectedCount, status.getStateCount(state));
 
     // wait a bit longer to make sure no more arrive
-    status = streamerService.awaitMutationCount(streamerId, expectedMutationCount + 1, quietPeriod, quietPeriodUnit);
-    assertEquals(expectedMutationCount, status.getMutations());
+    status = streamerService.awaitStateCount(streamerId, state, expectedCount + 1, quietPeriod, quietPeriodUnit);
+    assertEquals(expectedCount, status.getStateCount(state));
   }
 
   public DcpStreamer.Status awaitStreamEnd() throws TimeoutException {

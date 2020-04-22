@@ -38,7 +38,7 @@ public interface StreamerService {
    * @param vbuckets List of vBuckets to stream from, or empty list for all vBuckets.
    * @return ID of the new streamer.
    */
-  String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks);
+  String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware);
 
   /**
    * Immediately disconnects the streamer.
@@ -68,12 +68,6 @@ public interface StreamerService {
   DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException;
 
   /**
-   * Waits for the stream to reach the mutation count or for the timeout to expire (whichever comes first)
-   * then returns the streamer status.
-   */
-  Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit);
-
-  /**
    * Get the status of a streamer
    *
    * @return the status
@@ -86,4 +80,11 @@ public interface StreamerService {
    * @param bucket Name of the bucket to query
    */
   int getNumberOfPartitions(String bucket);
+
+  /**
+   * Waits for the stream to reach the {@link com.couchbase.client.dcp.test.agent.DcpStreamer.State} count or for the timeout to expire (whichever comes first)
+   * then returns the streamer status.
+   */
+  Status awaitStateCount(String streamerId, DcpStreamer.State state, int stateCount, long timeout, TimeUnit unit);
+
 }

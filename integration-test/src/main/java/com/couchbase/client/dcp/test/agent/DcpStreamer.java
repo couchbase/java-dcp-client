@@ -19,11 +19,16 @@ package com.couchbase.client.dcp.test.agent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
-import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
+import com.couchbase.client.dcp.highlevel.ScopeCreated;
+import com.couchbase.client.dcp.highlevel.ScopeDropped;
 import com.couchbase.client.dcp.highlevel.Deletion;
-import com.couchbase.client.dcp.highlevel.FlowControlMode;
+import com.couchbase.client.dcp.highlevel.CollectionFlushed;
+import com.couchbase.client.dcp.highlevel.CollectionDropped;
+import com.couchbase.client.dcp.highlevel.CollectionCreated;
+import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
 import com.couchbase.client.dcp.highlevel.Mutation;
 import com.couchbase.client.dcp.highlevel.StreamFailure;
+import com.couchbase.client.dcp.highlevel.FlowControlMode;
 import com.couchbase.client.dcp.state.SessionState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,15 +45,40 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class DcpStreamer {
   private static final Logger LOGGER = LoggerFactory.getLogger(DcpStreamer.class);
 
+  /**
+   * {@link Status} states
+   */
+  public enum State {
+    MUTATIONS,
+    EXPIRATIONS,
+    DELETIONS,
+    SCOPE_CREATIONS,
+    SCOPE_DROPS,
+    COLLECTION_CREATIONS,
+    COLLECTION_DROPS,
+    COLLECTION_FLUSHES
+  }
+
   public static class Status {
     private final long mutations;
     private final long expirations;
     private final long deletions;
+    private final long scopeCreations;
+    private final long scopeDrops;
+    private final long collectionCreations;
+    private final long collectionDrops;
+    private final long collectionFlushes;
 
-    public Status(long mutations, long expirations, long deletions) {
+
+    public Status(long mutations, long expirations, long deletions, long scopeCreations, long scopeDrops, long collectionCreations, long collectionDrops, long collectionFlushes) {
       this.mutations = mutations;
       this.expirations = expirations;
       this.deletions = deletions;
+      this.scopeCreations = scopeCreations;
+      this.scopeDrops = scopeDrops;
+      this.collectionCreations = collectionCreations;
+      this.collectionDrops = collectionDrops;
+      this.collectionFlushes = collectionFlushes;
     }
 
     public long getMutations() {
@@ -63,12 +93,60 @@ public class DcpStreamer {
       return deletions;
     }
 
+    public long getScopeCreations() {
+      return scopeCreations;
+    }
+
+    public long getScopeDrops() {
+      return scopeDrops;
+    }
+
+    public long getCollectionCreations() {
+      return collectionCreations;
+    }
+
+    public long getCollectionDrops() {
+      return collectionDrops;
+    }
+
+    public long getCollectionFlushes() {
+      return collectionFlushes;
+    }
+
+    public long getStateCount(State state) {
+      switch (state) {
+        case DELETIONS:
+          return getDeletions();
+        case MUTATIONS:
+          return getMutations();
+        case EXPIRATIONS:
+          return getExpirations();
+        case SCOPE_CREATIONS:
+          return getScopeCreations();
+        case SCOPE_DROPS:
+          return getScopeDrops();
+        case COLLECTION_CREATIONS:
+          return getCollectionCreations();
+        case COLLECTION_DROPS:
+          return getCollectionDrops();
+        case COLLECTION_FLUSHES:
+          return getCollectionFlushes();
+        default:
+          throw new IllegalArgumentException();
+      }
+    }
+
     @Override
     public String toString() {
       return "Status{" +
           "mutations=" + mutations +
           ", expirations=" + expirations +
           ", deletions=" + deletions +
+          ", scopesCreated=" + scopeCreations +
+          ", scopesDropped=" + scopeDrops +
+          ", collectionsCreated " + collectionCreations +
+          ", collectionsDropped " + collectionDrops +
+          ", collectionsFlushed " + collectionFlushes +
           '}';
     }
   }
@@ -78,6 +156,12 @@ public class DcpStreamer {
   private final AtomicLong mutations = new AtomicLong();
   private final AtomicLong deletions = new AtomicLong();
   private final AtomicLong expirations = new AtomicLong();
+  private final AtomicLong scopeCreations = new AtomicLong();
+  private final AtomicLong scopeDrops = new AtomicLong();
+  private final AtomicLong collectionCreations = new AtomicLong();
+  private final AtomicLong collectionDrops = new AtomicLong();
+  private final AtomicLong collectionFlushes = new AtomicLong();
+
   private final StreamTo streamTo;
 
   public DcpStreamer(final Client client, final List<Short> vbuckets,
@@ -93,14 +177,40 @@ public class DcpStreamer {
 
       @Override
       public void onMutation(Mutation mutation) {
-        mutations.incrementAndGet();
+        mutations.getAndIncrement();
+        mutation.flowControlAck();
       }
 
       @Override
       public void onDeletion(Deletion deletion) {
-        (deletion.isDueToExpiration() ? expirations : deletions).incrementAndGet();
+        (deletion.isDueToExpiration() ? expirations : deletions).getAndIncrement();
+        deletion.flowControlAck();
       }
 
+      @Override
+      public void onScopeCreated(ScopeCreated scopeCreated) {
+        scopeCreations.getAndIncrement();
+      }
+
+      @Override
+      public void onScopeDropped(ScopeDropped scopeDropped) {
+        scopeDrops.getAndIncrement();
+      }
+
+      @Override
+      public void onCollectionCreated(CollectionCreated collectionCreated) {
+        collectionCreations.getAndIncrement();
+      }
+
+      @Override
+      public void onCollectionDropped(CollectionDropped collectionDropped) {
+        collectionDrops.getAndIncrement();
+      }
+
+      @Override
+      public void onCollectionFlushed(CollectionFlushed collectionFlushed) {
+        collectionFlushes.getAndIncrement();
+      }
     }, FlowControlMode.AUTOMATIC);
 
     client.connect().await(30, TimeUnit.SECONDS);
@@ -125,16 +235,15 @@ public class DcpStreamer {
     return status();
   }
 
-  public Status awaitMutationCount(int mutationCount, long timeout, TimeUnit unit) {
+  public Status awaitStateCount(State state, int stateCount, long timeout, TimeUnit unit) {
     poll().atInterval(100, MILLISECONDS)
         .withTimeout(timeout, unit)
-        .untilTimeExpiresOr(() -> mutations.get() >= mutationCount);
-
+        .untilTimeExpiresOr(() -> status().getStateCount(state) >= stateCount);
     return status();
   }
 
   public Status status() {
-    return new Status(mutations.get(), expirations.get(), deletions.get());
+    return new Status(mutations.get(), expirations.get(), deletions.get(), scopeCreations.get(), scopeDrops.get(), collectionCreations.get(), collectionDrops.get(), collectionFlushes.get());
   }
 
   SessionState getSessionState() {

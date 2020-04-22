@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.test.agent;
 import com.couchbase.client.core.error.DocumentNotFoundException;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
+import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.codec.RawJsonTranscoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.couchbase.client.dcp.core.utils.CbCollections.mapOf;
@@ -98,6 +101,29 @@ public class DocumentServiceImpl implements DocumentService {
       } catch (DocumentNotFoundException ignore) {
       }
     }
+  }
+
+  @Override
+  public Map<String, String> upsertOneDocumentToEachCollection(String bucket, String scope, List<String> collections, String documentIdPrefix) {
+    int numberOfCollections = collections.size();
+    Scope scopeObj = cluster().bucket(bucket).scope(scope);
+    final Map<String, String> collectionWithDocument = new HashMap<>();
+
+    for (int i = 0; i < numberOfCollections; i++) {
+      String id = documentIdPrefix + i;
+      try {
+        scopeObj.collection(collections.get(i)).upsert(id, mapOf("id", id));
+        collectionWithDocument.put(collections.get(i), id);
+        LOGGER.info("UPSERTED {} to collection {}", id, collections.get(i));
+      } catch (Exception e) {
+        LOGGER.error("failed to upsert {}", id, e);
+        throw new RuntimeException(e);
+      }
+    }
+    if (collectionWithDocument.isEmpty()) {
+      throw new AssertionError("Didn't upsert any documents. Check collections exist");
+    }
+    return collectionWithDocument;
   }
 
   // assumes all buckets are configured with same number of partitions

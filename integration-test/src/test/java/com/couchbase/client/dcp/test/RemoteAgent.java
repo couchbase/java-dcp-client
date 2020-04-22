@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.test;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.BucketService;
+import com.couchbase.client.dcp.test.agent.CollectionService;
 import com.couchbase.client.dcp.test.agent.ClusterService;
 import com.couchbase.client.dcp.test.agent.DocumentService;
 import com.couchbase.client.dcp.test.agent.StreamerService;
@@ -44,6 +45,7 @@ public class RemoteAgent {
   private final DocumentService documentService;
   private final StreamerService streamerService;
   private final ClusterService clusterService;
+  private final CollectionService collectionService;
 
   private static String getDockerHost() {
     try {
@@ -68,6 +70,7 @@ public class RemoteAgent {
       this.documentService = serviceFactory.createService(DocumentService.class);
       this.streamerService = serviceFactory.createService(StreamerService.class);
       this.clusterService = serviceFactory.createService(ClusterService.class);
+      this.collectionService = serviceFactory.createService(CollectionService.class);
 
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException(e);
@@ -96,6 +99,10 @@ public class RemoteAgent {
     return documentService;
   }
 
+  public CollectionService collection() {
+    return collectionService;
+  }
+
   public StreamBuilder newStreamer(String bucket) {
     return new StreamBuilder(bucket);
   }
@@ -105,6 +112,7 @@ public class RemoteAgent {
     private StreamFrom from = StreamFrom.BEGINNING;
     private StreamTo to = StreamTo.INFINITY;
     private boolean mitigateRollbacks;
+    private boolean collectionAware;
 
     public StreamBuilder(String bucket) {
       this.bucket = requireNonNull(bucket);
@@ -122,8 +130,13 @@ public class RemoteAgent {
       return this;
     }
 
+    public StreamBuilder collectionAware() {
+      this.collectionAware = true;
+      return this;
+    }
+
     public RemoteDcpStreamer start() {
-      return new RemoteDcpStreamer(streamer(), streamer().start(bucket, ALL_VBUCKETS, from, to, mitigateRollbacks));
+      return new RemoteDcpStreamer(streamer(), streamer().start(bucket, ALL_VBUCKETS, from, to, mitigateRollbacks, collectionAware));
     }
   }
 }

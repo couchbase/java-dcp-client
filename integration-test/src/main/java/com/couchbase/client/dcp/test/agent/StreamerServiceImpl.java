@@ -56,7 +56,7 @@ public class StreamerServiceImpl implements StreamerService {
   }
 
   @Override
-  public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks) {
+  public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware) {
     String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
 
     Client client = Client.builder()
@@ -66,6 +66,7 @@ public class StreamerServiceImpl implements StreamerService {
         .flowControl(1024 * 128)
         .seedNodes(nodes.split(","))
         .userAgent("dcp-integration-test", "0", streamerId)
+        .collectionsAware(collectionAware)
         .build();
 
     idToStreamer.put(streamerId, new DcpStreamer(client, vbuckets, from, to));
@@ -100,9 +101,8 @@ public class StreamerServiceImpl implements StreamerService {
   }
 
   @Override
-  public DcpStreamer.Status awaitMutationCount(String streamerId, int mutationCount, long timeout, TimeUnit unit) {
-    return idToStreamer.get(streamerId)
-        .awaitMutationCount(mutationCount, timeout, unit);
+  public Status awaitStateCount(String streamerId, DcpStreamer.State state, int stateCount, long timeout, TimeUnit unit) {
+    return idToStreamer.get(streamerId).awaitStateCount(state, stateCount, timeout, unit);
   }
 
   @PreDestroy
