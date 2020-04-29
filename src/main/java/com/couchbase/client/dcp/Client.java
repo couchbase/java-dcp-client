@@ -1155,16 +1155,23 @@ public class Client implements Closeable {
       return this;
     }
 
-    public Builder collectionNames(Collection<String> collectionNames) {
-      if (collectionNames.stream().anyMatch(Objects::isNull)) {
-        throw new IllegalArgumentException("Collection name must not be null");
+    public Builder collectionNames(Collection<String> qualifiedCollectionNames) {
+      for (String name : qualifiedCollectionNames) {
+        if (name == null) {
+          throw new IllegalArgumentException("Collection name must not be null");
+        }
+        if (name.split("\\.", -1).length != 2) {
+          throw new IllegalArgumentException("Collection name '" + name + "'" +
+              " must be qualified by a scope name, like: myScope.myCollection");
+        }
       }
-      this.collectionNames = new HashSet<>(collectionNames);
+
+      this.collectionNames = new HashSet<>(qualifiedCollectionNames);
       return this;
     }
 
-    public Builder collectionNames(String... collectionNames) {
-      return collectionNames(Arrays.asList(collectionNames));
+    public Builder collectionNames(String... qualifiedCollectionNames) {
+      return collectionNames(Arrays.asList(qualifiedCollectionNames));
     }
 
     /**

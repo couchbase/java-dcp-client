@@ -181,9 +181,21 @@ public class CollectionsManifest {
     return collectionsById.get(id);
   }
 
+  /**
+   * @param name A fully-qualified collection name like "myScope.myCollection"
+   */
   public CollectionInfo getCollection(String name) {
+    String[] split = name.split("\\.", -1);
+    if (split.length != 2) {
+      throw new IllegalArgumentException("Collection name must be qualified by scope, like: myScope.myCollection");
+    }
+
+    String scope = split[0];
+    String collection = split[1];
+
     return collectionsById.values().stream()
-        .filter(c -> c.name().equals(name))
+        .filter(c -> c.name().equals(collection))
+        .filter(c -> c.scope().name().equals(scope))
         .findFirst()
         .orElse(null);
   }
