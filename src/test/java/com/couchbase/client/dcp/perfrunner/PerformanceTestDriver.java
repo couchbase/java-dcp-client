@@ -60,6 +60,7 @@ class PerformanceTestDriver {
     private String connectionString;
     private int dcpMessageCount;
     private Properties settings;
+    private String collectionString;
   }
 
   private static final LongAdder totalCompressedBytes = new LongAdder();
@@ -103,6 +104,11 @@ class PerformanceTestDriver {
     result.connectionString = i.next();
     result.dcpMessageCount = Integer.parseInt(i.next());
     File configFile = new File(i.next());
+    if (i.hasNext()) {
+      result.collectionString = i.next();
+      System.out.println("Target Collections: " + result.collectionString);
+    }
+
     Properties props = new Properties();
     props.load(new FileInputStream(configFile));
     result.settings = props;
@@ -217,6 +223,11 @@ class PerformanceTestDriver {
         .seedNodes(hostnames)
         .bucket(requireNonNull(connectionString.bucket(), "Connection string is missing bucket name"))
         .compression(compressionMode);
+
+    if (args.collectionString != null) {
+      String[] colls = args.collectionString.replace(":", ".").split(",");
+      builder.collectionsAware(true).collectionNames(colls);
+    }
 
     if (mitigateRollbacks) {
       final int KB = 1024;
