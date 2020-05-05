@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.core.config.parser;
 
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.core.config.BucketConfig;
 import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
@@ -32,18 +33,15 @@ public final class BucketConfigParser {
    * Parse a raw configuration into a {@link BucketConfig}.
    *
    * @param input the raw string input.
-   * @param origin the origin of the configuration (just the hostname). If null / none provided then localhost is assumed.
+   * @param origin the origin of the configuration (only the hostname is used).
    * @return the parsed bucket configuration.
    */
-  public static BucketConfig parse(String input, String origin) {
-    if (origin == null) {
-      origin = "127.0.0.1";
-    }
-    input = input.replace("$HOST", origin);
+  public static BucketConfig parse(String input, HostAndPort origin) {
+    input = input.replace("$HOST", origin.formatHost());
 
     try {
       InjectableValues inject = new InjectableValues.Std()
-          .addValue("origin", origin);
+          .addValue("origin", origin.host());
       return DefaultObjectMapper.reader()
           .forType(BucketConfig.class)
           .with(inject)

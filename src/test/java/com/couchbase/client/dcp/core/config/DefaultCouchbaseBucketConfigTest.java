@@ -16,6 +16,7 @@
 
 package com.couchbase.client.dcp.core.config;
 
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
 import com.couchbase.client.dcp.core.service.ServiceType;
@@ -36,12 +37,13 @@ import static org.junit.Assert.assertTrue;
  * {@link BucketConfigParser}.
  */
 public class DefaultCouchbaseBucketConfigTest {
+    private static final HostAndPort localhost = new HostAndPort("127.0.0.1", 0);
 
     @Test
     public void shouldHavePrimaryPartitionsOnNode() {
         String raw = Resources.read("config_with_mixed_partitions.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertTrue(config.hasPrimaryPartitionsOnNode("1.2.3.4"));
         assertFalse(config.hasPrimaryPartitionsOnNode("2.3.4.5"));
@@ -51,10 +53,26 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
+    public void shouldReplaceHostPlaceholder() {
+        String raw = Resources.read("config_with_host_placeholder.json", getClass());
+        CouchbaseBucketConfig config = (CouchbaseBucketConfig)
+            BucketConfigParser.parse(raw, new HostAndPort("example.com", 0));
+        assertEquals("example.com", config.nodes().get(0).hostname());
+    }
+
+    @Test
+    public void shouldReplaceHostPlaceholderIpv6() {
+        String raw = Resources.read("config_with_host_placeholder.json", getClass());
+        CouchbaseBucketConfig config = (CouchbaseBucketConfig)
+            BucketConfigParser.parse(raw, new HostAndPort("::1", 0));
+        assertEquals("0:0:0:0:0:0:0:1", config.nodes().get(0).hostname());
+    }
+
+    @Test
     public void shouldFallbackToNodeHostnameIfNotInNodesExt() {
         String raw = Resources.read("nodes_ext_without_hostname.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertEquals(1, config.nodes().size());
         assertEquals("1.2.3.4", config.nodes().get(0).hostname());
@@ -66,7 +84,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldGracefullyHandleEmptyPartitions() {
         String raw = Resources.read("config_with_no_partitions.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertEquals(DefaultCouchbaseBucketConfig.PARTITION_NOT_EXISTENT, config.nodeIndexForMaster(24, false));
         assertEquals(DefaultCouchbaseBucketConfig.PARTITION_NOT_EXISTENT, config.nodeIndexForReplica(24, 1, false));
@@ -77,7 +95,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldLoadEphemeralBucketConfig() {
         String raw = Resources.read("ephemeral_bucket_config.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertTrue(config.ephemeral());
         assertTrue(config.serviceEnabled(ServiceType.BINARY));
@@ -88,7 +106,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldLoadConfigWithoutBucketCapabilities() {
         String raw = Resources.read("config_without_capabilities.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertFalse(config.ephemeral());
         assertEquals(0, config.numberOfReplicas());
@@ -102,7 +120,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldLoadConfigWithSameNodesButDifferentPorts() {
         String raw = Resources.read("cluster_run_two_nodes_same_host.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertFalse(config.ephemeral());
         assertEquals(1, config.numberOfReplicas());
@@ -118,7 +136,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldLoadConfigWithMDS() {
         String raw = Resources.read("cluster_run_three_nodes_mds_with_localhost.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, localhost);
 
         assertEquals(3, config.nodes().size());
         assertEquals("192.168.0.102", config.nodes().get(0).hostname());
@@ -133,7 +151,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldLoadConfigWithIPv6() {
         String raw = Resources.read("config_with_ipv6.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, null);
+            BucketConfigParser.parse(raw, new HostAndPort("::1", 0));
 
         assertEquals(2, config.nodes().size());
         assertEquals("fd63:6f75:6368:2068:1471:75ff:fe25:a8be", config.nodes().get(0).hostname());
@@ -150,7 +168,7 @@ public class DefaultCouchbaseBucketConfigTest {
     @Test
     public void shouldIgnoreUnknownBucketCapabilities() {
         String raw = Resources.read("config_with_invalid_capability.json", getClass());
-        BucketConfig config = BucketConfigParser.parse(raw, null);
+        BucketConfig config = BucketConfigParser.parse(raw, localhost);
         assertEquals(1, config.nodes().size());
     }
 
@@ -158,7 +176,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldReadBucketUuid() {
         String raw = Resources.read("config_with_mixed_partitions.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, "127.0.0.1");
+            BucketConfigParser.parse(raw, localhost);
 
         assertEquals("aa4b515529fa706f1e5f09f21abb5c06", config.uuid());
     }
@@ -167,7 +185,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldHandleMissingBucketUuid() throws Exception {
         String raw = Resources.read("config_without_uuid.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-                BucketConfigParser.parse(raw, "127.0.0.1");
+                BucketConfigParser.parse(raw, localhost);
 
         assertNull(config.uuid());
     }
@@ -179,7 +197,7 @@ public class DefaultCouchbaseBucketConfigTest {
     public void shouldIncludeExternalIfPresent() {
         String raw = Resources.read("config_with_external.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
-            BucketConfigParser.parse(raw, "127.0.0.1");
+            BucketConfigParser.parse(raw, localhost);
 
         List<NodeInfo> nodes = config.nodes();
         assertEquals(3, nodes.size());

@@ -25,7 +25,6 @@ import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
-import com.couchbase.client.dcp.core.logging.RedactableArgument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Observable;
@@ -72,19 +71,17 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   @Override
   public void accept(HostAndPort origin, String rawConfig, long rev) {
     synchronized (revLock) {
-      RedactableArgument formattedOrigin = system(origin.host() + ":" + origin.port());
-
       if (rev <= currentRev) {
-        log.debug("Ignoring bucket config revision {} from {}; not newer than current revision {}", formattedOrigin, rev, currentRev);
+        log.debug("Ignoring bucket config revision {} from {}; not newer than current revision {}", origin, rev, currentRev);
         return;
       }
 
-      log.debug("Received bucket config revision {} from {} -> {}", rev, formattedOrigin, system(rawConfig));
+      log.debug("Received bucket config revision {} from {} -> {}", rev, origin, system(rawConfig));
 
       try {
         currentRev = rev;
 
-        CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, origin.host());
+        CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, origin);
         selectAlternateNetwork(config);
 
         configStream.onNext(new DcpBucketConfig(config, environment.sslEnabled()));

@@ -16,23 +16,27 @@
 
 package com.couchbase.client.dcp.config;
 
-import com.couchbase.client.dcp.core.logging.RedactableArgument;
-
 import java.net.InetSocketAddress;
 import java.util.Objects;
-
-import static java.util.Objects.requireNonNull;
 
 public class HostAndPort {
   private final String host;
   private final int port;
+  private final boolean ipv6Literal;
 
   public HostAndPort(String host, int port) {
-    this.host = requireNonNull(host);
+    this.ipv6Literal = host.contains(":");
+    this.host = ipv6Literal ? canonicalizeIpv6Literal(host) : host;
     this.port = port;
   }
 
+  private static String canonicalizeIpv6Literal(String ipv6Literal) {
+    // This "resolves" the address, but because it's an IPv6 literal no DNS lookup is required
+    return new InetSocketAddress("[" + ipv6Literal + "]", 0).getHostString();
+  }
+
   public HostAndPort(InetSocketAddress address) {
+    // Don't want reverse DNS lookup, so use getHostString() instead of getHostName()
     this(address.getHostString(), address.getPort());
   }
 
@@ -52,12 +56,17 @@ public class HostAndPort {
     return new InetSocketAddress(host, port);
   }
 
+  public String format() {
+    return formatHost() + ":" + port;
+  }
+
+  public String formatHost() {
+    return ipv6Literal ? "[" + host + "]" : host;
+  }
+
   @Override
   public String toString() {
-    return "HostAndPort{" +
-        "host='" + RedactableArgument.system(host) + '\'' +
-        ", port=" + RedactableArgument.system(port) +
-        '}';
+    return format();
   }
 
   @Override
