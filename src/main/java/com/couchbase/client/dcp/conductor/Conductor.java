@@ -34,6 +34,7 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import io.netty.buffer.ByteBuf;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Completable;
@@ -41,11 +42,15 @@ import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Single;
 import rx.Subscription;
+import rx.schedulers.Schedulers;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -67,16 +72,26 @@ public class Conductor {
   private final SessionState sessionState = new SessionState();
   private final DcpClientMetrics metrics;
 
+  // Serializes config updates so synchronization is not required in reconfigure()
+  private final ExecutorService configUpdateExecutor = Executors.newSingleThreadExecutor(
+      new DefaultThreadFactory("reconfigure", true));
+
+  // Reaches zero when at least one configuration has been successfully applied.
+  private final CountDownLatch configurationApplied = new CountDownLatch(1);
+
   public Conductor(final ClientEnvironment env, DcpClientMetrics metrics) {
     this.metrics = requireNonNull(metrics);
     this.env = env;
     this.bucketConfigArbiter = new BucketConfigArbiter(env);
 
-    bucketConfigArbiter.configs().forEach(config -> {
-      LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
-      currentConfig.set(config);
-      reconfigure(config);
-    });
+    bucketConfigArbiter.configs()
+        .observeOn(Schedulers.from(configUpdateExecutor))
+        .forEach(config -> {
+          LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
+          currentConfig.set(config);
+          reconfigure(config);
+          configurationApplied.countDown();
+        });
   }
 
   public SessionState sessionState() {
@@ -95,12 +110,35 @@ public class Conductor {
     long bootstrapTimeoutMillis = env.bootstrapTimeout().toMillis()
         + env.configRefreshInterval().toMillis(); // allow at least one config refresh
 
-    Completable atLeastOneConfig = bucketConfigArbiter.configs()
+    // Report completion when the partition count is accurate and
+    // at least one configuration has been applied.
+    return bucketConfigArbiter().configs()
+        // Couchbase sometimes says a newly created bucket has no partitions.
+        // This doesn't affect cluster topology, but it's a problem for users
+        // who need the real partition count. Wait for a "real" config before proceeding.
         .filter(config -> config.numberOfPartitions() != 0)
         .first().toCompletable()
+
+        // We're about to block on a latch, so switch to a thread that doesn't mind.
+        .observeOn(Schedulers.io())
+        .andThen(await(configurationApplied, bootstrapTimeoutMillis, TimeUnit.MILLISECONDS))
+
+        // All of this should complete within the bootstrap timeout.
         .timeout(bootstrapTimeoutMillis, TimeUnit.MILLISECONDS)
         .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from cluster within {}ms", bootstrapTimeoutMillis));
-    return atLeastOneConfig;
+  }
+
+  /**
+   * Returns a completable that blocks until the count down reaches zero.
+   */
+  private static Completable await(CountDownLatch latch, long timeout, TimeUnit timeoutUnit) {
+    return Completable.fromAction(() -> {
+      try {
+        latch.await(timeout, timeoutUnit);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    });
   }
 
   BucketConfigArbiter bucketConfigArbiter() {
@@ -121,7 +159,8 @@ public class Conductor {
     Completable channelShutdown = Observable
         .from(channels)
         .flatMapCompletable(DcpChannel::disconnect)
-        .toCompletable();
+        .toCompletable()
+        .andThen(Completable.fromAction(configUpdateExecutor::shutdown));
 
     return channelShutdown.doOnCompleted(() -> LOGGER.info("Shutdown complete."));
   }
