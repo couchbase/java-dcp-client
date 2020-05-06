@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
 import com.couchbase.client.dcp.conductor.BucketConfigArbiter;
+import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
@@ -35,7 +36,6 @@ import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
@@ -114,7 +114,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
 
     DcpControl control = environment.dcpControl();
 
-    Credentials credentials = environment.credentialsProvider().get((InetSocketAddress) ch.remoteAddress());
+    Credentials credentials = environment.credentialsProvider().get(DcpChannel.getHostAndPort(ch));
     pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()))
         // BucketConfigHandler comes before connect handler because a clustermap change notification
         // could arrive at any time during the connection setup.

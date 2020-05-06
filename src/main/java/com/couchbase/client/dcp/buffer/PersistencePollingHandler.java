@@ -17,7 +17,9 @@
 package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.dcp.conductor.BucketConfigSource;
+import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
 import io.micrometer.core.instrument.Metrics;
 import io.netty.channel.ChannelHandlerContext;
@@ -28,7 +30,6 @@ import rx.SingleSubscriber;
 import rx.Subscription;
 import rx.schedulers.Schedulers;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -99,7 +100,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
         this.persistedSeqnos.markAsAbsent(absentInstance);
       }
 
-      final InetSocketAddress nodeAddress = (InetSocketAddress) ctx.channel().remoteAddress();
+      final HostAndPort nodeAddress = DcpChannel.getHostAndPort(ctx.channel());
       final List<PartitionInstance> partitions = bucketConfig.getHostedPartitions(nodeAddress);
 
       LOGGER.debug("Node {} hosts partitions {}", nodeAddress, partitions);

@@ -35,11 +35,6 @@ public class HostAndPort {
     return new InetSocketAddress("[" + ipv6Literal + "]", 0).getHostString();
   }
 
-  public HostAndPort(InetSocketAddress address) {
-    // Don't want reverse DNS lookup, so use getHostString() instead of getHostName()
-    this(address.getHostString(), address.getPort());
-  }
-
   public String host() {
     return host;
   }
@@ -50,10 +45,6 @@ public class HostAndPort {
 
   public HostAndPort withPort(int port) {
     return this.port == port ? this : new HostAndPort(this.host, port);
-  }
-
-  public InetSocketAddress toAddress() {
-    return new InetSocketAddress(host, port);
   }
 
   public String format() {

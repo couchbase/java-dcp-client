@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
-import java.net.InetSocketAddress;
+import com.couchbase.client.dcp.config.HostAndPort;
 
 public interface CredentialsProvider {
   /**
@@ -24,5 +24,5 @@ public interface CredentialsProvider {
    * @param address
    * @return credentials
    */
-  Credentials get(InetSocketAddress address);
+  Credentials get(HostAndPort address);
 }

@@ -17,6 +17,7 @@ package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.dcp.buffer.DcpOps;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.state.AbstractStateMachine;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
@@ -56,6 +57,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
+import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.ImmediateEventExecutor;
@@ -69,7 +71,6 @@ import rx.Subscription;
 import rx.functions.Action4;
 
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
@@ -110,7 +111,14 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   private volatile ChannelFuture connectFuture;
   private final DcpChannelMetrics metrics;
 
-  //private final Meter connectionAttempt
+  /**
+   * The original host and port used to created the channel.
+   * Absolutely certain not to have been the victim of a reverse DNS lookup.
+   * <p>
+   * (It's not clear whether Channel.remoteAddress() has the same guarantee.
+   * This seems like something that could vary by channel implementation.)
+   */
+  private static final AttributeKey<HostAndPort> HOST_AND_PORT = AttributeKey.valueOf("hostAndPort");
 
   /**
    * Limits how frequently the client may attempt to reconnect after a successful connection.
@@ -122,18 +130,22 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
       Duration.ofSeconds(10));
 
   final ClientEnvironment env;
-  final InetSocketAddress inetAddress;
+  final HostAndPort address;
   final AtomicBooleanArray streamIsOpen = new AtomicBooleanArray(1024);
   final Conductor conductor;
 
-  public DcpChannel(InetSocketAddress inetAddress, final ClientEnvironment env, final Conductor conductor) {
+  public DcpChannel(HostAndPort address, final ClientEnvironment env, final Conductor conductor) {
     super(LifecycleState.DISCONNECTED);
-    this.inetAddress = inetAddress;
+    this.address = address;
     this.env = env;
     this.conductor = conductor;
     this.controlHandler = new DcpChannelControlHandler(this);
     this.isShutdown = false;
-    this.metrics = new DcpChannelMetrics(new MetricsContext("dcp", Tags.of("remote", inetAddress.toString())));
+    this.metrics = new DcpChannelMetrics(new MetricsContext("dcp", Tags.of("remote", address.format())));
+  }
+
+  public static HostAndPort getHostAndPort(Channel channel) {
+    return channel.attr(HOST_AND_PORT).get();
   }
 
   /**
@@ -163,7 +175,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         final Bootstrap bootstrap = new Bootstrap()
             .option(ChannelOption.ALLOCATOR, allocator)
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) env.socketConnectTimeout())
-            .remoteAddress(inetAddress)
+            .remoteAddress(address.host(), address.port())
+            .attr(HOST_AND_PORT, address) // stash it away separately for safety (paranoia?)
             .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
             .handler(new DcpPipeline(env, controlHandler, conductor.bucketConfigArbiter(), metrics))
             .group(env.eventLoopGroup());
@@ -178,7 +191,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
               metrics.trackDisconnect(channel.closeFuture());
               if (isShutdown) {
                 LOGGER.info("Connected Node {}, but got instructed to disconnect in " +
-                    "the meantime.", system(inetAddress));
+                    "the meantime.", system(address));
                 // isShutdown before we could finish the connect :/
                 disconnect().subscribe(new CompletableSubscriber() {
                   @Override
@@ -198,14 +211,17 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 });
               } else {
                 transitionState(LifecycleState.CONNECTED);
-                LOGGER.info("Connected to Node {}", system(inetAddress));
+
+                // This time get the address from the Netty channel because it includes resolved hostname.
+                // Don't do this everywhere, since Channel.remoteAddress() returns null if channel is not connected.
+                LOGGER.info("Connected to Node {}", system(channel.remoteAddress()));
 
                 // attach callback which listens on future close and dispatches a
                 // reconnect if needed.
                 channel.closeFuture().addListener(new GenericFutureListener<ChannelFuture>() {
                   @Override
                   public void operationComplete(ChannelFuture future) throws Exception {
-                    LOGGER.debug("Got notified of channel close on Node {}", inetAddress);
+                    LOGGER.debug("Got notified of channel close on Node {}", address);
 
                     // dispatchReconnect() may restart the stream from what it thinks is the
                     // current state. Buffered events are not reflected in the session state, so
@@ -231,7 +247,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                 subscriber.onCompleted();
               }
             } else {
-              LOGGER.info("Connect attempt to {} failed.", system(inetAddress), future.cause());
+              LOGGER.info("Connect attempt to {} failed.", system(address), future.cause());
               transitionState(LifecycleState.DISCONNECTED);
               subscriber.onError(future.cause());
             }
@@ -243,10 +259,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
   private void dispatchReconnect() {
     if (isShutdown) {
-      LOGGER.debug("Ignoring reconnect on {} because already shutdown.", inetAddress);
+      LOGGER.debug("Ignoring reconnect on {} because already shutdown.", address);
       return;
     }
-    LOGGER.info("Node {} socket closed, initiating reconnect.", system(inetAddress));
+    LOGGER.info("Node {} socket closed, initiating reconnect.", system(address));
 
     final long delayMillis = reconnectDelay.calculate().toMillis();
     if (delayMillis > 0) {
@@ -260,13 +276,13 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             .doOnRetry(new Action4<Integer, Throwable, Long, TimeUnit>() {
               @Override
               public void call(Integer integer, Throwable throwable, Long aLong, TimeUnit timeUnit) {
-                LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", inetAddress);
+                LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", address);
               }
             }).build()))
         .subscribe(new CompletableSubscriber() {
           @Override
           public void onCompleted() {
-            LOGGER.debug("Completed Node connect for DCP channel {}", inetAddress);
+            LOGGER.debug("Completed Node connect for DCP channel {}", address);
             for (short vbid = 0; vbid < streamIsOpen.length(); vbid++) {
               if (streamIsOpen.get(vbid)) {
                 conductor.maybeMovePartition(vbid);
@@ -276,7 +292,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
           @Override
           public void onError(Throwable e) {
-            LOGGER.warn("Got error during connect (maybe retried) for node {}", system(inetAddress), e);
+            LOGGER.warn("Got error during connect (maybe retried) for node {}", system(address), e);
           }
 
           @Override
@@ -339,8 +355,8 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
   }
 
-  public InetSocketAddress address() {
-    return inetAddress;
+  public HostAndPort address() {
+    return address;
   }
 
   /**
@@ -370,9 +386,9 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             if (!future.isSuccess()) {
 
               if (future.cause() instanceof NotConnectedException) {
-                LOGGER.debug("Failed to get collections manifest from {}; {}", inetAddress, future.cause().toString());
+                LOGGER.debug("Failed to get collections manifest from {}; {}", address, future.cause().toString());
               } else {
-                LOGGER.warn("Failed to get collections manifest from {}; {}", inetAddress, future.cause().toString());
+                LOGGER.warn("Failed to get collections manifest from {}; {}", address, future.cause().toString());
               }
               subscriber.onError(future.cause());
               return;
@@ -383,18 +399,18 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             try {
               final ResponseStatus status = dcpResponse.status();
               if (!status.isSuccess()) {
-                LOGGER.warn("Failed to get collections manifest from {}, response status: {}", inetAddress, status);
+                LOGGER.warn("Failed to get collections manifest from {}, response status: {}", address, status);
                 subscriber.onError(new DcpOps.BadResponseStatusException(status));
                 return;
               }
 
               byte[] manifestJsonBytes = MessageUtil.getContentAsByteArray(buf);
-              LOGGER.debug("Got collections manifest from {} ; {}", inetAddress, new String(manifestJsonBytes, UTF_8));
+              LOGGER.debug("Got collections manifest from {} ; {}", address, new String(manifestJsonBytes, UTF_8));
               try {
                 CollectionsManifest manifest = CollectionsManifest.fromJson(manifestJsonBytes);
                 subscriber.onSuccess(Optional.of(manifest));
               } catch (Exception e) {
-                LOGGER.error("Unparsable collections manifest from {} ; {}", system(inetAddress), user(new String(manifestJsonBytes, UTF_8)), e);
+                LOGGER.error("Unparsable collections manifest from {} ; {}", system(address), user(new String(manifestJsonBytes, UTF_8)), e);
                 subscriber.onError(new RuntimeException("Failed to parse collections manifest", e));
               }
 
@@ -441,7 +457,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
         LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
                 "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}, manifest: {}",
-            inetAddress, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, manifest);
+            address, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, manifest);
 
         ByteBuf buffer = Unpooled.buffer();
         DcpOpenStreamRequest.init(buffer, emptySet(), vbid);
@@ -503,7 +519,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           @Override
           public void operationComplete(Future<DcpResponse> future) throws Exception {
             if (!future.isSuccess()) {
-              LOGGER.debug("Failed open Stream against {} with vbid: {}", inetAddress, vbid);
+              LOGGER.debug("Failed open Stream against {} with vbid: {}", address, vbid);
               streamIsOpen.set(vbid, false);
               subscriber.onError(future.cause());
               return;
@@ -515,18 +531,18 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
               final ResponseStatus status = dcpResponse.status();
 
               if (status == KEY_EXISTS) {
-                LOGGER.debug("Stream already open against {} with vbid: {}", inetAddress, vbid);
+                LOGGER.debug("Stream already open against {} with vbid: {}", address, vbid);
                 subscriber.onCompleted();
                 return;
               }
 
               if (!status.isSuccess()) {
-                LOGGER.debug("Failed open Stream against {} with vbid: {}", inetAddress, vbid);
+                LOGGER.debug("Failed open Stream against {} with vbid: {}", address, vbid);
                 streamIsOpen.set(vbid, false);
               }
 
               if (status.isSuccess()) {
-                LOGGER.debug("Opened Stream against {} with vbid: {}", inetAddress, vbid);
+                LOGGER.debug("Opened Stream against {} with vbid: {}", address, vbid);
                 streamIsOpen.set(vbid, true);
 
                 subscriber.onCompleted();
@@ -581,7 +597,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           return;
         }
 
-        LOGGER.debug("Closing Stream against {} with vbid: {}", inetAddress, vbid);
+        LOGGER.debug("Closing Stream against {} with vbid: {}", address, vbid);
 
         ByteBuf buffer = Unpooled.buffer();
         DcpCloseStreamRequest.init(buffer);
@@ -593,10 +609,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             streamIsOpen.set(vbid, false);
             if (future.isSuccess()) {
               future.getNow().buffer().release();
-              LOGGER.debug("Closed Stream against {} with vbid: {}", inetAddress, vbid);
+              LOGGER.debug("Closed Stream against {} with vbid: {}", address, vbid);
               subscriber.onCompleted();
             } else {
-              LOGGER.debug("Failed close Stream against {} with vbid: {}", inetAddress, vbid);
+              LOGGER.debug("Failed close Stream against {} with vbid: {}", address, vbid);
               subscriber.onError(future.cause());
             }
           }
@@ -653,12 +669,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         DcpFailoverLogRequest.init(buffer);
         DcpFailoverLogRequest.vbucket(buffer, vbid);
 
-        LOGGER.debug("Asked for failover log on {} for vbid: {}", inetAddress, vbid);
+        LOGGER.debug("Asked for failover log on {} for vbid: {}", address, vbid);
         sendRequest(buffer).addListener(new DcpResponseListener() {
           @Override
           public void operationComplete(Future<DcpResponse> future) throws Exception {
             if (!future.isSuccess()) {
-              LOGGER.debug("Failed to ask for failover log on {} for vbid: {}", inetAddress, vbid);
+              LOGGER.debug("Failed to ask for failover log on {} for vbid: {}", address, vbid);
               subscriber.onError(future.cause());
               return;
             }
@@ -689,21 +705,21 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
 
   @Override
   public boolean equals(Object o) {
-    if (o instanceof InetAddress) {
-      return inetAddress.equals(o);
+    if (o instanceof HostAndPort) {
+      return address.equals(o);
     } else if (o instanceof DcpChannel) {
-      return inetAddress.equals(((DcpChannel) o).inetAddress);
+      return address.equals(((DcpChannel) o).address);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return inetAddress.hashCode();
+    return address.hashCode();
   }
 
   @Override
   public String toString() {
-    return "DcpChannel{inetAddress=" + inetAddress + '}';
+    return "DcpChannel{address=" + address + '}';
   }
 }

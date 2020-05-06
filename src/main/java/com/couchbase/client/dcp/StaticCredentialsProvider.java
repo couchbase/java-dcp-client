@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
-import java.net.InetSocketAddress;
+import com.couchbase.client.dcp.config.HostAndPort;
 
 public class StaticCredentialsProvider implements CredentialsProvider {
   private final Credentials credentials;
@@ -25,7 +25,7 @@ public class StaticCredentialsProvider implements CredentialsProvider {
   }
 
   @Override
-  public Credentials get(InetSocketAddress address) {
+  public Credentials get(HostAndPort address) {
     return credentials;
   }
 

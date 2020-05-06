@@ -17,13 +17,12 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.dcp.conductor.BucketConfigSink;
+import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.HostAndPort;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.net.InetSocketAddress;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 
@@ -68,8 +67,8 @@ public class ServerRequest {
 
     long rev = MessageUtil.getExtras(message).readUnsignedInt();
     String clustermap = MessageUtil.getContentAsString(message);
-    InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
-    bucketConfigSink.accept(new HostAndPort(remote), clustermap, rev);
+    HostAndPort remote = DcpChannel.getHostAndPort(ctx.channel());
+    bucketConfigSink.accept(remote, clustermap, rev);
 
     // Couchbase Server does not expect a response to this notification.
   }

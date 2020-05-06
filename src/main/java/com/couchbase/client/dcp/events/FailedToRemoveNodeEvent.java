@@ -16,11 +16,11 @@
 
 package com.couchbase.client.dcp.events;
 
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.utils.Events;
 
-import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.OptionalInt;
 
@@ -28,10 +28,10 @@ import java.util.OptionalInt;
  * Event published when the connector has failed to remove node during failover/rebalance.
  */
 public class FailedToRemoveNodeEvent implements CouchbaseEvent, DcpFailureEvent {
-  private final InetSocketAddress node;
+  private final HostAndPort node;
   private final Throwable error;
 
-  public FailedToRemoveNodeEvent(InetSocketAddress node, Throwable error) {
+  public FailedToRemoveNodeEvent(HostAndPort node, Throwable error) {
     this.node = node;
     this.error = error;
   }
@@ -44,7 +44,7 @@ public class FailedToRemoveNodeEvent implements CouchbaseEvent, DcpFailureEvent 
   /**
    * The address of the node
    */
-  public InetSocketAddress node() {
+  public HostAndPort node() {
     return node;
   }
 

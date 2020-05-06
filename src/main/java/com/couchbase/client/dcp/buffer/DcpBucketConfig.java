@@ -24,7 +24,6 @@ import com.couchbase.client.dcp.core.config.DefaultNodeInfo;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.service.ServiceType;
 
-import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +94,7 @@ public class DcpBucketConfig {
     return new DefaultNodeInfo(alternate.hostname(), services, sslServices, emptyMap());
   }
 
-  public List<PartitionInstance> getHostedPartitions(final InetSocketAddress nodeAddress) throws NoSuchElementException {
+  public List<PartitionInstance> getHostedPartitions(final HostAndPort nodeAddress) throws NoSuchElementException {
     int nodeIndex = getNodeIndex(nodeAddress);
     return map.get(nodeIndex);
   }
@@ -107,7 +106,7 @@ public class DcpBucketConfig {
     return allDataNodes;
   }
 
-  public int getNodeIndex(final InetSocketAddress nodeAddress) throws NoSuchElementException {
+  public int getNodeIndex(final HostAndPort nodeAddress) throws NoSuchElementException {
     int nodeIndex = 0;
     for (NodeInfo node : nodes()) {
       if (nodeAddress.equals(getAddress(node))) {
@@ -129,9 +128,9 @@ public class DcpBucketConfig {
     return map.getAbsent();
   }
 
-  public InetSocketAddress getAddress(final NodeInfo node) {
+  public HostAndPort getAddress(final NodeInfo node) {
     int port = getServicePortMap(node).get(ServiceType.BINARY);
-    return new InetSocketAddress(node.hostname(), port);
+    return new HostAndPort(node.hostname(), port);
   }
 
   private Map<ServiceType, Integer> getServicePortMap(final NodeInfo node) {

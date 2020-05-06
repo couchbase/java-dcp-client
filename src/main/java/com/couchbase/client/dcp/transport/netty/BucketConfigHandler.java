@@ -17,6 +17,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.conductor.BucketConfigSink;
+import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
@@ -27,7 +28,6 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
@@ -127,8 +127,8 @@ public class BucketConfigHandler extends SimpleChannelInboundHandler<ByteBuf> {
     if (!clustermap.isEmpty()) {
       log.info("{} Received bucket config from {}", system(ctx.channel()), source);
 
-      InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
-      bucketConfigSink.accept(new HostAndPort(remote), clustermap);
+      HostAndPort remote = DcpChannel.getHostAndPort(ctx.channel());
+      bucketConfigSink.accept(remote, clustermap);
     }
   }
 }

@@ -17,6 +17,7 @@ package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
@@ -41,7 +42,6 @@ import rx.Observable;
 import rx.Single;
 import rx.Subscription;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,7 +90,7 @@ public class Conductor {
     // As part of the connection process, each node is asked for the
     // bucket config. The response is used to reconfigure the cluster
     // which adds any missing nodes.
-    env.clusterAt().forEach(h -> add(h.toAddress()));
+    env.clusterAt().forEach(this::add);
 
     long bootstrapTimeoutMillis = env.bootstrapTimeout().toMillis()
         + env.configRefreshInterval().toMillis(); // allow at least one config refresh
@@ -209,7 +209,7 @@ public class Conductor {
    * mapping.
    */
   private DcpChannel activeChannelByPartition(short partition) {
-    final InetSocketAddress address = currentConfig.get().getActiveNodeKvAddress(partition).toAddress();
+    final HostAndPort address = currentConfig.get().getActiveNodeKvAddress(partition);
     for (DcpChannel ch : channels) {
       if (ch.address().equals(address)) {
         return ch;
@@ -227,21 +227,21 @@ public class Conductor {
       throw new IllegalStateException("Bucket config helper returned no data nodes");
     }
 
-    final Map<InetSocketAddress, DcpChannel> existingChannelsByAddress = channels.stream()
+    final Map<HostAndPort, DcpChannel> existingChannelsByAddress = channels.stream()
         .collect(toMap(DcpChannel::address, c -> c));
 
-    final Set<InetSocketAddress> nodeAddresses = nodes.stream()
+    final Set<HostAndPort> nodeAddresses = nodes.stream()
         .map(configHelper::getAddress)
         .collect(toSet());
 
-    for (InetSocketAddress address : nodeAddresses) {
+    for (HostAndPort address : nodeAddresses) {
       if (!existingChannelsByAddress.containsKey(address)) {
         metrics.incrementAddChannel();
         add(address);
       }
     }
 
-    for (Map.Entry<InetSocketAddress, DcpChannel> entry : existingChannelsByAddress.entrySet()) {
+    for (Map.Entry<HostAndPort, DcpChannel> entry : existingChannelsByAddress.entrySet()) {
       if (!nodeAddresses.contains(entry.getKey())) {
         metrics.incrementRemoveChannel();
         remove(entry.getValue());
@@ -249,7 +249,7 @@ public class Conductor {
     }
   }
 
-  private void add(final InetSocketAddress node) {
+  private void add(final HostAndPort node) {
     LOGGER.info("Adding DCP Channel against {}", system(node));
     final DcpChannel channel = new DcpChannel(node, env, this);
     if (!channels.add(channel)) {
