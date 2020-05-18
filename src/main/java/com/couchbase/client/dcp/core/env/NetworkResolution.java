@@ -16,6 +16,8 @@
 
 package com.couchbase.client.dcp.core.env;
 
+import static com.couchbase.client.dcp.core.utils.CbCollections.isNullOrEmpty;
+
 public class NetworkResolution {
 
   /**
@@ -50,8 +52,8 @@ public class NetworkResolution {
    * @param name the name to use.
    * @return a new {@link NetworkResolution}.
    */
-  public static NetworkResolution custom(final String name) {
-    return new NetworkResolution(name);
+  public static NetworkResolution valueOf(final String name) {
+    return isNullOrEmpty(name) ? AUTO : new NetworkResolution(name);
   }
 
   /**

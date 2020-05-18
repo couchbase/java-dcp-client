@@ -120,8 +120,7 @@ public class DcpBucketConfig {
   public HostAndPort getActiveNodeKvAddress(int partition) {
     final int index = config.nodeIndexForMaster(partition, false);
     final NodeInfo node = nodes().get(index);
-    final int port = getServicePortMap(node).get(ServiceType.BINARY);
-    return new HostAndPort(node.hostname(), port);
+    return getAddress(node);
   }
 
   public List<PartitionInstance> getAbsentPartitionInstances() {
