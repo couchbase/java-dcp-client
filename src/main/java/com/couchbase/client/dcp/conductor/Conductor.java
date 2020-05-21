@@ -52,6 +52,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
@@ -87,6 +88,15 @@ public class Conductor {
     bucketConfigArbiter.configs()
         .observeOn(Schedulers.from(configUpdateExecutor))
         .forEach(config -> {
+          // Couchbase sometimes says a newly created bucket has no partitions.
+          // This doesn't affect cluster topology, but it's a problem for code
+          // that needs to know the real partition count during startup.
+          if (config.numberOfPartitions() == 0 && currentConfig.get() == null) {
+            // Skip this config. The server will send another when the bucket is really ready.
+            LOGGER.debug("Skipping initial config (rev {}) because it has invalid partition count.", config.rev());
+            return;
+          }
+
           LOGGER.trace("Applying new configuration, new rev is {}.", config.rev());
           currentConfig.set(config);
           reconfigure(config);
@@ -110,31 +120,23 @@ public class Conductor {
     long bootstrapTimeoutMillis = env.bootstrapTimeout().toMillis()
         + env.configRefreshInterval().toMillis(); // allow at least one config refresh
 
-    // Report completion when the partition count is accurate and
-    // at least one configuration has been applied.
-    return bucketConfigArbiter().configs()
-        // Couchbase sometimes says a newly created bucket has no partitions.
-        // This doesn't affect cluster topology, but it's a problem for users
-        // who need the real partition count. Wait for a "real" config before proceeding.
-        .filter(config -> config.numberOfPartitions() != 0)
-        .first().toCompletable()
-
-        // We're about to block on a latch, so switch to a thread that doesn't mind.
-        .observeOn(Schedulers.io())
-        .andThen(await(configurationApplied, bootstrapTimeoutMillis, TimeUnit.MILLISECONDS))
-
-        // All of this should complete within the bootstrap timeout.
-        .timeout(bootstrapTimeoutMillis, TimeUnit.MILLISECONDS)
+    // Report completion when at least one configuration has been applied.
+    return await(configurationApplied, bootstrapTimeoutMillis, TimeUnit.MILLISECONDS)
         .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from cluster within {}ms", bootstrapTimeoutMillis));
   }
 
   /**
-   * Returns a completable that blocks until the count down reaches zero.
+   * Returns a completable that blocks until the latch count reaches zero.
+   *
+   * @throws RuntimeException (async) caused by TimeoutException if count does not reach zero before timeout.
+   * @throws RuntimeException (async) caused by InterruptedException if interrupted while waiting.
    */
   private static Completable await(CountDownLatch latch, long timeout, TimeUnit timeoutUnit) {
     return Completable.fromAction(() -> {
       try {
-        latch.await(timeout, timeoutUnit);
+        if (!latch.await(timeout, timeoutUnit)) {
+          throw new RuntimeException(new TimeoutException("Timed out after waiting " + timeout + " " + timeoutUnit + " for latch."));
+        }
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
