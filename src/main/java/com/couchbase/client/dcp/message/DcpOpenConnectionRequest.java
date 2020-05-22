@@ -18,6 +18,8 @@ package com.couchbase.client.dcp.message;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+import java.util.Set;
+
 import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
 
 public enum DcpOpenConnectionRequest {
@@ -33,12 +35,15 @@ public enum DcpOpenConnectionRequest {
   /**
    * Initialize the buffer with all the values needed.
    * <p>
-   * Note that this will implicitly set the flags to "consumer".
+   * Note that {@link OpenConnectionFlag#PRODUCER} flag is always set
+   * in addition to any flags passed in.
    */
-  public static void init(final ByteBuf buffer) {
+  public static void init(final ByteBuf buffer, Set<OpenConnectionFlag> flags) {
+    int flagsAsInt = OpenConnectionFlag.encode(flags) | OpenConnectionFlag.PRODUCER.value();
+
     MessageUtil.initRequest(OPEN_CONNECTION_OPCODE, buffer);
     ByteBuf extras = Unpooled.buffer(8);
-    MessageUtil.setExtras(extras.writeInt(0).writeInt(Type.PRODUCER.value), buffer);
+    MessageUtil.setExtras(extras.writeInt(0).writeInt(flagsAsInt), buffer);
     extras.release();
   }
 
@@ -54,31 +59,5 @@ public enum DcpOpenConnectionRequest {
    */
   public static ByteBuf connectionName(final ByteBuf buffer) {
     return MessageUtil.getKey(buffer);
-  }
-
-  enum Type {
-    /**
-     * Consumer type of DCP connection is set then the sender of the {@link DcpOpenConnectionRequest}
-     * will be a Producer
-     */
-    CONSUMER(0x00),
-    /**
-     * Producer type of DCP connection is set then the sender of the {@link DcpOpenConnectionRequest}
-     * will be a Consumer
-     */
-    PRODUCER(0x01),
-    /**
-     * Notifier type of DCP connection is set then the sender of the {@link DcpOpenConnectionRequest}
-     * will be a Consumer. Notifier mode is almost the same as Producer, but it relaxes some of the
-     * checks when adding streams. It does not check provided sequence numbers and always streams
-     * vbucket from highest sequence number.
-     */
-    NOTIFIER(0x02);
-
-    private final int value;
-
-    Type(int value) {
-      this.value = value;
-    }
   }
 }

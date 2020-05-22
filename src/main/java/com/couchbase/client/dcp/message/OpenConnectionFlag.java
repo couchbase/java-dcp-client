@@ -20,7 +20,10 @@ import java.util.Set;
 
 public enum OpenConnectionFlag {
   /**
-   * Requests a producer is created. If this bit is clear a consumer is created.
+   * Tells the remote peer to act as a DCP producer.
+   * <p>
+   * If this bit is clear, the remote peer acts as a DCP consumer
+   * (unless the {@link #NOTIFIER} flag is set, which it shouldn't be since it's deprecated).
    */
   PRODUCER(0x01),
 

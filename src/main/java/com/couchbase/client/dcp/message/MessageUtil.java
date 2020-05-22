@@ -88,6 +88,7 @@ public enum MessageUtil {
   private static final String[] OPCODE_NAMES = initOpcodeNames();
   private static final String[] FORMATTED_OPCODE_NAMES = initFormattedOpcodeNames();
 
+  private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
   private static String[] initOpcodeNames() {
     final String[] names = new String[256];
@@ -336,6 +337,15 @@ public enum MessageUtil {
    */
   public static byte[] getContentAsByteArray(ByteBuf buffer) {
     final ByteBuf rawContent = getRawContent(buffer);
+
+    // When OpenConnectionFlags.NO_VALUE is used, the content is always empty.
+    // Documents can still be flagged as snappy compressed, so do this check before
+    // attempting to decompress the empty content, otherwise snappy decompression fails.
+    if (rawContent.readableBytes() == 0) {
+      // ByteBufUtil.getBytes(rawContent) would return a new array.
+      // Generate less garbage by reusing the same empty array.
+      return EMPTY_BYTE_ARRAY;
+    }
 
     if (!isSnappyCompressed(buffer)) {
       return ByteBufUtil.getBytes(rawContent);

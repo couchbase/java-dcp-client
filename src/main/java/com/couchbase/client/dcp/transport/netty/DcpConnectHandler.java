@@ -137,7 +137,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     @Override
     void issueRequest(ChannelHandlerContext ctx) {
       ByteBuf request = ctx.alloc().buffer();
-      DcpOpenConnectionRequest.init(request);
+      DcpOpenConnectionRequest.init(request, env.connectionFlags());
       DcpOpenConnectionRequest.connectionName(request, connectionName);
       ctx.writeAndFlush(request);
     }

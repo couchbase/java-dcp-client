@@ -21,6 +21,7 @@ import io.netty.buffer.Unpooled;
 import org.junit.Test;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptySet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -32,7 +33,7 @@ public class OpenConnectionRequestTest {
     ByteBuf buffer = Unpooled.buffer();
     assertFalse(DcpOpenConnectionRequest.is(buffer));
 
-    DcpOpenConnectionRequest.init(buffer);
+    DcpOpenConnectionRequest.init(buffer, emptySet());
 
     assertEquals(32, buffer.writerIndex());
     assertTrue(DcpOpenConnectionRequest.is(buffer));
@@ -41,7 +42,7 @@ public class OpenConnectionRequestTest {
   @Test
   public void testSetConnectionName() {
     ByteBuf buffer = Unpooled.buffer();
-    DcpOpenConnectionRequest.init(buffer);
+    DcpOpenConnectionRequest.init(buffer, emptySet());
 
     DcpOpenConnectionRequest.connectionName(buffer, "name");
 

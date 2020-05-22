@@ -52,6 +52,7 @@ import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.DcpSystemEvent;
 import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.OpenConnectionFlag;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
@@ -90,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -107,6 +109,7 @@ import static com.couchbase.client.dcp.core.utils.CbCollections.isNullOrEmpty;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
@@ -975,6 +978,7 @@ public class Client implements Closeable {
     private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
     private final DcpControl dcpControl = new DcpControl()
         .put(DcpControl.Names.ENABLE_NOOP, "true"); // required for collections, and a good idea anyway
+    private final EnumSet<OpenConnectionFlag> connectionFlags = EnumSet.noneOf(OpenConnectionFlag.class);
     private int bufferAckWatermark;
     private boolean poolBuffers = true;
     private long connectTimeout = Environment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
@@ -989,6 +993,16 @@ public class Client implements Closeable {
     private String sslKeystorePassword;
     private KeyStore sslKeystore;
     private long persistencePollingIntervalMillis;
+
+    /**
+     * Configures the client to receive only document keys and metadata (no contents).
+     *
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder noValue() {
+      connectionFlags.add(OpenConnectionFlag.NO_VALUE);
+      return this;
+    }
 
     /**
      * The buffer acknowledge watermark in percent.
@@ -1565,6 +1579,7 @@ public class Client implements Closeable {
     private final Duration configRefreshInterval;
     private final long connectTimeout;
     private final DcpControl dcpControl;
+    private final Set<OpenConnectionFlag> connectionFlags;
     private final EventLoopGroup eventLoopGroup;
     private final boolean eventLoopGroupIsPrivate;
     private final boolean poolBuffers;
@@ -1599,6 +1614,7 @@ public class Client implements Closeable {
       configRefreshInterval = builder.configRefreshInterval;
       connectTimeout = builder.connectTimeout;
       dcpControl = builder.dcpControl;
+      connectionFlags = unmodifiableSet(EnumSet.copyOf(builder.connectionFlags));
       eventLoopGroup = Optional.ofNullable(builder.eventLoopGroup)
           .orElseGet(Client::newEventLoopGroup);
       eventLoopGroupIsPrivate = builder.eventLoopGroup == null;
@@ -1639,13 +1655,6 @@ public class Client implements Closeable {
         dataEventHandler = buffer;
         controlEventHandler = buffer;
       }
-    }
-
-    /**
-     * Returns a new {@link Builder} to craft a {@link Environment}.
-     */
-    public static Builder builder() {
-      return new Builder();
     }
 
     /**
@@ -1792,6 +1801,13 @@ public class Client implements Closeable {
      */
     public DcpControl dcpControl() {
       return dcpControl;
+    }
+
+    /**
+     * Returns the flags to use when opening a DCP connection.
+     */
+    public Set<OpenConnectionFlag> connectionFlags() {
+      return connectionFlags;
     }
 
     /**
