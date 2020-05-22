@@ -16,9 +16,9 @@
 
 package com.couchbase.client.dcp.buffer;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.conductor.BucketConfigSource;
 import com.couchbase.client.dcp.conductor.DcpChannel;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
 import io.micrometer.core.instrument.Metrics;
@@ -44,7 +44,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   private static final LongAdder scheduledPollingTasks = requireNonNull(
       Metrics.globalRegistry.gauge("dcp.scheduled.polling.tasks", new LongAdder()));
 
-  private final ClientEnvironment env;
+  private final Client.Environment env;
   private final BucketConfigSource bucketConfigSource;
   private final DcpOps dcpOps;
   private final PersistedSeqnos persistedSeqnos;
@@ -55,7 +55,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   // Incrementing this number causes any active polling tasks to stop.
   private int activeGroupId;
 
-  public PersistencePollingHandler(final ClientEnvironment env,
+  public PersistencePollingHandler(final Client.Environment env,
                                    final BucketConfigSource bucketConfigSource,
                                    final DcpRequestDispatcher dispatcher) {
     this.env = requireNonNull(env);

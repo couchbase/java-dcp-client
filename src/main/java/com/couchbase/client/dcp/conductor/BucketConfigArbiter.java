@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.AlternateAddress;
 import com.couchbase.client.dcp.core.config.BucketConfig;
@@ -62,9 +62,9 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   // @GuardedBy("revLock")
   private String alternateNetworkName; // null means use primary
 
-  private final ClientEnvironment environment;
+  private final Client.Environment environment;
 
-  public BucketConfigArbiter(ClientEnvironment environment) {
+  public BucketConfigArbiter(Client.Environment environment) {
     this.environment = requireNonNull(environment);
   }
 

@@ -15,12 +15,12 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
 import com.couchbase.client.dcp.conductor.BucketConfigArbiter;
 import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
@@ -58,7 +58,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
   /**
    * The stateful environment.
    */
-  private final ClientEnvironment environment;
+  private final Client.Environment environment;
 
   /**
    * The observable where all the control events are fed into for advanced handling up the stack.
@@ -74,7 +74,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
    * @param environment the stateful environment.
    * @param controlHandler the control event handler.
    */
-  public DcpPipeline(final ClientEnvironment environment,
+  public DcpPipeline(final Client.Environment environment,
                      final DcpChannelControlHandler controlHandler, BucketConfigArbiter bucketConfigArbiter,
                      DcpChannelMetrics metrics) {
     this.bucketConfigArbiter = requireNonNull(bucketConfigArbiter);

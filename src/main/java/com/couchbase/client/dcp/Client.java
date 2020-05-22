@@ -15,17 +15,25 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.dcp.buffer.PersistedSeqnos;
+import com.couchbase.client.dcp.buffer.StreamEventBuffer;
 import com.couchbase.client.dcp.conductor.Conductor;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.config.SecureEnvironment;
+import com.couchbase.client.dcp.core.env.CoreScheduler;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.dcp.core.env.resources.NoOpShutdownHook;
+import com.couchbase.client.dcp.core.env.resources.ShutdownHook;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.core.event.EventBus;
+import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
+import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
 import com.couchbase.client.dcp.highlevel.FlowControlMode;
@@ -65,7 +73,10 @@ import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
+import rx.Scheduler;
 import rx.Single;
+import rx.Subscriber;
+import rx.Subscription;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
@@ -78,6 +89,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +113,8 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
+ * <p>
+ * Create a new instance using the builder returned by the {@link #builder()} method.
  */
 public class Client implements Closeable {
 
@@ -119,9 +133,9 @@ public class Client implements Closeable {
   private final Conductor conductor;
 
   /**
-   * The stateful {@link ClientEnvironment}, used internally for centralized config management.
+   * The stateful {@link Environment}, used internally for centralized config management.
    */
-  private final ClientEnvironment env;
+  private final Environment env;
 
   /**
    * If buffer acknowledgment is enabled.
@@ -145,36 +159,7 @@ public class Client implements Closeable {
    * @param builder the client config builder.
    */
   private Client(Builder builder) {
-    EventLoopGroup eventLoopGroup = builder.eventLoopGroup == null
-        ? newEventLoopGroup() : builder.eventLoopGroup;
-    env = ClientEnvironment.builder()
-        .setClusterAt(builder.clusterAt)
-        .setNetworkResolution(builder.networkResolution)
-        .setConnectionNameGenerator(builder.connectionNameGenerator)
-        .setBucket(builder.bucket)
-        .setCollectionsAware(builder.collectionsAware)
-        .setScopeId(builder.scopeId)
-        .setScopeName(builder.scopeName)
-        .setCollectionIds(builder.collectionIds)
-        .setCollectionNames(builder.collectionNames)
-        .setCredentialsProvider(builder.credentialsProvider)
-        .setDcpControl(builder.dcpControl)
-        .setEventLoopGroup(eventLoopGroup, builder.eventLoopGroup == null)
-        .setBufferAckWatermark(builder.bufferAckWatermark)
-        .setBufferPooling(builder.poolBuffers)
-        .setConnectTimeout(builder.connectTimeout)
-        .setConfigRefreshInterval(builder.configRefreshInterval)
-        .setBootstrapTimeout(builder.bootstrapTimeout)
-        .setSocketConnectTimeout(builder.socketConnectTimeout)
-        .setDcpChannelsReconnectDelay(builder.dcpChannelsReconnectDelay)
-        .setDcpChannelsReconnectMaxAttempts(builder.dcpChannelsReconnectMaxAttempts)
-        .setEventBus(builder.eventBus)
-        .setSslEnabled(builder.sslEnabled)
-        .setSslKeystoreFile(builder.sslKeystoreFile)
-        .setSslKeystorePassword(builder.sslKeystorePassword)
-        .setSslKeystore(builder.sslKeystore)
-        .setPersistencePollingIntervalMillis(builder.persistencePollingIntervalMillis)
-        .build();
+    env = new Environment(builder);
 
     bufferAckEnabled = env.dcpControl().bufferAckEnabled();
     if (bufferAckEnabled) {
@@ -206,7 +191,7 @@ public class Client implements Closeable {
     LOGGER.info("Environment Configuration Used: {}", system(env));
   }
 
-  private EventLoopGroup newEventLoopGroup() {
+  private static EventLoopGroup newEventLoopGroup() {
     if (Epoll.isAvailable()) {
       LOGGER.info("Using Netty epoll native transport.");
       return new EpollEventLoopGroup(threadFactory);
@@ -977,7 +962,7 @@ public class Client implements Closeable {
    * Builder object to customize the {@link Client} creation.
    */
   public static class Builder {
-    private List<HostAndPort> clusterAt = singletonList(new HostAndPort("127.0.0.1", 0));
+    private List<HostAndPort> seedNodes = singletonList(new HostAndPort("127.0.0.1", 0));
     private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private EventLoopGroup eventLoopGroup;
     private String bucket = "default";
@@ -988,18 +973,18 @@ public class Client implements Closeable {
     private Optional<String> scopeName = Optional.empty();
     private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
     private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
-    private DcpControl dcpControl = new DcpControl()
+    private final DcpControl dcpControl = new DcpControl()
         .put(DcpControl.Names.ENABLE_NOOP, "true"); // required for collections, and a good idea anyway
     private int bufferAckWatermark;
     private boolean poolBuffers = true;
-    private long connectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
-    private Duration bootstrapTimeout = ClientEnvironment.DEFAULT_BOOTSTRAP_TIMEOUT;
-    private Duration configRefreshInterval = ClientEnvironment.DEFAULT_CONFIG_REFRESH_INTERVAL;
-    private long socketConnectTimeout = ClientEnvironment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
-    private int dcpChannelsReconnectMaxAttempts = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
-    private Delay dcpChannelsReconnectDelay = ClientEnvironment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
+    private long connectTimeout = Environment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
+    private Duration bootstrapTimeout = Environment.DEFAULT_BOOTSTRAP_TIMEOUT;
+    private Duration configRefreshInterval = Environment.DEFAULT_CONFIG_REFRESH_INTERVAL;
+    private long socketConnectTimeout = Environment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
+    private int dcpChannelsReconnectMaxAttempts = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
+    private Delay dcpChannelsReconnectDelay = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
     private EventBus eventBus;
-    private boolean sslEnabled = ClientEnvironment.DEFAULT_SSL_ENABLED;
+    private boolean sslEnabled = Environment.DEFAULT_SSL_ENABLED;
     private String sslKeystoreFile;
     private String sslKeystorePassword;
     private KeyStore sslKeystore;
@@ -1033,7 +1018,7 @@ public class Client implements Closeable {
      */
     public Builder seedNodes(final Collection<String> addresses) {
       List<String> asList = new ArrayList<>(new HashSet<>(addresses));
-      this.clusterAt = getSeedNodes(ConnectionString.fromHostnames(asList));
+      this.seedNodes = getSeedNodes(ConnectionString.fromHostnames(asList));
       return this;
     }
 
@@ -1071,7 +1056,7 @@ public class Client implements Closeable {
     /**
      * Connection string to bootstrap with.
      * <p>
-     * Note: it overrides list of hostnames defined by {@link #seedNodes(Collection)}.
+     * Note: it overrides list of addresses defined by {@link #seedNodes(Collection)}.
      * <p>
      * Connection string specification defined in SDK-RFC-11:
      * https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0011-connection-string.md
@@ -1080,7 +1065,7 @@ public class Client implements Closeable {
      * @return this {@link Builder} for nice chainability.
      */
     public Builder connectionString(String connectionString) {
-      this.clusterAt = getSeedNodes(ConnectionString.create(connectionString));
+      this.seedNodes = getSeedNodes(ConnectionString.create(connectionString));
       return this;
     }
 
@@ -1104,8 +1089,11 @@ public class Client implements Closeable {
     }
 
     /**
-     * Sets a custom event loop group, this is needed if more than one client is initialized and
-     * runs at the same time to keep the IO threads efficient and in bounds.
+     * Sets a custom event loop group.
+     * <p>
+     * If more than one client is initialized and runs at the same time,
+     * you may see better performance if you create a single event loop group
+     * for the clients to share.
      *
      * @param eventLoopGroup the group that should be used.
      * @return this {@link Builder} for nice chainability.
@@ -1188,6 +1176,12 @@ public class Client implements Closeable {
       return this;
     }
 
+    /**
+     * Configures the client to stream only from the collections identified by the given IDs.
+     *
+     * @param collectionIds IDs of the collections to stream.
+     * @return this {@link Builder} for nice chainability.
+     */
     public Builder collectionIds(long... collectionIds) {
       return collectionIds(Arrays.stream(collectionIds).boxed().collect(toList()));
     }
@@ -1393,7 +1387,7 @@ public class Client implements Closeable {
 
 
     /**
-     * Set if SSL should be enabled (default value {@value ClientEnvironment#DEFAULT_SSL_ENABLED}).
+     * Set if SSL should be enabled (default value {@value Environment#DEFAULT_SSL_ENABLED}).
      * If true, also set {@link #sslKeystoreFile(String)} and {@link #sslKeystorePassword(String)}.
      */
     public Builder sslEnabled(final boolean sslEnabled) {
@@ -1540,4 +1534,468 @@ public class Client implements Closeable {
     LOGGER.debug("To Infinity... AND BEYOND!");
   }
 
+  /**
+   * The {@link Environment} is responsible to carry various configuration and
+   * state information throughout the lifecycle.
+   */
+  public static class Environment implements SecureEnvironment {
+    private static final Logger log = LoggerFactory.getLogger(Environment.class);
+
+    public static final Duration DEFAULT_BOOTSTRAP_TIMEOUT = Duration.ofSeconds(5);
+    public static final Duration DEFAULT_CONFIG_REFRESH_INTERVAL = Duration.ofSeconds(2);
+    public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
+    public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
+    public static final Delay DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Delay.fixed(200, TimeUnit.MILLISECONDS);
+    public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
+    public static final boolean DEFAULT_SSL_ENABLED = false;
+    private static final int DEFAULT_KV_PORT = 11210;
+    private static final int DEFAULT_KV_TLS_PORT = 11207;
+
+    private final List<HostAndPort> seedNodes;
+    private final NetworkResolution networkResolution;
+    private final ConnectionNameGenerator connectionNameGenerator;
+    private final String bucket;
+    private final boolean collectionsAware;
+    private final OptionalLong scopeId;
+    private final Optional<String> scopeName;
+    private final Set<Long> collectionIds;
+    private final Set<String> collectionNames;
+    private final CredentialsProvider credentialsProvider;
+    private final Duration bootstrapTimeout;
+    private final Duration configRefreshInterval;
+    private final long connectTimeout;
+    private final DcpControl dcpControl;
+    private final EventLoopGroup eventLoopGroup;
+    private final boolean eventLoopGroupIsPrivate;
+    private final boolean poolBuffers;
+    private final int bufferAckWatermark;
+    private final long socketConnectTimeout;
+    private final long persistencePollingIntervalMillis;
+    private volatile DataEventHandler dataEventHandler;
+    private volatile ControlEventHandler controlEventHandler;
+    private final PersistedSeqnos persistedSeqnos = PersistedSeqnos.uninitialized();
+    private final Delay dcpChannelsReconnectDelay;
+    private final int dcpChannelsReconnectMaxAttempts;
+
+    private final EventBus eventBus;
+    private final Scheduler scheduler;
+    private final ShutdownHook schedulerShutdownHook;
+    private Subscription systemEventSubscription;
+    private final boolean sslEnabled;
+    private final String sslKeystoreFile;
+    private final String sslKeystorePassword;
+    private final KeyStore sslKeystore;
+
+    /**
+     * Creates a new environment based on the builder.
+     *
+     * @param builder the builder to build the environment.
+     */
+    private Environment(final Client.Builder builder) {
+      connectionNameGenerator = builder.connectionNameGenerator;
+      bucket = builder.bucket;
+      credentialsProvider = builder.credentialsProvider;
+      bootstrapTimeout = builder.bootstrapTimeout;
+      configRefreshInterval = builder.configRefreshInterval;
+      connectTimeout = builder.connectTimeout;
+      dcpControl = builder.dcpControl;
+      eventLoopGroup = Optional.ofNullable(builder.eventLoopGroup)
+          .orElseGet(Client::newEventLoopGroup);
+      eventLoopGroupIsPrivate = builder.eventLoopGroup == null;
+      bufferAckWatermark = builder.bufferAckWatermark;
+      poolBuffers = builder.poolBuffers;
+      socketConnectTimeout = builder.socketConnectTimeout;
+      dcpChannelsReconnectDelay = builder.dcpChannelsReconnectDelay;
+      dcpChannelsReconnectMaxAttempts = builder.dcpChannelsReconnectMaxAttempts;
+      collectionsAware = builder.collectionsAware;
+      collectionIds = Collections.unmodifiableSet(builder.collectionIds);
+      collectionNames = Collections.unmodifiableSet(builder.collectionNames);
+      scopeId = builder.scopeId;
+      scopeName = builder.scopeName;
+      if (builder.eventBus != null) {
+        eventBus = builder.eventBus;
+        this.scheduler = null;
+        this.schedulerShutdownHook = new NoOpShutdownHook();
+      } else {
+        CoreScheduler scheduler = new CoreScheduler(3);
+        this.scheduler = scheduler;
+        this.schedulerShutdownHook = scheduler;
+        eventBus = new DefaultDcpEventBus(scheduler);
+      }
+      sslEnabled = builder.sslEnabled;
+      sslKeystoreFile = builder.sslKeystoreFile;
+      sslKeystorePassword = builder.sslKeystorePassword;
+      sslKeystore = builder.sslKeystore;
+      seedNodes = makeDefaultPortsExplicit(builder.seedNodes, builder.sslEnabled);
+      networkResolution = builder.networkResolution;
+      persistencePollingIntervalMillis = builder.persistencePollingIntervalMillis;
+
+      if (persistencePollingIntervalMillis > 0) {
+        if (bufferAckWatermark == 0) {
+          throw new IllegalArgumentException("Rollback mitigation requires flow control.");
+        }
+
+        final StreamEventBuffer buffer = new StreamEventBuffer(eventBus);
+        dataEventHandler = buffer;
+        controlEventHandler = buffer;
+      }
+    }
+
+    /**
+     * Returns a new {@link Builder} to craft a {@link Environment}.
+     */
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    /**
+     * Lists the bootstrap nodes.
+     */
+    public List<HostAndPort> clusterAt() {
+      return seedNodes;
+    }
+
+    /**
+     * Returns the configured hostname selection strategy.
+     */
+    public NetworkResolution networkResolution() {
+      return networkResolution;
+    }
+
+    /**
+     * Returns the currently attached data event handler.
+     */
+    public DataEventHandler dataEventHandler() {
+      return dataEventHandler;
+    }
+
+    /**
+     * Returns the stream event buffer used for rollback mitigation.
+     *
+     * @throws IllegalStateException if persistence polling / rollback mitigation is disabled
+     */
+    public StreamEventBuffer streamEventBuffer() {
+      try {
+        return (StreamEventBuffer) dataEventHandler;
+      } catch (ClassCastException e) {
+        throw new IllegalStateException("Stream event buffer not configured");
+      }
+    }
+
+    /**
+     * Returns the bookkeeper for observed seqno persistence.
+     */
+    public PersistedSeqnos persistedSeqnos() {
+      return persistedSeqnos;
+    }
+
+    /**
+     * Returns the interval between observeSeqno requests.
+     * Values <= 0 disable persistence polling.
+     */
+    public long persistencePollingIntervalMillis() {
+      return persistencePollingIntervalMillis;
+    }
+
+    /**
+     * Returns true if and only if rollback mitigation / persistence polling is enabled.
+     */
+    public boolean persistencePollingEnabled() {
+      return persistencePollingIntervalMillis > 0;
+    }
+
+    /**
+     * Returns the current attached control event handler.
+     */
+    public ControlEventHandler controlEventHandler() {
+      return controlEventHandler;
+    }
+
+    /**
+     * Returns the name generator used to identify DCP sockets.
+     */
+    public ConnectionNameGenerator connectionNameGenerator() {
+      return connectionNameGenerator;
+    }
+
+    /**
+     * Name of the bucket used.
+     */
+    public String bucket() {
+      return bucket;
+    }
+
+    /**
+     * Whether the client should operate in collections-aware mode
+     */
+    public boolean collectionsAware() {
+      return collectionsAware;
+    }
+
+    /**
+     * Collection IDs to filter on, or empty for all collections.
+     */
+    public Set<Long> collectionIds() {
+      return collectionIds;
+    }
+
+    /**
+     * Collection names to filter on, or empty for all collections.
+     */
+    public Set<String> collectionNames() {
+      return collectionNames;
+    }
+
+    /**
+     * Scope to filter on, or empty to filter by collection IDs.
+     */
+    public OptionalLong scopeId() {
+      return scopeId;
+    }
+
+    /**
+     * Scope to filter on, or empty to filter by collection IDs.
+     */
+    public Optional<String> scopeName() {
+      return scopeName;
+    }
+
+    /**
+     * The credentials provider for the connection
+     */
+    public CredentialsProvider credentialsProvider() {
+      return credentialsProvider;
+    }
+
+    /**
+     * Username used.
+     *
+     * @deprecated Use {@link Environment#credentialsProvider()} instead to access username
+     */
+    @Deprecated
+    public String username() {
+      return credentialsProvider.get(null).getUsername();
+    }
+
+    /**
+     * Password of the user.
+     *
+     * @deprecated Use {@link Environment#credentialsProvider()} instead to access password
+     */
+    @Deprecated
+    public String password() {
+      return credentialsProvider.get(null).getPassword();
+    }
+
+    /**
+     * Returns all DCP control params set, may be empty.
+     */
+    public DcpControl dcpControl() {
+      return dcpControl;
+    }
+
+    /**
+     * The watermark in percent for buffer acknowledgements.
+     */
+    public int bufferAckWatermark() {
+      return bufferAckWatermark;
+    }
+
+    /**
+     * Returns the currently attached event loop group for IO process.ing.
+     */
+    public EventLoopGroup eventLoopGroup() {
+      return eventLoopGroup;
+    }
+
+    /**
+     * Polling interval when server does not support clustermap change notifications.
+     */
+    public Duration configRefreshInterval() {
+      return configRefreshInterval;
+    }
+
+    /**
+     * Time in milliseconds to wait for first configuration during bootstrap.
+     */
+    public Duration bootstrapTimeout() {
+      return bootstrapTimeout;
+    }
+
+    /**
+     * Time in milliseconds to wait configuration provider socket to connect.
+     */
+    public long connectTimeout() {
+      return connectTimeout;
+    }
+
+    /**
+     * Set/Override the data event handler.
+     */
+    public void setDataEventHandler(DataEventHandler dataEventHandler) {
+      if (persistencePollingEnabled()) {
+        streamEventBuffer().setDataEventHandler(dataEventHandler);
+      } else {
+        this.dataEventHandler = dataEventHandler;
+      }
+    }
+
+    /**
+     * Set/Override the control event handler.
+     */
+    public void setControlEventHandler(ControlEventHandler controlEventHandler) {
+      if (persistencePollingEnabled()) {
+        streamEventBuffer().setControlEventHandler(controlEventHandler);
+      } else {
+        this.controlEventHandler = controlEventHandler;
+      }
+    }
+
+    /**
+     * Set/Override the control event handler.
+     */
+    public void setSystemEventHandler(final SystemEventHandler systemEventHandler) {
+      if (systemEventSubscription != null) {
+        systemEventSubscription.unsubscribe();
+      }
+      if (systemEventHandler != null) {
+        systemEventSubscription = eventBus().get()
+            .filter(evt -> evt.type().equals(EventType.SYSTEM))
+            .subscribe(new Subscriber<CouchbaseEvent>() {
+              @Override
+              public void onCompleted() { /* Ignoring on purpose. */}
+
+              @Override
+              public void onError(Throwable e) { /* Ignoring on purpose. */ }
+
+              @Override
+              public void onNext(CouchbaseEvent evt) {
+                systemEventHandler.onEvent(evt);
+              }
+            });
+      }
+    }
+
+    /**
+     * If buffer pooling is enabled.
+     */
+    public boolean poolBuffers() {
+      return poolBuffers;
+    }
+
+    /**
+     * Socket connect timeout in milliseconds.
+     */
+    public long socketConnectTimeout() {
+      return socketConnectTimeout;
+    }
+
+    /**
+     * Returns the event bus where events are broadcasted on and can be published to.
+     */
+    public EventBus eventBus() {
+      return eventBus;
+    }
+
+    @Override
+    public boolean sslEnabled() {
+      return sslEnabled;
+    }
+
+    @Override
+    public String sslKeystoreFile() {
+      return sslKeystoreFile;
+    }
+
+    @Override
+    public String sslKeystorePassword() {
+      return sslKeystorePassword;
+    }
+
+    @Override
+    public KeyStore sslKeystore() {
+      return sslKeystore;
+    }
+
+    private static List<HostAndPort> makeDefaultPortsExplicit(List<HostAndPort> addresses, boolean sslEnabled) {
+      final int defaultKvPort = sslEnabled ? DEFAULT_KV_TLS_PORT : DEFAULT_KV_PORT;
+      final List<HostAndPort> result = new ArrayList<>();
+
+      for (HostAndPort node : addresses) {
+        if (node.port() == 8091 || node.port() == 18091) {
+          log.warn("Seed node '{}' uses port '{}' which is likely incorrect." +
+                  " This should be the port of the KV service, not the Manager service." +
+                  " If the connection fails, omit the port so the client can supply the correct default.",
+              node.host(), node.port());
+        }
+
+        result.add(node.port() == 0 ? node.withPort(defaultKvPort) : node);
+      }
+
+      return result;
+    }
+
+    /**
+     * Shut down this stateful environment.
+     * <p>
+     * Note that it will only release/terminate resources which are owned by the client,
+     * especially if a custom event loop group is passed in it needs to be shut down
+     * separately.
+     *
+     * @return a {@link Completable} indicating completion of the shutdown process.
+     */
+    public Completable shutdown() {
+      Observable<Boolean> loopShutdown = Observable.empty();
+
+      if (eventLoopGroupIsPrivate) {
+        loopShutdown = Completable.create(subscriber ->
+            eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS)
+                .addListener(future -> {
+                  if (future.isSuccess()) {
+                    subscriber.onCompleted();
+                  } else {
+                    subscriber.onError(future.cause());
+                  }
+                })).toObservable();
+      }
+
+      return Observable.merge(schedulerShutdownHook.shutdown(), loopShutdown)
+          .reduce(true, (previous, current) -> previous && current)
+          .toCompletable();
+    }
+
+    @Override
+    public String toString() {
+      return "ClientEnvironment{" +
+          "seedNodes=" + seedNodes +
+          ", connectionNameGenerator=" + connectionNameGenerator +
+          ", bucket='" + bucket + '\'' +
+          ", collectionsAware=" + collectionsAware +
+          ", collectionIds=" + collectionIds +
+          ", collectionNames=" + collectionNames +
+          ", scopeId=" + scopeId +
+          ", scopeName=" + scopeName +
+          ", dcpControl=" + dcpControl +
+          ", eventLoopGroup=" + eventLoopGroup.getClass().getSimpleName() +
+          ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
+          ", poolBuffers=" + poolBuffers +
+          ", bufferAckWatermark=" + bufferAckWatermark +
+          ", connectTimeout=" + connectTimeout +
+          ", bootstrapTimeout=" + bootstrapTimeout +
+          ", configRefreshInterval=" + configRefreshInterval +
+          ", sslEnabled=" + sslEnabled +
+          ", sslKeystoreFile='" + sslKeystoreFile + '\'' +
+          ", sslKeystorePassword=" + (sslKeystorePassword != null && !sslKeystorePassword.isEmpty()) +
+          ", sslKeystore=" + sslKeystore +
+          '}';
+    }
+
+    public Delay dcpChannelsReconnectDelay() {
+      return dcpChannelsReconnectDelay;
+    }
+
+    public int dcpChannelsReconnectMaxAttempts() {
+      return dcpChannelsReconnectMaxAttempts;
+    }
+  }
 }

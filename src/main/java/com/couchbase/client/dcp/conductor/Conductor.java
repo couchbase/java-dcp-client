@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
@@ -68,7 +68,7 @@ public class Conductor {
   private final BucketConfigArbiter bucketConfigArbiter;
   private final Set<DcpChannel> channels = ConcurrentHashMap.newKeySet();
   private volatile boolean stopped = true;
-  private final ClientEnvironment env;
+  private final Client.Environment env;
   private final AtomicReference<DcpBucketConfig> currentConfig = new AtomicReference<>();
   private final SessionState sessionState = new SessionState();
   private final DcpClientMetrics metrics;
@@ -80,7 +80,7 @@ public class Conductor {
   // Reaches zero when at least one configuration has been successfully applied.
   private final CountDownLatch configurationApplied = new CountDownLatch(1);
 
-  public Conductor(final ClientEnvironment env, DcpClientMetrics metrics) {
+  public Conductor(final Client.Environment env, DcpClientMetrics metrics) {
     this.metrics = requireNonNull(metrics);
     this.env = env;
     this.bucketConfigArbiter = new BucketConfigArbiter(env);

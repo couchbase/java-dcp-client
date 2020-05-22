@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.dcp.config.ClientEnvironment;
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpBufferAckRequest;
 import io.netty.buffer.ByteBuf;
@@ -48,7 +48,7 @@ public class ChannelFlowControllerImpl implements ChannelFlowController {
    */
   private int bufferAckCounter;
 
-  public ChannelFlowControllerImpl(Channel channel, ClientEnvironment environment) {
+  public ChannelFlowControllerImpl(Channel channel, Client.Environment environment) {
     this.channel = requireNonNull(channel);
     this.needsBufferAck = environment.dcpControl().bufferAckEnabled();
     if (needsBufferAck) {

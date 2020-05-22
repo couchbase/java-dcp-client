@@ -15,9 +15,9 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.buffer.DcpOps;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.BucketSelectRequest;
@@ -184,7 +184,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
    */
   private static final AttributeKey<Set<HelloFeature>> NEGOTIATED_FEATURES = AttributeKey.valueOf("negotiatedFeatures");
 
-  private final ClientEnvironment env;
+  private final Client.Environment env;
 
   /**
    * Generates the connection name for the dcp connection.
@@ -242,7 +242,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     return features;
   }
 
-  DcpConnectHandler(final ClientEnvironment env) {
+  DcpConnectHandler(final Client.Environment env) {
     this.env = requireNonNull(env);
     this.connectionNameGenerator = env.connectionNameGenerator();
     this.bucket = env.bucket();

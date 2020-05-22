@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpOps;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.state.AbstractStateMachine;
 import com.couchbase.client.dcp.core.state.LifecycleState;
@@ -129,12 +129,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
       Delay.exponential(TimeUnit.MILLISECONDS, 4096, 32),
       Duration.ofSeconds(10));
 
-  final ClientEnvironment env;
+  final Client.Environment env;
   final HostAndPort address;
   final AtomicBooleanArray streamIsOpen = new AtomicBooleanArray(1024);
   final Conductor conductor;
 
-  public DcpChannel(HostAndPort address, final ClientEnvironment env, final Conductor conductor) {
+  public DcpChannel(HostAndPort address, final Client.Environment env, final Conductor conductor) {
     super(LifecycleState.DISCONNECTED);
     this.address = address;
     this.env = env;

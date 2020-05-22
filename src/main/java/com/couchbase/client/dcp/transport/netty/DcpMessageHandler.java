@@ -15,10 +15,10 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.buffer.DcpRequestDispatcher;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
-import com.couchbase.client.dcp.config.ClientEnvironment;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpExpirationMessage;
@@ -141,7 +141,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
    * @param environment data event callback handler.
    * @param controlHandler control event handler.
    */
-  DcpMessageHandler(final Channel channel, final ClientEnvironment environment,
+  DcpMessageHandler(final Channel channel, final Client.Environment environment,
                     final DcpChannelControlHandler controlHandler,
                     final DcpChannelMetrics metrics) {
     this.dataEventHandler = environment.dataEventHandler();
