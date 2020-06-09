@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Command line driver for performance testing. See perf/README.md for more info.
  */
-class PerformanceTestDriver {
+public class PerformanceTestDriver {
 
   private static class Args {
     private String connectionString;
