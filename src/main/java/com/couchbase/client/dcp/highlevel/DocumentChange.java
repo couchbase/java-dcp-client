@@ -25,9 +25,14 @@ import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.MessageUtil;
 import io.netty.buffer.ByteBuf;
 
+import java.time.Instant;
+
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public abstract class DocumentChange implements DatabaseChangeEvent, FlowControllable {
+  private static final long NANOS_PER_SECOND = SECONDS.toNanos(1);
+
   private final int vbucket;
   private final StreamOffset offset;
   private final byte[] content;
@@ -90,6 +95,28 @@ public abstract class DocumentChange implements DatabaseChangeEvent, FlowControl
 
   public long getCas() {
     return cas;
+  }
+
+  /**
+   * Returns the time the change occurred.
+   * <p>
+   * <b>CAVEAT:</b> In order for the timestamp in the CAS to be reliable,
+   * the bucket must have been created by Couchbase Server 4.6 or later,
+   * and the document change must have been performed by Couchbase Server 7.0 or later.
+   * Even then, it's possible for a set_with_meta operation to assign an
+   * arbitrary CAS value (and therefore timestamp) to a document.
+   */
+  public Instant getTimestamp() {
+    // NOTE: The structure of a CAS value is Couchbase internal API.
+    // User-level code should treat CAS values as opaque.
+
+    // The low 16 bits contain a logical clock that isn't part of the timestamp.
+    long epochNano = cas & 0xffffffffffff0000L;
+
+    // Interpret as unsigned so this overflows in the year 2554 instead of 2262.
+    long epochSecond = Long.divideUnsigned(epochNano, NANOS_PER_SECOND);
+    long nanoAdjustment = Long.remainderUnsigned(epochNano, NANOS_PER_SECOND);
+    return Instant.ofEpochSecond(epochSecond, nanoAdjustment);
   }
 
   /**
