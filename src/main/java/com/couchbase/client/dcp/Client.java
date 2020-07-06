@@ -995,12 +995,21 @@ public class Client implements Closeable {
     private long persistencePollingIntervalMillis;
 
     /**
-     * Configures the client to receive only document keys and metadata (no contents).
+     * If the argument is true, configures the client to receive only
+     * document keys and metadata (no contents).
      *
      * @return this {@link Builder} for nice chainability.
      */
-    public Builder noValue() {
-      connectionFlags.add(OpenConnectionFlag.NO_VALUE);
+    public Builder noValue(boolean noValue) {
+      return setConnectionFlag(OpenConnectionFlag.NO_VALUE, noValue);
+    }
+
+    private Builder setConnectionFlag(OpenConnectionFlag flag, boolean value) {
+      if (value) {
+        connectionFlags.add(flag);
+      } else {
+        connectionFlags.remove(flag);
+      }
       return this;
     }
 
