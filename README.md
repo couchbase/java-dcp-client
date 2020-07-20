@@ -1,7 +1,7 @@
 # Couchbase Java DCP Client
 This repository contains a purely java-based implementation for a Couchbase DCP (Database Change Protocol) client.
 
-**Important: The `java-dcp-client` is not officially supported by Couchbase directly. It is used as a fundamental building block for higher-level (supported) libraries like our kafka or elasticsearch connectors. Use at your own Risk!** 
+**Important: The `java-dcp-client` is not officially supported by Couchbase directly. It is used as a fundamental building block for higher-level (supported) libraries like our kafka or elasticsearch connectors. Use at your own Risk!**
 
 
 It supports:
@@ -27,7 +27,7 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.28.0</version>
+    <version>0.29.0</version>
 </dependency>
 ```
 
