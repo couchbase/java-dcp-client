@@ -353,7 +353,10 @@ public class Client implements Closeable {
         final int vbucket = MessageUtil.getVbucket(event);
         final long seqno = DcpSeqnoAdvancedRequest.getSeqno(event);
         LOGGER.debug("Seqno for vbucket {} advanced to {}", vbucket, seqno);
-        sessionState().get(vbucket).setStartSeqno(seqno);
+
+        PartitionState ps = sessionState().get(vbucket);
+        ps.setStartSeqno(seqno);
+        ps.setSnapshot(new SnapshotMarker(seqno, seqno));
       }
 
       private void handleDcpSystemEvent(ByteBuf event) {

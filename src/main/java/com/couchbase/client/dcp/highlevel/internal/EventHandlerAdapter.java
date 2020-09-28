@@ -155,6 +155,8 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
         case MessageUtil.DCP_SEQNO_ADVANCED_OPCODE: {
           final int vbucket = MessageUtil.getVbucket(event);
           final long seqno = DcpSeqnoAdvancedRequest.getSeqno(event);
+          vbucketToCurrentSnapshot.set(vbucket, new SnapshotMarker(seqno, seqno));
+
           log.debug("vbucket {} seqno advanced to {}", vbucket, seqno);
           dispatch(new SeqnoAdvanced(vbucket, newOffset(vbucket, seqno)));
           return;
