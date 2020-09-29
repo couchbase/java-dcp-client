@@ -178,7 +178,6 @@ public class SessionState {
       }
     }
     failoverLog.removeAll(entriesToRemove);
-    partitionStates.set(partition, ps);
   }
 
   /**

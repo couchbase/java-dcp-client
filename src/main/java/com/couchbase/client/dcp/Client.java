@@ -316,11 +316,10 @@ public class Client implements Closeable {
         if (DcpSnapshotMarkerRequest.is(event)) {
           // Keep snapshot information in the session state, but also forward event to user
           short partition = DcpSnapshotMarkerRequest.partition(event);
-          PartitionState ps = sessionState().get(partition);
-          ps.setSnapshot(new SnapshotMarker(
-              DcpSnapshotMarkerRequest.startSeqno(event),
-              DcpSnapshotMarkerRequest.endSeqno(event)));
-          sessionState().set(partition, ps);
+          sessionState().get(partition)
+              .setSnapshot(new SnapshotMarker(
+                  DcpSnapshotMarkerRequest.startSeqno(event),
+                  DcpSnapshotMarkerRequest.endSeqno(event)));
         } else if (DcpFailoverLogResponse.is(event)) {
           handleFailoverLogResponse(event);
 
@@ -411,9 +410,8 @@ public class Client implements Closeable {
    */
   private void handleFailoverLogResponse(final ByteBuf event) {
     short partition = DcpFailoverLogResponse.vbucket(event);
-    PartitionState ps = sessionState().get(partition);
-    ps.setFailoverLog(DcpFailoverLogResponse.entries(event));
-    sessionState().set(partition, ps);
+    sessionState().get(partition)
+        .setFailoverLog(DcpFailoverLogResponse.entries(event));
   }
 
   /**
@@ -438,29 +436,16 @@ public class Client implements Closeable {
    * @param dataEventHandler the event handler to use.
    */
   public void dataEventHandler(final DataEventHandler dataEventHandler) {
-    env.setDataEventHandler(new DataEventHandler() {
-      @Override
-      public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        if (DcpMutationMessage.is(event)) {
-          short partition = DcpMutationMessage.partition(event);
-          PartitionState ps = sessionState().get(partition);
-          ps.setStartSeqno(DcpMutationMessage.bySeqno(event));
-          sessionState().set(partition, ps);
-        } else if (DcpDeletionMessage.is(event)) {
-          short partition = DcpDeletionMessage.partition(event);
-          PartitionState ps = sessionState().get(partition);
-          ps.setStartSeqno(DcpDeletionMessage.bySeqno(event));
-          sessionState().set(partition, ps);
-        } else if (DcpExpirationMessage.is(event)) {
-          short partition = DcpExpirationMessage.partition(event);
-          PartitionState ps = sessionState().get(partition);
-          ps.setStartSeqno(DcpExpirationMessage.bySeqno(event));
-          sessionState().set(partition, ps);
-        }
-
-        // Forward event to user.
-        dataEventHandler.onEvent(flowController, event);
+    env.setDataEventHandler((flowController, event) -> {
+      if (DcpMutationMessage.is(event) || DcpDeletionMessage.is(event) || DcpExpirationMessage.is(event)) {
+        short partition = MessageUtil.getVbucket(event);
+        long seqno = DcpMutationMessage.bySeqno(event); // works for deletion and expiry too
+        sessionState().get(partition)
+            .setStartSeqno(seqno);
       }
+
+      // Forward event to user.
+      dataEventHandler.onEvent(flowController, event);
     });
   }
 
