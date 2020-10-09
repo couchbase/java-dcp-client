@@ -159,13 +159,14 @@ public enum MessageUtil {
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
     short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     int bodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
+    byte dataType = getDataType(buffer);
 
     sb.append("Field          (offset) (value)\n-----------------------------------\n");
     sb.append(String.format("Magic          (0)      %s\n", formatMagic(buffer.getByte(0))));
     sb.append(String.format("Opcode         (1)      %s\n", formatOpcode(buffer.getByte(1))));
     sb.append(String.format("Key Length     (2,3)    0x%04x\n", keyLength));
     sb.append(String.format("Extras Length  (4)      0x%02x\n", extrasLength));
-    sb.append(String.format("Data Type      (5)      0x%02x\n", buffer.getByte(5)));
+    sb.append(String.format("Data Type      (5)      0x%02x (%s)\n", dataType, DataType.parse(dataType)));
     if (buffer.getByte(0) == MAGIC_REQ) {
       sb.append(String.format("VBucket        (6,7)    0x%04x\n", buffer.getShort(VBUCKET_OFFSET)));
     } else {
@@ -316,16 +317,20 @@ public enum MessageUtil {
    * <p>
    * Callers need not release the returned buffer, since it either shares its
    * reference count with the given buffer, or is unpooled and not leak-aware.
+   * <p>
+   * If XATTRs were requested, they will be included in the returned buffer.
    */
   public static ByteBuf getContent(ByteBuf buffer) {
     final ByteBuf rawContent = getRawContent(buffer);
     return isSnappyCompressed(buffer) ? Unpooled.wrappedBuffer(getContentAsByteArray(buffer)) : rawContent;
   }
 
+  public static ContentAndXattrs getContentAndXattrs(ByteBuf buffer) {
+    return ContentAndXattrs.parse(getDataType(buffer), getContentAsByteArray(buffer));
+  }
+
   public static boolean isSnappyCompressed(ByteBuf buffer) {
-    final byte DATA_TYPE_SNAPPY = 0x02;
-    final byte dataType = buffer.getByte(DATA_TYPE_OFFSET);
-    return (dataType & DATA_TYPE_SNAPPY) == DATA_TYPE_SNAPPY;
+    return DataType.contains(MessageUtil.getDataType(buffer), DataType.SNAPPY);
   }
 
   public static String getContentAsString(ByteBuf buffer) {
@@ -334,6 +339,8 @@ public enum MessageUtil {
 
   /**
    * Returns a new array containing the uncompressed content of the given message.
+   * <p>
+   * If XATTRs were requested, they will be included in the returned byte array.
    */
   public static byte[] getContentAsByteArray(ByteBuf buffer) {
     final ByteBuf rawContent = getRawContent(buffer);

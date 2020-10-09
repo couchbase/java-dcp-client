@@ -36,6 +36,7 @@ import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
+import com.couchbase.client.dcp.highlevel.DocumentChange;
 import com.couchbase.client.dcp.highlevel.FlowControlMode;
 import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
@@ -985,11 +986,31 @@ public class Client implements Closeable {
     /**
      * If the argument is true, configures the client to receive only
      * document keys and metadata (no contents).
+     * <p>
+     * Defaults to false.
      *
      * @return this {@link Builder} for nice chainability.
      */
     public Builder noValue(boolean noValue) {
       return setConnectionFlag(OpenConnectionFlag.NO_VALUE, noValue);
+    }
+
+    /**
+     * If the argument is true, configures the client to receive
+     * extended attributes (XATTRS).
+     * <p>
+     * Defaults to false.
+     * <p>
+     * If set to true, users of the low-level API may call
+     * {@link MessageUtil#getContentAndXattrs(ByteBuf)}
+     * to parse the content and XATTRs of mutation requests.
+     * Users of the high-level API may view XATTRs by calling
+     * {@link DocumentChange#getXattrs()}.
+     *
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder xattrs(boolean xattrs) {
+      return setConnectionFlag(OpenConnectionFlag.INCLUDE_XATTRS, xattrs);
     }
 
     private Builder setConnectionFlag(OpenConnectionFlag flag, boolean value) {
