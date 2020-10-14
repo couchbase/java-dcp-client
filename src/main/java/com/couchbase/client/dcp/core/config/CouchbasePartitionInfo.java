@@ -36,8 +36,8 @@ public class CouchbasePartitionInfo {
   CouchbasePartitionInfo(
       @JsonProperty("numReplicas") int numberOfReplicas,
       @JsonProperty("serverList") List<String> partitionHosts,
-      @JsonProperty("vBucketMap") List<List<Short>> partitions,
-      @JsonProperty("vBucketMapForward") List<List<Short>> forwardPartitions) {
+      @JsonProperty("vBucketMap") List<List<Integer>> partitions,
+      @JsonProperty("vBucketMapForward") List<List<Integer>> forwardPartitions) {
     this.numberOfReplicas = numberOfReplicas;
     this.partitionHosts = partitionHosts.toArray(new String[partitionHosts.size()]);
     this.partitions = fromPartitionList(partitions);
@@ -74,20 +74,20 @@ public class CouchbasePartitionInfo {
     return tainted;
   }
 
-  private static List<Partition> fromPartitionList(List<List<Short>> input) {
-    List<Partition> partitions = new ArrayList<Partition>();
+  private static List<Partition> fromPartitionList(List<List<Integer>> input) {
+    List<Partition> partitions = new ArrayList<>();
     if (input == null) {
       return partitions;
     }
 
-    for (List<Short> partition : input) {
-      short master = partition.remove(0);
-      short[] replicas = new short[partition.size()];
+    for (List<Integer> partition : input) {
+      int primary = partition.remove(0);
+      int[] replicas = new int[partition.size()];
       int i = 0;
-      for (short replica : partition) {
+      for (int replica : partition) {
         replicas[i++] = replica;
       }
-      partitions.add(new DefaultPartition(master, replicas));
+      partitions.add(new DefaultPartition(primary, replicas));
     }
     return partitions;
   }

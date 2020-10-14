@@ -75,7 +75,7 @@ public enum DcpSnapshotMarkerRequest {
         + "]";
   }
 
-  public static short partition(final ByteBuf buffer) {
+  public static int partition(final ByteBuf buffer) {
     return MessageUtil.getVbucket(buffer);
   }
 }

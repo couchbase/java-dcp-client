@@ -27,10 +27,10 @@ import java.util.Map;
  * Event published when stream has stopped activity.
  */
 public class StreamEndEvent implements CouchbaseEvent {
-  private final short partition;
+  private final int partition;
   private final StreamEndReason reason;
 
-  public StreamEndEvent(short partition, StreamEndReason reason) {
+  public StreamEndEvent(int partition, StreamEndReason reason) {
     this.partition = partition;
     this.reason = reason;
   }
@@ -40,7 +40,7 @@ public class StreamEndEvent implements CouchbaseEvent {
     return EventType.SYSTEM;
   }
 
-  public short partition() {
+  public int partition() {
     return partition;
   }
 

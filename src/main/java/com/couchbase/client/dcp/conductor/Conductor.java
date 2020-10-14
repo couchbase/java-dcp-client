@@ -192,7 +192,7 @@ public class Conductor {
         );
   }
 
-  public Single<ByteBuf> getFailoverLog(final short partition) {
+  public Single<ByteBuf> getFailoverLog(final int partition) {
     return Observable
         .just(partition)
         .map(ignored -> activeChannelByPartition(partition))
@@ -205,7 +205,7 @@ public class Conductor {
         ).toSingle();
   }
 
-  public Completable startStreamForPartition(final short partition, final StreamOffset startOffset, final long endSeqno) {
+  public Completable startStreamForPartition(final int partition, final StreamOffset startOffset, final long endSeqno) {
     return Observable
         .just(partition)
         .map(ignored -> activeChannelByPartition(partition))
@@ -228,7 +228,7 @@ public class Conductor {
         .toCompletable();
   }
 
-  public Completable stopStreamForPartition(final short partition) {
+  public Completable stopStreamForPartition(final int partition) {
     if (streamIsOpen(partition)) {
       DcpChannel channel = activeChannelByPartition(partition);
       return channel.closeStream(partition);
@@ -237,7 +237,7 @@ public class Conductor {
     }
   }
 
-  public boolean streamIsOpen(final short partition) {
+  public boolean streamIsOpen(final int partition) {
     DcpChannel channel = activeChannelByPartition(partition);
     return channel.streamIsOpen(partition);
   }
@@ -249,7 +249,7 @@ public class Conductor {
    * Note that this doesn't mean that the partition is enabled there, it just checks the current
    * mapping.
    */
-  private DcpChannel activeChannelByPartition(short partition) {
+  private DcpChannel activeChannelByPartition(int partition) {
     final HostAndPort address = currentConfig.get().getActiveNodeKvAddress(partition);
     for (DcpChannel ch : channels) {
       if (ch.address().equals(address)) {
@@ -332,7 +332,7 @@ public class Conductor {
 
     LOGGER.info("Removing DCP Channel against {}", system(node));
 
-    for (short partition = 0; partition < node.streamIsOpen.length(); partition++) {
+    for (int partition = 0; partition < node.streamIsOpen.length(); partition++) {
       if (node.streamIsOpen(partition)) {
         maybeMovePartition(partition);
       }
@@ -365,7 +365,7 @@ public class Conductor {
    *
    * @param partition the partition to move if needed
    */
-  void maybeMovePartition(final short partition) {
+  void maybeMovePartition(final int partition) {
     Observable
         .timer(50, TimeUnit.MILLISECONDS)
         .filter(ignored -> {

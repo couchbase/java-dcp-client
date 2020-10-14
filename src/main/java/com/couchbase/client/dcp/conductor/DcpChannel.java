@@ -229,7 +229,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
                     // See also: DcpChannelControlHandler.filterDcpStreamEndMessage() which
                     // does something similar.
                     if (env.persistencePollingEnabled()) {
-                      for (short vbid = 0; vbid < streamIsOpen.length(); vbid++) {
+                      for (int vbid = 0; vbid < streamIsOpen.length(); vbid++) {
                         if (streamIsOpen.get(vbid)) {
                           env.streamEventBuffer().clear(vbid);
                         }
@@ -283,7 +283,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           @Override
           public void onCompleted() {
             LOGGER.debug("Completed Node connect for DCP channel {}", address);
-            for (short vbid = 0; vbid < streamIsOpen.length(); vbid++) {
+            for (int vbid = 0; vbid < streamIsOpen.length(); vbid++) {
               if (streamIsOpen.get(vbid)) {
                 conductor.maybeMovePartition(vbid);
               }
@@ -423,7 +423,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     });
   }
 
-  public Completable openStream(final short vbid, final StreamOffset startOffset, final long endSeqno, CollectionsManifest manifest) {
+  public Completable openStream(final int vbid, final StreamOffset startOffset, final long endSeqno, CollectionsManifest manifest) {
     return Completable.create(new Completable.OnSubscribe() {
       @Override
       public void call(final CompletableSubscriber subscriber) {
@@ -588,7 +588,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         .collect(toList());
   }
 
-  public Completable closeStream(final short vbid) {
+  public Completable closeStream(final int vbid) {
     return Completable.create(new Completable.OnSubscribe() {
       @Override
       public void call(final CompletableSubscriber subscriber) {
@@ -656,7 +656,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     });
   }
 
-  public Single<ByteBuf> getFailoverLog(final short vbid) {
+  public Single<ByteBuf> getFailoverLog(final int vbid) {
     return Single.create(new Single.OnSubscribe<ByteBuf>() {
       @Override
       public void call(final SingleSubscriber<? super ByteBuf> subscriber) {
@@ -699,7 +699,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     });
   }
 
-  public boolean streamIsOpen(short vbid) {
+  public boolean streamIsOpen(int vbid) {
     return streamIsOpen.get(vbid);
   }
 

@@ -49,7 +49,7 @@ public class DcpChannelControlHandler implements ControlEventHandler {
 
   private void filterDcpStreamEndMessage(ChannelFlowController flowController, ByteBuf buf) {
     try {
-      final short vbid = DcpStreamEndMessage.vbucket(buf);
+      final int vbid = DcpStreamEndMessage.vbucket(buf);
       final StreamEndReason reason = DcpStreamEndMessage.reason(buf);
       LOGGER.debug("Server closed Stream on vbid {} with reason {}", vbid, reason);
 

@@ -35,11 +35,11 @@ public enum DcpFailoverLogResponse {
     MessageUtil.initResponse(DCP_FAILOVER_LOG_OPCODE, buffer);
   }
 
-  public static void vbucket(final ByteBuf buffer, final short vbid) {
+  public static void vbucket(final ByteBuf buffer, final int vbid) {
     MessageUtil.setVbucket(vbid, buffer);
   }
 
-  public static short vbucket(final ByteBuf buffer) {
+  public static int vbucket(final ByteBuf buffer) {
     int vbOffset = MessageUtil.getContent(buffer).readableBytes() - 2;
     return MessageUtil.getContent(buffer).getShort(vbOffset);
   }

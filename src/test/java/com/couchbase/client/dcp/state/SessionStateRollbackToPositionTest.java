@@ -40,7 +40,7 @@ public class SessionStateRollbackToPositionTest {
     partitionState.setSnapshot(new SnapshotMarker(2, 3));
     sessionState.set(0, partitionState);
 
-    sessionState.rollbackToPosition((short) 0, 1L);
+    sessionState.rollbackToPosition(0, 1L);
     assertEquals(1, partitionState.getStartSeqno());
     assertEquals(1, partitionState.getSnapshotStartSeqno());
     assertEquals(1, partitionState.getSnapshotEndSeqno());

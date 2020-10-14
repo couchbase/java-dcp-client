@@ -51,9 +51,9 @@ public enum HelloFeature {
   PRESERVE_TTL(0x0014),
   VATTR(0x0015);
 
-  private final short code;
+  private final int code;
 
-  private static final Map<Short, HelloFeature> codeToFeature = unmodifiableMap(
+  private static final Map<Integer, HelloFeature> codeToFeature = unmodifiableMap(
       Arrays.stream(values())
           .collect(toMap(HelloFeature::code, f -> f)));
 
@@ -61,7 +61,7 @@ public enum HelloFeature {
     if (code < 0 || code > 0xffff) {
       throw new IllegalArgumentException("code doesn't fit in 2 bytes");
     }
-    this.code = (short) code;
+    this.code = code;
   }
 
   public boolean isEnabled(Channel channel) {
@@ -72,11 +72,11 @@ public enum HelloFeature {
     return isEnabled(ctx.channel());
   }
 
-  public short code() {
+  public int code() {
     return code;
   }
 
-  public static HelloFeature forCode(short code) {
+  public static HelloFeature forCode(int code) {
     HelloFeature f = codeToFeature.get(code);
     if (f == null) {
       throw new IllegalArgumentException("Unrecognized feature code: " + code);

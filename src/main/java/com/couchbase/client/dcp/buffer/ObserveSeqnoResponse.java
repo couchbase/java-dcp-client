@@ -21,7 +21,7 @@ import io.netty.buffer.ByteBuf;
 
 class ObserveSeqnoResponse {
   private final boolean didFailover;
-  private final short vbid;
+  private final int vbid;
   private final long vbuuid;
   private final long persistSeqno;
   private final long currentSeqno;
@@ -43,7 +43,7 @@ class ObserveSeqnoResponse {
     return didFailover;
   }
 
-  public short vbid() {
+  public int vbid() {
     return vbid;
   }
 

@@ -59,7 +59,7 @@ public class PrintIncomingChanges {
           flowController.ack(event);
         }
         if (RollbackMessage.is(event)) {
-          final short partition = RollbackMessage.vbucket(event);
+          final int partition = RollbackMessage.vbucket(event);
           client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
               .subscribe(new CompletableSubscriber() {
                 @Override

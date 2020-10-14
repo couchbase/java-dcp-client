@@ -33,7 +33,7 @@ public interface CouchbaseBucketConfig extends BucketConfig {
    * @param useFastForward if the fast forward config should be used.
    * @return the index of the node.
    */
-  short nodeIndexForMaster(int partition, boolean useFastForward);
+  int nodeIndexForMaster(int partition, boolean useFastForward);
 
   /**
    * Returns the node index for the given partition index and the replica.
@@ -43,7 +43,7 @@ public interface CouchbaseBucketConfig extends BucketConfig {
    * @param useFastForward if the fast forward config should be used.
    * @return the index of the node.
    */
-  short nodeIndexForReplica(int partition, int replica, boolean useFastForward);
+  int nodeIndexForReplica(int partition, int replica, boolean useFastForward);
 
   /**
    * Returns the total number of partitions.

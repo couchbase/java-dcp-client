@@ -38,7 +38,7 @@ public enum DcpOpenStreamRequest {
    * Initializes the complete extras needed with 0 and can be overridden through the setters available.
    * If no setters are used this message is effectively a backfill for the given vbucket.
    */
-  public static void init(final ByteBuf buffer, Set<StreamFlags> flags, short vbucket) {
+  public static void init(final ByteBuf buffer, Set<StreamFlags> flags, int vbucket) {
     MessageUtil.initRequest(DCP_STREAM_REQUEST_OPCODE, buffer);
 
     MessageUtil.setVbucket(vbucket, buffer);

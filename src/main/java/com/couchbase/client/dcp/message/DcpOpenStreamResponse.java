@@ -27,7 +27,7 @@ public enum DcpOpenStreamResponse {
     return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == DCP_STREAM_REQUEST_OPCODE;
   }
 
-  public static short vbucket(ByteBuf buffer) {
+  public static int vbucket(ByteBuf buffer) {
     return MessageUtil.getVbucket(buffer);
   }
 

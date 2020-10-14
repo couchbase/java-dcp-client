@@ -103,8 +103,6 @@ public enum CompressionMode {
     }
   };
 
-  private static final short[] EMPTY_SHORT_ARRAY = new short[0];
-
   /**
    * Vulcan supports {@link #DISABLED}, {@link #FORCED}, and {@link #ENABLED}.
    * <p>

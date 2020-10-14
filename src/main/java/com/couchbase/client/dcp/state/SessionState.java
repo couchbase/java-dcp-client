@@ -163,7 +163,7 @@ public class SessionState {
    * @param partition the partition to rollback
    * @param seqno the sequence number where to roll it back to.
    */
-  public void rollbackToPosition(short partition, long seqno) {
+  public void rollbackToPosition(int partition, long seqno) {
     PartitionState ps = partitionStates.get(partition);
     ps.setStartSeqno(seqno);
     ps.setSnapshot(new SnapshotMarker(seqno, seqno));

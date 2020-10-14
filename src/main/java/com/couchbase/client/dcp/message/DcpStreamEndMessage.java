@@ -26,7 +26,7 @@ public enum DcpStreamEndMessage {
     return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_STREAM_END_OPCODE;
   }
 
-  public static short vbucket(final ByteBuf buffer) {
+  public static int vbucket(final ByteBuf buffer) {
     return MessageUtil.getVbucket(buffer);
   }
 

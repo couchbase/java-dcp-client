@@ -76,7 +76,6 @@ import rx.Completable;
 import rx.CompletableSubscriber;
 import rx.Observable;
 import rx.Scheduler;
-import rx.Single;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Action1;
@@ -109,6 +108,7 @@ import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.core.utils.CbCollections.isNullOrEmpty;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -316,7 +316,7 @@ public class Client implements Closeable {
       public void onEvent(ChannelFlowController flowController, ByteBuf event) {
         if (DcpSnapshotMarkerRequest.is(event)) {
           // Keep snapshot information in the session state, but also forward event to user
-          short partition = DcpSnapshotMarkerRequest.partition(event);
+          int partition = DcpSnapshotMarkerRequest.partition(event);
           sessionState().get(partition)
               .setSnapshot(new SnapshotMarker(
                   DcpSnapshotMarkerRequest.startSeqno(event),
@@ -410,7 +410,7 @@ public class Client implements Closeable {
    * @param event the buffer representing the {@link DcpFailoverLogResponse}.
    */
   private void handleFailoverLogResponse(final ByteBuf event) {
-    short partition = DcpFailoverLogResponse.vbucket(event);
+    int partition = DcpFailoverLogResponse.vbucket(event);
     sessionState().get(partition)
         .setFailoverLog(DcpFailoverLogResponse.entries(event));
   }
@@ -439,7 +439,7 @@ public class Client implements Closeable {
   public void dataEventHandler(final DataEventHandler dataEventHandler) {
     env.setDataEventHandler((flowController, event) -> {
       if (DcpMutationMessage.is(event) || DcpDeletionMessage.is(event) || DcpExpirationMessage.is(event)) {
-        short partition = MessageUtil.getVbucket(event);
+        int partition = MessageUtil.getVbucket(event);
         long seqno = DcpMutationMessage.bySeqno(event); // works for deletion and expiry too
         sessionState().get(partition)
             .setStartSeqno(seqno);
@@ -540,13 +540,32 @@ public class Client implements Closeable {
     vbucketToOffset.forEach((partition, offset) ->
         sessionState().set(partition, PartitionState.fromOffset(offset)));
 
-    return startStreaming(toBoxedShortArray(vbucketToOffset.keySet()));
+    return startStreaming(vbucketToOffset.keySet());
   }
 
-  private static Short[] toBoxedShortArray(Iterable<? extends Number> input) {
-    List<Short> shorts = new ArrayList<>();
-    input.forEach(i -> shorts.add(i.shortValue()));
-    return shorts.toArray(new Short[0]);
+  private static List<Integer> toIntList(Short... shorts) {
+    List<Integer> result = new ArrayList<>();
+    for (Short s : shorts) {
+      result.add((int) s);
+    }
+    return result;
+  }
+
+  /**
+   * @deprecated Please use {@link #startStreaming(Collection)} instead.
+   */
+  @Deprecated
+  public Completable startStreaming(Short... vbids) {
+    return startStreaming(toIntList(vbids));
+  }
+
+  /**
+   * Start streaming for all partitions.
+   *
+   * @return a {@link Completable} indicating that streaming has started or failed.
+   */
+  public Completable startStreaming() {
+    return startStreaming(emptyList());
   }
 
   /**
@@ -557,14 +576,14 @@ public class Client implements Closeable {
    * @param vbids the partition ids (0-indexed) to start streaming for.
    * @return a {@link Completable} indicating that streaming has started or failed.
    */
-  public Completable startStreaming(Short... vbids) {
+  public Completable startStreaming(Collection<Integer> vbids) {
     int numPartitions = numPartitions();
-    final List<Short> partitions = partitionsForVbids(numPartitions, vbids);
+    final List<Integer> partitions = partitionsForVbids(numPartitions, vbids);
 
-    List<Short> initializedPartitions = selectInitializedPartitions(numPartitions, partitions);
+    List<Integer> initializedPartitions = selectInitializedPartitions(numPartitions, partitions);
 
-    List<Short> noopPartitions = new ArrayList<>();
-    for (short p : partitions) {
+    List<Integer> noopPartitions = new ArrayList<>();
+    for (int p : partitions) {
       if (!initializedPartitions.contains(p)) {
         noopPartitions.add(p);
       }
@@ -587,19 +606,16 @@ public class Client implements Closeable {
 
     return Observable
         .from(initializedPartitions)
-        .flatMapCompletable(new Func1<Short, Completable>() {
-          @Override
-          public Completable call(Short partition) {
-            PartitionState partitionState = sessionState().get(partition);
-            return conductor.startStreamForPartition(
-                partition,
-                partitionState.getOffset(),
-                partitionState.getEndSeqno()
-            ).onErrorResumeNext(throwable ->
-                (throwable instanceof RollbackException)
-                    ? Completable.complete() // Ignore rollbacks since they are handled out of band.
-                    : Completable.error(throwable));
-          }
+        .flatMapCompletable(partition -> {
+          PartitionState partitionState = sessionState().get(partition);
+          return conductor.startStreamForPartition(
+              partition,
+              partitionState.getOffset(),
+              partitionState.getEndSeqno()
+          ).onErrorResumeNext(throwable ->
+              (throwable instanceof RollbackException)
+                  ? Completable.complete() // Ignore rollbacks since they are handled out of band.
+                  : Completable.error(throwable));
         })
         .toCompletable();
   }
@@ -608,11 +624,11 @@ public class Client implements Closeable {
    * Helper method to check on stream start that some kind of state is initialized to avoid a common error
    * of starting without initializing.
    */
-  private List<Short> selectInitializedPartitions(int clusterPartitions, List<Short> partitions) {
-    List<Short> initializedPartitions = new ArrayList<>();
+  private List<Integer> selectInitializedPartitions(int clusterPartitions, List<Integer> partitions) {
+    List<Integer> initializedPartitions = new ArrayList<>();
     SessionState state = sessionState();
 
-    for (short partition : partitions) {
+    for (int partition : partitions) {
       PartitionState ps = state.get(partition);
       if (ps != null) {
         if (lessThanUnsigned(ps.getStartSeqno(), ps.getEndSeqno())) {
@@ -634,26 +650,34 @@ public class Client implements Closeable {
   }
 
   /**
+   * @deprecated Please use {@link #stopStreaming(Collection)} instead.
+   */
+  @Deprecated
+  public Completable stopStreaming(Short... vbids) {
+    return stopStreaming(toIntList(vbids));
+  }
+
+  /**
    * Stop DCP streams for the given partition IDs (vbids).
    * <p>
    * If no ids are provided, all partitions will be stopped. Note that you can also use this to "pause" streams
-   * if {@link #startStreaming(Short...)} is called later - since the session state is persisted and streaming
+   * if {@link #startStreaming} is called later - since the session state is persisted and streaming
    * will resume from the current position.
    *
    * @param vbids the partition ids (0-indexed) to stop streaming for.
    * @return a {@link Completable} indicating that streaming has stopped or failed.
    */
-  public Completable stopStreaming(Short... vbids) {
-    List<Short> partitions = partitionsForVbids(numPartitions(), vbids);
+  public Completable stopStreaming(Collection<Integer> vbids) {
+    List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
 
     LOGGER.info("Stopping to Stream for " + partitions.size() + " partitions");
     LOGGER.debug("Stream stop against partitions: {}", partitions);
 
     return Observable
         .from(partitions)
-        .flatMapCompletable(new Func1<Short, Completable>() {
+        .flatMapCompletable(new Func1<Integer, Completable>() {
           @Override
-          public Completable call(Short p) {
+          public Completable call(Integer p) {
             return conductor.stopStreamForPartition(p);
           }
         })
@@ -667,17 +691,26 @@ public class Client implements Closeable {
    * @param vbids the potentially empty array of selected vbids.
    * @return a sorted list of partitions to use.
    */
-  private static List<Short> partitionsForVbids(int numPartitions, Short... vbids) {
-    if (vbids.length > 0) {
-      Arrays.sort(vbids);
-      return Arrays.asList(vbids);
+  private static List<Integer> partitionsForVbids(int numPartitions, Collection<Integer> vbids) {
+    if (!vbids.isEmpty()) {
+      List<Integer> result = new ArrayList<>(vbids);
+      Collections.sort(result);
+      return result;
     }
 
-    List<Short> partitions = new ArrayList<>(vbids.length);
-    for (short i = 0; i < numPartitions; i++) {
+    List<Integer> partitions = new ArrayList<>();
+    for (int i = 0; i < numPartitions; i++) {
       partitions.add(i);
     }
     return partitions;
+  }
+
+  /**
+   * @deprecated Please use {@link #failoverLogs(Collection)} instead.
+   */
+  @Deprecated
+  public Observable<ByteBuf> failoverLogs(Short... vbids) {
+    return failoverLogs(toIntList(vbids));
   }
 
   /**
@@ -689,19 +722,14 @@ public class Client implements Closeable {
    * @param vbids the partitions to return the failover logs from.
    * @return an {@link Observable} containing all failover logs.
    */
-  public Observable<ByteBuf> failoverLogs(Short... vbids) {
-    List<Short> partitions = partitionsForVbids(numPartitions(), vbids);
+  public Observable<ByteBuf> failoverLogs(Collection<Integer> vbids) {
+    List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
 
     LOGGER.debug("Asking for failover logs on partitions {}", partitions);
 
     return Observable
         .from(partitions)
-        .flatMapSingle(new Func1<Short, Single<ByteBuf>>() {
-          @Override
-          public Single<ByteBuf> call(Short p) {
-            return conductor.getFailoverLog(p);
-          }
-        });
+        .flatMapSingle(conductor::getFailoverLog);
   }
 
   /**
@@ -717,8 +745,8 @@ public class Client implements Closeable {
    * @param partition the partition id
    * @param seqno the sequence number to rollback to
    */
-  public Completable rollbackAndRestartStream(final short partition, final long seqno) {
-    return stopStreaming(partition)
+  public Completable rollbackAndRestartStream(final int partition, final long seqno) {
+    return stopStreaming(singletonList(partition))
         .andThen(Completable.create(new Completable.OnSubscribe() {
           @Override
           public void call(CompletableSubscriber subscriber) {
@@ -726,7 +754,7 @@ public class Client implements Closeable {
             subscriber.onCompleted();
           }
         }))
-        .andThen(startStreaming(partition));
+        .andThen(startStreaming(singletonList(partition)));
   }
 
 
@@ -749,7 +777,7 @@ public class Client implements Closeable {
    * @param vbid the partition id.
    * @return true if it is open, false otherwise.
    */
-  public boolean streamIsOpen(short vbid) {
+  public boolean streamIsOpen(int vbid) {
     return conductor.streamIsOpen(vbid);
   }
 
@@ -868,7 +896,7 @@ public class Client implements Closeable {
     return initWithCallback(new Action1<PartitionAndSeqno>() {
       @Override
       public void call(PartitionAndSeqno partitionAndSeqno) {
-        short partition = partitionAndSeqno.partition();
+        int partition = partitionAndSeqno.partition();
         long seqno = partitionAndSeqno.seqno();
         PartitionState partitionState = sessionState().get(partition);
         partitionState.setStartSeqno(seqno);
@@ -885,7 +913,7 @@ public class Client implements Closeable {
     return initWithCallback(new Action1<PartitionAndSeqno>() {
       @Override
       public void call(PartitionAndSeqno partitionAndSeqno) {
-        short partition = partitionAndSeqno.partition();
+        int partition = partitionAndSeqno.partition();
         long seqno = partitionAndSeqno.seqno();
         PartitionState partitionState = sessionState().get(partition);
         partitionState.setEndSeqno(seqno);
@@ -905,27 +933,19 @@ public class Client implements Closeable {
 
     return getSeqnos()
         .doOnNext(callback)
-        .reduce(new ArrayList<>(), new Func2<List<Short>, PartitionAndSeqno, List<Short>>() {
+        .reduce(new ArrayList<>(), new Func2<List<Integer>, PartitionAndSeqno, List<Integer>>() {
           @Override
-          public List<Short> call(List<Short> partitions, PartitionAndSeqno partitionAndSeqno) {
+          public List<Integer> call(List<Integer> partitions, PartitionAndSeqno partitionAndSeqno) {
             partitions.add(partitionAndSeqno.partition());
             return partitions;
           }
         })
-        .flatMap(new Func1<List<Short>, Observable<ByteBuf>>() {
-          @Override
-          public Observable<ByteBuf> call(List<Short> partitions) {
-            return failoverLogs(partitions.toArray(new Short[]{}));
-          }
-        })
-        .map(new Func1<ByteBuf, Short>() {
-          @Override
-          public Short call(ByteBuf buf) {
-            short partition = DcpFailoverLogResponse.vbucket(buf);
-            handleFailoverLogResponse(buf);
-            buf.release();
-            return partition;
-          }
+        .flatMap(this::failoverLogs)
+        .map(buf -> {
+          int partition = DcpFailoverLogResponse.vbucket(buf);
+          handleFailoverLogResponse(buf);
+          buf.release();
+          return partition;
         }).last().toCompletable();
   }
 
@@ -933,15 +953,15 @@ public class Client implements Closeable {
    * An immutable pair consisting of a partition and an associated sequence number.
    */
   private static class PartitionAndSeqno {
-    private final short partition;
+    private final int partition;
     private final long seqno;
 
-    public PartitionAndSeqno(short partition, long seqno) {
+    public PartitionAndSeqno(int partition, long seqno) {
       this.partition = partition;
       this.seqno = seqno;
     }
 
-    public short partition() {
+    public int partition() {
       return partition;
     }
 

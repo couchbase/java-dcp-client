@@ -134,7 +134,7 @@ public class PersistedSeqnos {
     return update(partitionInstance.partition(), partitionInstance.slot(), vbuuid, seqno);
   }
 
-  public synchronized long update(final short partition, final int slot, final long vbuuid, final long seqno) {
+  public synchronized long update(final int partition, final int slot, final long vbuuid, final long seqno) {
     VbuuidAndSeqno vbuuidAndSeqno = partitionInfo[partition].get(slot);
     vbuuidAndSeqno.vbuuid = vbuuid;
     vbuuidAndSeqno.seqno = seqno;

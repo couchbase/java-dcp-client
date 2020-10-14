@@ -30,7 +30,7 @@ public enum DcpFailoverLogRequest {
     MessageUtil.initRequest(DCP_FAILOVER_LOG_OPCODE, buffer);
   }
 
-  public static void vbucket(final ByteBuf buffer, final short vbid) {
+  public static void vbucket(final ByteBuf buffer, final int vbid) {
     MessageUtil.setVbucket(vbid, buffer);
   }
 

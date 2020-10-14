@@ -22,7 +22,7 @@ public interface Partition {
    *
    * @return the master node index.
    */
-  short master();
+  int primary();
 
   /**
    * Returns the replica index for this partition.
@@ -30,5 +30,5 @@ public interface Partition {
    * @param num number of replica.
    * @return the replica node index, -1 if not set.
    */
-  short replica(int num);
+  int replica(int num);
 }

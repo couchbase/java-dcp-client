@@ -104,7 +104,7 @@ public class DcpOpsImpl implements DcpOps {
    */
   static class DcpRequestBuilder {
     private final byte opcode;
-    private short vbucket;
+    private int vbucket;
     private ByteBuf content;
     private boolean used;
 
@@ -117,7 +117,7 @@ public class DcpOpsImpl implements DcpOps {
     }
 
     DcpRequestBuilder vbucket(int vbucket) {
-      this.vbucket = (short) vbucket;
+      this.vbucket = vbucket;
       return this;
     }
 

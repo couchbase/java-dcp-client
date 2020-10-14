@@ -59,7 +59,7 @@ public class Rollback implements DatabaseChangeEvent {
    * Reopens the stream starting from the rollback point, without any snapshot information.
    */
   public void resume() {
-    client.rollbackAndRestartStream((short) vbucket, seqno)
+    client.rollbackAndRestartStream(vbucket, seqno)
         .retryWhen(any()
             .max(Integer.MAX_VALUE)
             .delay(Delay.exponential(TimeUnit.MILLISECONDS, TimeUnit.SECONDS.toMillis(5)))

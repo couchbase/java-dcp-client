@@ -116,12 +116,12 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     if (DcpMutationMessage.is(event) || DcpDeletionMessage.is(event) || DcpExpirationMessage.is(event)) {
       // Mutation, deletion, and expiration messages all have seqno in same location.
       final long seqno = DcpMutationMessage.bySeqno(event);
-      final short vbucket = MessageUtil.getVbucket(event);
+      final int vbucket = MessageUtil.getVbucket(event);
       enqueue(vbucket, new BufferedEvent(seqno, event, flowController, DATA));
 
     } else if (DcpSnapshotMarkerRequest.is(event)) {
       final long seqno = DcpSnapshotMarkerRequest.startSeqno(event);
-      final short vbucket = MessageUtil.getVbucket(event);
+      final int vbucket = MessageUtil.getVbucket(event);
       enqueue(vbucket, new BufferedEvent(seqno, event, flowController, CONTROL));
 
     } else if (RollbackMessage.is(event)) {
@@ -129,12 +129,12 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
       controlEventHandler.onEvent(flowController, event);
 
     } else if (DcpSystemEventRequest.is(event)) {
-      final short vbucket = MessageUtil.getVbucket(event);
+      final int vbucket = MessageUtil.getVbucket(event);
       final long seqno = DcpSystemEventRequest.getSeqno(event);
       enqueue(vbucket, new BufferedEvent(seqno, event, flowController, CONTROL));
 
     } else if (DcpSeqnoAdvancedRequest.is(event)) {
-      final short vbucket = MessageUtil.getVbucket(event);
+      final int vbucket = MessageUtil.getVbucket(event);
       final long seqno = DcpSeqnoAdvancedRequest.getSeqno(event);
       enqueue(vbucket, new BufferedEvent(seqno, event, flowController, CONTROL));
 
@@ -174,7 +174,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     }
   }
 
-  private void enqueue(short vbucket, BufferedEvent event) {
+  private void enqueue(int vbucket, BufferedEvent event) {
     final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
     synchronized (queue) {
       queue.add(event);
@@ -184,7 +184,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
   /**
    * Discard all buffered events in the given vbucket.
    */
-  public void clear(final short vbucket) {
+  public void clear(final int vbucket) {
     final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
     synchronized (queue) {
       LOGGER.debug("Clearing stream event buffer for partition {}", vbucket);
@@ -199,7 +199,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
    * Discard any buffered events in the given vBucket with sequence numbers
    * higher than the given sequence number.
    */
-  private void rollback(final short vbucket, final long toSeqno) {
+  private void rollback(final int vbucket, final long toSeqno) {
     final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
 
     synchronized (queue) {
@@ -215,7 +215,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
     }
   }
 
-  boolean hasBufferedEvents(final short vbucket) {
+  boolean hasBufferedEvents(final int vbucket) {
     final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
     synchronized (queue) {
       return !queue.isEmpty();
@@ -225,7 +225,7 @@ public class StreamEventBuffer implements DataEventHandler, ControlEventHandler 
   /**
    * Send to the wrapped handler all events with sequence numbers <= the given sequence number.
    */
-  void onSeqnoPersisted(final short vbucket, final long seqno) {
+  void onSeqnoPersisted(final int vbucket, final long seqno) {
     final Queue<BufferedEvent> queue = partitionQueues.get(vbucket);
 
     synchronized (queue) {

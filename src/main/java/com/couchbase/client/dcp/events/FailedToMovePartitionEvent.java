@@ -28,10 +28,10 @@ import java.util.OptionalInt;
  */
 public class FailedToMovePartitionEvent implements CouchbaseEvent, DcpFailureEvent {
 
-  private final short partition;
+  private final int partition;
   private final Throwable error;
 
-  public FailedToMovePartitionEvent(short partition, Throwable error) {
+  public FailedToMovePartitionEvent(int partition, Throwable error) {
     this.partition = partition;
     this.error = error;
   }

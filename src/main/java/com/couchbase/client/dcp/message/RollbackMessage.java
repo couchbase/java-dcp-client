@@ -26,14 +26,14 @@ public enum RollbackMessage {
     return buffer.getByte(0) == MessageUtil.MAGIC_INT && buffer.getByte(1) == INTERNAL_ROLLBACK_OPCODE;
   }
 
-  public static void init(ByteBuf buffer, short vbid, long seqno) {
+  public static void init(ByteBuf buffer, int vbid, long seqno) {
     buffer.writeByte(MessageUtil.MAGIC_INT);
     buffer.writeByte(MessageUtil.INTERNAL_ROLLBACK_OPCODE);
     buffer.writeShort(vbid);
     buffer.writeLong(seqno);
   }
 
-  public static short vbucket(ByteBuf buffer) {
+  public static int vbucket(ByteBuf buffer) {
     return buffer.getShort(2);
   }
 

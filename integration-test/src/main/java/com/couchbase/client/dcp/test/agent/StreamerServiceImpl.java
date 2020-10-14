@@ -56,7 +56,7 @@ public class StreamerServiceImpl implements StreamerService {
   }
 
   @Override
-  public String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware) {
+  public String start(String bucket, @Default("[]") List<Integer> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware) {
     String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
 
     Client client = Client.builder()

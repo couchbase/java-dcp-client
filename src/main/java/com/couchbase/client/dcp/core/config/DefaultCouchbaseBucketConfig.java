@@ -92,7 +92,7 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
                                                              final List<Partition> partitions) {
     Set<String> nodes = new HashSet<>(nodeInfos.size());
     for (Partition partition : partitions) {
-      int index = partition.master();
+      int index = partition.primary();
       if (index >= 0) {
         nodes.add(nodeInfos.get(index).hostname());
       }
@@ -179,14 +179,14 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
   }
 
   @Override
-  public short nodeIndexForMaster(int partition, boolean useFastForward) {
+  public int nodeIndexForMaster(int partition, boolean useFastForward) {
     if (useFastForward && !hasFastForwardMap()) {
       throw new IllegalStateException("Could not get index from FF-Map, none found in this config.");
     }
 
     List<Partition> partitions = useFastForward ? partitionInfo.forwardPartitions() : partitionInfo.partitions();
     try {
-      return partitions.get(partition).master();
+      return partitions.get(partition).primary();
     } catch (IndexOutOfBoundsException ex) {
       LOGGER.debug("Out of bounds on index for master " + partition + ".", ex);
       return PARTITION_NOT_EXISTENT;
@@ -194,7 +194,7 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
   }
 
   @Override
-  public short nodeIndexForReplica(int partition, int replica, boolean useFastForward) {
+  public int nodeIndexForReplica(int partition, int replica, boolean useFastForward) {
     if (useFastForward && !hasFastForwardMap()) {
       throw new IllegalStateException("Could not get index from FF-Map, none found in this config.");
     }

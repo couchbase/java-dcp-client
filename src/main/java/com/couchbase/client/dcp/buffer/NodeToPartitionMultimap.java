@@ -37,7 +37,7 @@ class NodeToPartitionMultimap {
       new HashMap<>();
 
   NodeToPartitionMultimap(final CouchbaseBucketConfig bucketConfig) {
-    for (short partition = 0; partition < bucketConfig.numberOfPartitions(); partition++) {
+    for (int partition = 0; partition < bucketConfig.numberOfPartitions(); partition++) {
       put(bucketConfig.nodeIndexForMaster(partition, false), new PartitionInstance(partition, 0));
       for (int r = 0; r < bucketConfig.numberOfReplicas(); r++) {
         put(bucketConfig.nodeIndexForReplica(partition, r, false), new PartitionInstance(partition, r + 1));

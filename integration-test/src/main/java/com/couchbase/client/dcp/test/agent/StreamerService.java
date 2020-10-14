@@ -31,14 +31,14 @@ import java.util.concurrent.TimeoutException;
 @Remotable("streamer")
 public interface StreamerService {
 
-  List<Short> ALL_VBUCKETS = Collections.emptyList();
+  List<Integer> ALL_VBUCKETS = Collections.emptyList();
 
   /**
    * @param bucket Name of the bucket to stream from.
    * @param vbuckets List of vBuckets to stream from, or empty list for all vBuckets.
    * @return ID of the new streamer.
    */
-  String start(String bucket, @Default("[]") List<Short> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware);
+  String start(String bucket, @Default("[]") List<Integer> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware);
 
   /**
    * Immediately disconnects the streamer.

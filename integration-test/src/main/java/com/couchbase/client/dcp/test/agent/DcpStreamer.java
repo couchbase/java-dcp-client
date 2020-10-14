@@ -164,7 +164,7 @@ public class DcpStreamer {
 
   private final StreamTo streamTo;
 
-  public DcpStreamer(final Client client, final List<Short> vbuckets,
+  public DcpStreamer(final Client client, final List<Integer> vbuckets,
                      final StreamFrom from, final StreamTo to) {
     this.client = requireNonNull(client);
     this.streamTo = requireNonNull(to);
@@ -216,7 +216,7 @@ public class DcpStreamer {
     client.connect().await(30, TimeUnit.SECONDS);
     try {
       client.initializeState(from, to).await();
-      client.startStreaming(vbuckets.toArray(new Short[0])).await();
+      client.startStreaming(vbuckets).await();
     } catch (Throwable t) {
       stop();
       throw t;

@@ -19,27 +19,27 @@ import java.util.Arrays;
 
 public class DefaultPartition implements Partition {
 
-  private final short master;
-  private final short[] replicas;
+  private final int primary;
+  private final int[] replicas;
 
   /**
    * Creates a new {@link DefaultPartition}.
    *
-   * @param master the array index of the master
+   * @param primary the array index of the master
    * @param replicas the array indexes of the replicas.
    */
-  public DefaultPartition(short master, short[] replicas) {
-    this.master = master;
+  public DefaultPartition(int primary, int[] replicas) {
+    this.primary = primary;
     this.replicas = replicas;
   }
 
   @Override
-  public short master() {
-    return master;
+  public int primary() {
+    return primary;
   }
 
   @Override
-  public short replica(int num) {
+  public int replica(int num) {
     if (num >= replicas.length) {
       return -2;
     }
@@ -48,6 +48,6 @@ public class DefaultPartition implements Partition {
 
   @Override
   public String toString() {
-    return "[m: " + master + ", r: " + Arrays.toString(replicas) + "]";
+    return "[m: " + primary + ", r: " + Arrays.toString(replicas) + "]";
   }
 }

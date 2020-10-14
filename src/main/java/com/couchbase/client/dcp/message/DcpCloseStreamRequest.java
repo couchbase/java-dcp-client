@@ -31,7 +31,7 @@ public enum DcpCloseStreamRequest {
   }
 
 
-  public static void vbucket(final ByteBuf buffer, final short vbid) {
+  public static void vbucket(final ByteBuf buffer, final int vbid) {
     MessageUtil.setVbucket(vbid, buffer);
   }
 

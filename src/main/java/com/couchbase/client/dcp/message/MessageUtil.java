@@ -40,13 +40,13 @@ public enum MessageUtil {
   public static final byte MAGIC_SERVER_REQ = (byte) 0x82;
   public static final byte MAGIC_SERVER_RES = (byte) 0x83;
 
-  public static final short KEY_LENGTH_OFFSET = 2;
-  public static final short EXTRAS_LENGTH_OFFSET = 4;
-  public static final short DATA_TYPE_OFFSET = 5;
-  public static final short VBUCKET_OFFSET = 6;
-  public static final short BODY_LENGTH_OFFSET = 8;
-  public static final short OPAQUE_OFFSET = 12;
-  public static final short CAS_OFFSET = 16;
+  public static final int KEY_LENGTH_OFFSET = 2;
+  public static final int EXTRAS_LENGTH_OFFSET = 4;
+  public static final int DATA_TYPE_OFFSET = 5;
+  public static final int VBUCKET_OFFSET = 6;
+  public static final int BODY_LENGTH_OFFSET = 8;
+  public static final int OPAQUE_OFFSET = 12;
+  public static final int CAS_OFFSET = 16;
 
   public static final byte NOOP_OPCODE = 0x0a; // ordinary client-initiated noop, not to be confused with DCP_NOOP
   public static final byte VERSION_OPCODE = 0x0b;
@@ -157,7 +157,7 @@ public enum MessageUtil {
     StringBuilder sb = new StringBuilder();
 
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
-    short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+    int keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     int bodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
     byte dataType = getDataType(buffer);
 
@@ -233,11 +233,11 @@ public enum MessageUtil {
     return buffer.slice(HEADER_SIZE, buffer.getByte(EXTRAS_LENGTH_OFFSET));
   }
 
-  public static void setVbucket(short vbucket, ByteBuf buffer) {
+  public static void setVbucket(int vbucket, ByteBuf buffer) {
     buffer.setShort(VBUCKET_OFFSET, vbucket);
   }
 
-  public static short getVbucket(ByteBuf buffer) {
+  public static int getVbucket(ByteBuf buffer) {
     return buffer.getShort(VBUCKET_OFFSET);
   }
 
@@ -246,8 +246,8 @@ public enum MessageUtil {
    */
   public static void setKey(String key, ByteBuf buffer) {
     byte[] keyBytes = key.getBytes(UTF_8);
-    short oldKeyLength = buffer.getShort(KEY_LENGTH_OFFSET);
-    short newKeyLength = (short) keyBytes.length;
+    int oldKeyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+    int newKeyLength = keyBytes.length;
     int oldBodyLength = buffer.getInt(BODY_LENGTH_OFFSET);
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
     int newBodyLength = oldBodyLength - oldKeyLength + newKeyLength;
@@ -265,13 +265,13 @@ public enum MessageUtil {
 
   public static ByteBuf getKey(ByteBuf buffer) {
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
-    short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+    int keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     return buffer.slice(HEADER_SIZE + extrasLength, keyLength);
   }
 
   public static String getKeyAsString(ByteBuf buffer) {
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
-    short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+    int keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     return buffer.toString(HEADER_SIZE + extrasLength, keyLength, UTF_8);
   }
 
@@ -284,7 +284,7 @@ public enum MessageUtil {
    * Sets the content payload of the buffer, updating the content length as well.
    */
   public static void setContent(ByteBuf content, ByteBuf buffer) {
-    short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+    int keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
     int bodyLength = keyLength + extrasLength + content.readableBytes();
     int contentOffset = HEADER_SIZE + extrasLength + keyLength;
@@ -306,7 +306,7 @@ public enum MessageUtil {
    * The returned buffer shares its reference count with the given buffer.
    */
   public static ByteBuf getRawContent(ByteBuf buffer) {
-    short keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
+    int keyLength = buffer.getShort(KEY_LENGTH_OFFSET);
     byte extrasLength = buffer.getByte(EXTRAS_LENGTH_OFFSET);
     int contentLength = buffer.getInt(BODY_LENGTH_OFFSET) - keyLength - extrasLength;
     return buffer.slice(HEADER_SIZE + keyLength + extrasLength, contentLength);
