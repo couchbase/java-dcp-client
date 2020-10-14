@@ -16,7 +16,6 @@
 
 package com.couchbase.client.dcp.test;
 
-import com.couchbase.client.dcp.test.ExecUtils.ExecResultWithExitCode;
 import com.couchbase.client.dcp.util.Version;
 import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
@@ -188,7 +187,7 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
   public void loadSampleBucket(String bucketName, int bucketQuotaMb) {
     Stopwatch timer = Stopwatch.createStarted();
 
-    ExecResultWithExitCode result = exec(this, "cbdocloader" +
+    ExecResult result = exec(this, "cbdocloader" +
         " --cluster " + getHostname() + // + ":8091" +
         " --username " + username +
         " --password " + password +

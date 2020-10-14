@@ -19,9 +19,9 @@ package com.couchbase.client.dcp.test;
 import com.couchbase.client.dcp.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 
-import java.io.IOException;
 import java.util.Optional;
 
 import static com.couchbase.client.dcp.test.ExecUtils.exec;
@@ -33,8 +33,8 @@ class VersionUtils {
     throw new AssertionError("not instantiable");
   }
 
-  static Optional<Version> getVersion(GenericContainer couchbase) throws IOException, InterruptedException {
-    ExecUtils.ExecResultWithExitCode execResult = exec(couchbase, "couchbase-server --version");
+  static Optional<Version> getVersion(GenericContainer<?> couchbase) {
+    Container.ExecResult execResult = exec(couchbase, "couchbase-server --version");
     if (execResult.getExitCode() != 0) {
       return getVersionFromDockerImageName(couchbase);
     }
@@ -69,7 +69,7 @@ class VersionUtils {
     }
   }
 
-  private static Optional<Version> getVersionFromDockerImageName(GenericContainer couchbase) {
+  private static Optional<Version> getVersionFromDockerImageName(GenericContainer<?> couchbase) {
     final String imageName = couchbase.getDockerImageName();
     final int tagDelimiterIndex = imageName.indexOf(':');
     return tagDelimiterIndex == -1 ? Optional.empty() : tryParseVersion(imageName.substring(tagDelimiterIndex + 1));
