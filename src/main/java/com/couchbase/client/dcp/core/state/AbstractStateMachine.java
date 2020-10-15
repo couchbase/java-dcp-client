@@ -17,9 +17,6 @@ package com.couchbase.client.dcp.core.state;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.Observable;
-import rx.subjects.BehaviorSubject;
-import rx.subjects.Subject;
 
 /**
  * Abstract {@link Stateful} implementation which acts like a simple state machine.
@@ -34,11 +31,6 @@ public class AbstractStateMachine<S extends Enum> implements Stateful<S> {
   private static final Logger LOGGER = LoggerFactory.getLogger(Stateful.class);
 
   /**
-   * The observable which emits all the subsequent state changes.
-   */
-  private final Subject<S, S> observable;
-
-  /**
    * The current state of the state machine.
    */
   private volatile S currentState;
@@ -50,12 +42,6 @@ public class AbstractStateMachine<S extends Enum> implements Stateful<S> {
    */
   protected AbstractStateMachine(final S initialState) {
     currentState = initialState;
-    observable = BehaviorSubject.create(currentState).toSerialized();
-  }
-
-  @Override
-  public final Observable<S> states() {
-    return observable;
   }
 
   @Override
@@ -66,11 +52,6 @@ public class AbstractStateMachine<S extends Enum> implements Stateful<S> {
   @Override
   public final boolean isState(final S state) {
     return currentState == state;
-  }
-
-  @Override
-  public boolean hasSubscribers() {
-    return observable.hasObservers();
   }
 
   /**
@@ -87,7 +68,6 @@ public class AbstractStateMachine<S extends Enum> implements Stateful<S> {
         LOGGER.trace("State (" + getClass().getSimpleName() + ") " + currentState + " -> " + newState);
       }
       currentState = newState;
-      observable.onNext(newState);
     }
   }
 

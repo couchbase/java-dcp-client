@@ -186,21 +186,21 @@ public class PerformanceTestDriver {
     }
 
     long startNanos = System.nanoTime();
-    client.connect().await();
-    client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).await();
-    client.startStreaming().await();
+    client.connect().block();
+    client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).block();
+    client.startStreaming().block();
 
     latch.await();
     System.out.println("Received at least " + args.dcpMessageCount + " messages. Done!");
     long elapsedNanos = System.nanoTime() - startNanos;
 
-    client.disconnect().await();
+    client.disconnect().block();
 
     System.out.println("Shutdown complete. Receiving " + args.dcpMessageCount + " DCP events took " +
         TimeUnit.NANOSECONDS.toMillis(elapsedNanos) + " ms");
   }
 
-  private static Client buildClient(Args args) throws IOException {
+  private static Client buildClient(Args args) {
     CompressionMode compressionMode = CompressionMode.valueOf(
         args.settings.getProperty("compression", CompressionMode.DISABLED.name()));
 

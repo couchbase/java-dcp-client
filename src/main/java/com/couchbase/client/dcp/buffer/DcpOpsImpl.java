@@ -24,9 +24,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Future;
-import rx.Single;
-import rx.SingleEmitter;
-import rx.functions.Action1;
+import reactor.core.publisher.Mono;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -42,7 +40,7 @@ public class DcpOpsImpl implements DcpOps {
   }
 
   @Override
-  public Single<ObserveSeqnoResponse> observeSeqno(final int partition, final long vbuuid) {
+  public Mono<ObserveSeqnoResponse> observeSeqno(final int partition, final long vbuuid) {
     return doRequest(
         () -> request(MessageUtil.OBSERVE_SEQNO_OPCODE)
             .vbucket(partition)
@@ -51,50 +49,47 @@ public class DcpOpsImpl implements DcpOps {
   }
 
   @Override
-  public Single<FailoverLogResponse> getFailoverLog(final int partition) {
+  public Mono<FailoverLogResponse> getFailoverLog(final int partition) {
     return doRequest(
         () -> request(MessageUtil.DCP_FAILOVER_LOG_OPCODE)
             .vbucket(partition),
         FailoverLogResponse::new);
   }
 
-  private <R> Single<R> doRequest(final Supplier<DcpRequestBuilder> requestBuilder, final Function<ByteBuf, R> resultExtractor) {
-    return Single.fromEmitter(new Action1<SingleEmitter<R>>() {
-      @Override
-      public void call(final SingleEmitter<R> singleEmitter) {
-        try {
-          final ByteBuf request = requestBuilder.get().build();
+  private <R> Mono<R> doRequest(final Supplier<DcpRequestBuilder> requestBuilder, final Function<ByteBuf, R> resultExtractor) {
+    return Mono.create(sink -> {
+      try {
+        final ByteBuf request = requestBuilder.get().build();
 
-          dispatcher.sendRequest(request).addListener(new DcpResponseListener() {
-            @Override
-            public void operationComplete(Future<DcpResponse> future) throws Exception {
-              if (!future.isSuccess()) {
-                singleEmitter.onError(future.cause());
-                return;
-              }
-
-              final ByteBuf buf = future.getNow().buffer();
-              try {
-                final ResponseStatus status = MessageUtil.getResponseStatus(buf);
-                if (!status.isSuccess()) {
-                  throw new BadResponseStatusException(status);
-                }
-
-                final R result = resultExtractor.apply(buf);
-                singleEmitter.onSuccess(result);
-
-              } catch (Throwable t) {
-                singleEmitter.onError(t);
-
-              } finally {
-                buf.release();
-              }
+        dispatcher.sendRequest(request).addListener(new DcpResponseListener() {
+          @Override
+          public void operationComplete(Future<DcpResponse> future) {
+            if (!future.isSuccess()) {
+              sink.error(future.cause());
+              return;
             }
-          });
 
-        } catch (Throwable t) {
-          singleEmitter.onError(t);
-        }
+            final ByteBuf buf = future.getNow().buffer();
+            try {
+              final ResponseStatus status = MessageUtil.getResponseStatus(buf);
+              if (!status.isSuccess()) {
+                throw new BadResponseStatusException(status);
+              }
+
+              final R result = resultExtractor.apply(buf);
+              sink.success(result);
+
+            } catch (Throwable t) {
+              sink.error(t);
+
+            } finally {
+              buf.release();
+            }
+          }
+        });
+
+      } catch (Throwable t) {
+        sink.error(t);
       }
     });
   }

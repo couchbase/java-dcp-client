@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp.core.event;
 
-import rx.Observable;
+import reactor.core.publisher.Flux;
 
 public interface EventBus {
 
@@ -24,7 +24,7 @@ public interface EventBus {
    *
    * @return the observable where the events are emitted into.
    */
-  Observable<CouchbaseEvent> get();
+  Flux<CouchbaseEvent> get();
 
   /**
    * Publish a {@link CouchbaseEvent} into the bus.
@@ -32,15 +32,5 @@ public interface EventBus {
    * @param event the event to publish.
    */
   void publish(CouchbaseEvent event);
-
-  /**
-   * Checks if the event bus has subscribers.
-   *
-   * This method can be utilized on the publisher side to avoid complex event creation when there is no one
-   * on the other side listening and the event would be discarded immediately afterwards.
-   *
-   * @return true if it has subscribers, false otherwise.
-   */
-  boolean hasSubscribers();
 
 }

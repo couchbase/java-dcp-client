@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.message.ResponseStatus;
-import rx.Single;
+import reactor.core.publisher.Mono;
 
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +40,7 @@ public interface DcpOps {
     }
   }
 
-  Single<ObserveSeqnoResponse> observeSeqno(int partition, long vbuuid);
+  Mono<ObserveSeqnoResponse> observeSeqno(int partition, long vbuuid);
 
-  Single<FailoverLogResponse> getFailoverLog(int partition);
+  Mono<FailoverLogResponse> getFailoverLog(int partition);
 }

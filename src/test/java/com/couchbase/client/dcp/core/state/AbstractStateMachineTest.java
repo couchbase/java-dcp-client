@@ -16,13 +16,6 @@
 package com.couchbase.client.dcp.core.state;
 
 import org.junit.Test;
-import rx.functions.Action1;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -50,60 +43,7 @@ public class AbstractStateMachineTest {
     assertTrue(sm.isState(LifecycleState.CONNECTING));
   }
 
-  @Test
-  public void shouldSendTransitionToObserver() throws Exception {
-    SimpleStateMachine sm = new SimpleStateMachine(LifecycleState.DISCONNECTED);
-
-    final CountDownLatch latch = new CountDownLatch(3);
-    final List<LifecycleState> states = Collections.synchronizedList(new ArrayList<LifecycleState>());
-    sm.states().subscribe(new Action1<LifecycleState>() {
-      @Override
-      public void call(LifecycleState lifecycleState) {
-        states.add(lifecycleState);
-        latch.countDown();
-      }
-    });
-
-    sm.transitionState(LifecycleState.CONNECTING);
-    sm.transitionState(LifecycleState.CONNECTED);
-    sm.transitionState(LifecycleState.DISCONNECTING);
-
-    assertTrue(latch.await(1, TimeUnit.SECONDS));
-
-    assertEquals(LifecycleState.DISCONNECTED, states.get(0));
-    assertEquals(LifecycleState.CONNECTING, states.get(1));
-    assertEquals(LifecycleState.CONNECTED, states.get(2));
-    assertEquals(LifecycleState.DISCONNECTING, states.get(3));
-  }
-
-  @Test
-  public void shouldNotReceiveOldTransitions() throws Exception {
-    SimpleStateMachine sm = new SimpleStateMachine(LifecycleState.DISCONNECTED);
-
-    final CountDownLatch latch = new CountDownLatch(2);
-    final List<LifecycleState> states = Collections.synchronizedList(new ArrayList<LifecycleState>());
-
-    sm.transitionState(LifecycleState.CONNECTING);
-
-    sm.states().subscribe(new Action1<LifecycleState>() {
-      @Override
-      public void call(LifecycleState lifecycleState) {
-        states.add(lifecycleState);
-        latch.countDown();
-      }
-    });
-
-    sm.transitionState(LifecycleState.CONNECTED);
-    sm.transitionState(LifecycleState.DISCONNECTING);
-
-    assertTrue(latch.await(1, TimeUnit.SECONDS));
-
-    assertEquals(LifecycleState.CONNECTING, states.get(0));
-    assertEquals(LifecycleState.CONNECTED, states.get(1));
-    assertEquals(LifecycleState.DISCONNECTING, states.get(2));
-  }
-
-  class SimpleStateMachine extends AbstractStateMachine<LifecycleState> {
+  static class SimpleStateMachine extends AbstractStateMachine<LifecycleState> {
 
     public SimpleStateMachine(LifecycleState initialState) {
       super(initialState);

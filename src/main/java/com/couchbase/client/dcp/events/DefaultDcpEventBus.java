@@ -20,10 +20,11 @@ import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.core.event.EventBus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.Observable;
-import rx.Scheduler;
-import rx.subjects.PublishSubject;
-import rx.subjects.SerializedSubject;
+import reactor.core.publisher.DirectProcessor;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxProcessor;
+import reactor.core.publisher.FluxSink;
+import reactor.core.scheduler.Scheduler;
 
 /**
  * Like {@link com.couchbase.client.dcp.core.event.DefaultEventBus} but buffers on backpressure instead of dropping.
@@ -35,7 +36,9 @@ public class DefaultDcpEventBus implements EventBus {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultDcpEventBus.class);
 
-  private final SerializedSubject<CouchbaseEvent, CouchbaseEvent> bus = PublishSubject.<CouchbaseEvent>create().toSerialized();
+  private final FluxProcessor<CouchbaseEvent, CouchbaseEvent> bus = DirectProcessor.create();
+  private final FluxSink<CouchbaseEvent> sink = bus.sink(FluxSink.OverflowStrategy.BUFFER);
+
   private final Scheduler scheduler;
 
   public DefaultDcpEventBus(final Scheduler scheduler) {
@@ -43,23 +46,16 @@ public class DefaultDcpEventBus implements EventBus {
   }
 
   @Override
-  public Observable<CouchbaseEvent> get() {
-    return bus.onBackpressureBuffer().observeOn(scheduler);
+  public Flux<CouchbaseEvent> get() {
+    return bus.onBackpressureBuffer().publishOn(scheduler);
   }
 
   @Override
   public void publish(final CouchbaseEvent event) {
-    if (bus.hasObservers()) {
-      try {
-        bus.onNext(event);
-      } catch (Exception ex) {
-        LOGGER.warn("Caught exception during event emission, moving on.", ex);
-      }
+    try {
+      sink.next(event);
+    } catch (Exception ex) {
+      LOGGER.warn("Caught exception during event emission, moving on.", ex);
     }
-  }
-
-  @Override
-  public boolean hasSubscribers() {
-    return bus.hasObservers();
   }
 }

@@ -17,8 +17,8 @@
 package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import rx.Observable;
+import reactor.core.publisher.Flux;
 
 public interface BucketConfigSource {
-  Observable<DcpBucketConfig> configs();
+  Flux<DcpBucketConfig> configs();
 }

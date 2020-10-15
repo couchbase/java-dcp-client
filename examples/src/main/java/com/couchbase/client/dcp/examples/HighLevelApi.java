@@ -107,7 +107,7 @@ public class HighLevelApi {
       }, FlowControlMode.AUTOMATIC); // let the library handle flow control
 
       // Connect the client. Need to connect in order to discover number of partitions.
-      client.connect().await();
+      client.connect().block();
 
       // Restore saved stream state (or initialize state for streaming from beginning).
       offsetTracker.load(client.numPartitions());
@@ -124,7 +124,7 @@ public class HighLevelApi {
 
       // Start the streams! The offset map's keyset determine which partitions are streamed,
       // and the values determine the starting point for each partition.
-      client.resumeStreaming(offsetTracker.offsets()).await();
+      client.resumeStreaming(offsetTracker.offsets()).block();
 
       // Wait until a fatal error occurs or the program is killed.
       fatalErrorQueue.take().printStackTrace();

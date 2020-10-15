@@ -89,13 +89,13 @@ public class AirportsInFrance {
     });
 
     // Connect the sockets
-    client.connect().await();
+    client.connect().block();
 
     // Initialize the state (start now, never stop)
-    client.initializeState(StreamFrom.BEGINNING, StreamTo.NOW).await();
+    client.initializeState(StreamFrom.BEGINNING, StreamTo.NOW).block();
 
     // Start streaming on all partitions
-    client.startStreaming().await();
+    client.startStreaming().block();
 
     // Sleep and wait until the DCP stream has caught up with the time where we said "now".
     while (true) {
@@ -108,6 +108,6 @@ public class AirportsInFrance {
     System.out.println("Number of Airports in France: " + numAirports.get());
 
     // Proper Shutdown
-    client.disconnect().await();
+    client.disconnect().block();
   }
 }

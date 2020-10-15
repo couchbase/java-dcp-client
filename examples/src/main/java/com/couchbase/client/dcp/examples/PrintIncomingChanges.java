@@ -20,14 +20,12 @@ import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.dcp.message.DcpDeletionMessage;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import com.couchbase.client.dcp.deps.io.netty.buffer.ByteBuf;
-import rx.CompletableSubscriber;
-import rx.Subscription;
 
 import java.util.concurrent.TimeUnit;
 
@@ -61,22 +59,11 @@ public class PrintIncomingChanges {
         if (RollbackMessage.is(event)) {
           final int partition = RollbackMessage.vbucket(event);
           client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
-              .subscribe(new CompletableSubscriber() {
-                @Override
-                public void onCompleted() {
-                  System.out.println("Rollback for partition " + partition + " complete!");
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                  System.err.println("Rollback for partition " + partition + " failed!");
-                  e.printStackTrace();
-                }
-
-                @Override
-                public void onSubscribe(Subscription d) {
-                }
-              });
+              .doOnSuccess(ignore -> System.out.println("Rollback for partition " + partition + " complete!"))
+              .doOnError(e -> {
+                System.err.println("Rollback for partition " + partition + " failed!");
+                e.printStackTrace();
+              }).subscribe();
         }
         event.release();
       }
@@ -97,20 +84,20 @@ public class PrintIncomingChanges {
     });
 
     // Connect the sockets
-    client.connect().await();
+    client.connect().block();
 
     // Initialize the state (start now, never stop)
-    client.initializeState(StreamFrom.NOW, StreamTo.INFINITY).await();
+    client.initializeState(StreamFrom.NOW, StreamTo.INFINITY).block();
 
     // Start streaming on all partitions
-    client.startStreaming().await();
+    client.startStreaming().block();
 
     // Sleep for some time to print the mutations
     // The printing happens on the IO threads!
     Thread.sleep(TimeUnit.MINUTES.toMillis(10));
 
     // Once the time is over, shutdown.
-    client.disconnect().await();
+    client.disconnect().block();
   }
 
 }

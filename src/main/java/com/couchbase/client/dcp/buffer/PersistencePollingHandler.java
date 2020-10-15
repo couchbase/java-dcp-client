@@ -26,9 +26,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.SingleSubscriber;
-import rx.Subscription;
-import rx.schedulers.Schedulers;
+import reactor.core.Disposable;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +49,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   private final PersistedSeqnos persistedSeqnos;
   private final AtomicBoolean loggedClosureWarning = new AtomicBoolean();
 
-  private Subscription configSubscription;
+  private Disposable configSubscription;
 
   // Incrementing this number causes any active polling tasks to stop.
   private int activeGroupId;
@@ -70,7 +69,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
     if (configSubscription != null) {
       // The null check seems weird, but it's necessary since channelActive
       // might not have been invoked if the connection wasn't fully established.
-      configSubscription.unsubscribe();
+      configSubscription.dispose();
     }
     activeGroupId++; // cancel recurring polling tasks
   }
@@ -80,7 +79,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
     super.channelActive(ctx);
 
     configSubscription = bucketConfigSource.configs()
-        .observeOn(Schedulers.from(ctx.executor()))
+        .publishOn(Schedulers.fromExecutor(ctx.executor()))
         .subscribe(bucketConfig -> reconfigure(ctx, bucketConfig));
   }
 
@@ -164,48 +163,45 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
       return;
     }
 
-    dcpOps.observeSeqno(partitionInstance.partition(), vbuuid).subscribe(new SingleSubscriber<ObserveSeqnoResponse>() {
-      @Override
-      public void onSuccess(ObserveSeqnoResponse observeSeqnoResponse) {
-        try {
-          if (activeGroupId != groupId) {
-            LOGGER.debug("Polling group {} is no longer active; stopping polling for {}", groupId, partitionInstance);
+    dcpOps.observeSeqno(partitionInstance.partition(), vbuuid)
+        .doOnSuccess(observeSeqnoResponse -> {
+          try {
+            if (activeGroupId != groupId) {
+              LOGGER.debug("Polling group {} is no longer active; stopping polling for {}", groupId, partitionInstance);
+              return;
+            }
+
+            final long newVbuuid = observeSeqnoResponse.vbuuid();
+            final long minSeqnoPersistedEverywhere = persistedSeqnos.update(partitionInstance, newVbuuid, observeSeqnoResponse.persistSeqno());
+            env.streamEventBuffer().onSeqnoPersisted(observeSeqnoResponse.vbid(), minSeqnoPersistedEverywhere);
+            scheduleObserveAndRepeat(ctx, partitionInstance, newVbuuid, groupId, 1);
+
+          } catch (Throwable t) {
+            logWarningAndClose(ctx, "Fatal error in observeAndRepeat handling observeSeqno response.", t);
+          }
+        })
+        .doOnError(t -> {
+          if (activeGroupId != groupId || t instanceof NotConnectedException) {
+            // Graceful shutdown. Ignore any exception.
+            LOGGER.debug("Polling group {} is no longer active; stopping polling for {}",
+                groupId, partitionInstance);
             return;
           }
 
-          final long newVbuuid = observeSeqnoResponse.vbuuid();
-          final long minSeqnoPersistedEverywhere = persistedSeqnos.update(partitionInstance, newVbuuid, observeSeqnoResponse.persistSeqno());
-          env.streamEventBuffer().onSeqnoPersisted(observeSeqnoResponse.vbid(), minSeqnoPersistedEverywhere);
-          scheduleObserveAndRepeat(ctx, partitionInstance, newVbuuid, groupId, 1);
-
-        } catch (Throwable t) {
-          logWarningAndClose(ctx, "Fatal error in observeAndRepeat handling observeSeqno response.", t);
-        }
-      }
-
-      @Override
-      public void onError(Throwable t) {
-        if (activeGroupId != groupId || t instanceof NotConnectedException) {
-          // Graceful shutdown. Ignore any exception.
-          LOGGER.debug("Polling group {} is no longer active; stopping polling for {}",
-              groupId, partitionInstance);
-          return;
-        }
-
-        if (t instanceof DcpOps.BadResponseStatusException) {
-          DcpOps.BadResponseStatusException e = (DcpOps.BadResponseStatusException) t;
-          if (e.status().isTemporary()) {
-            LOGGER.debug("observeSeqno failed with status code " + e.status() + " ; will retry after an extended delay.");
-            // schedule with an extended delay
-            scheduleObserveAndRepeat(ctx, partitionInstance, vbuuid, groupId, 10);
+          if (t instanceof DcpOps.BadResponseStatusException) {
+            DcpOps.BadResponseStatusException e = (DcpOps.BadResponseStatusException) t;
+            if (e.status().isTemporary()) {
+              LOGGER.debug("observeSeqno failed with status code " + e.status() + " ; will retry after an extended delay.");
+              // schedule with an extended delay
+              scheduleObserveAndRepeat(ctx, partitionInstance, vbuuid, groupId, 10);
+            } else {
+              logWarningAndClose(ctx, "observeSeqno failed with status code " + e.status());
+            }
           } else {
-            logWarningAndClose(ctx, "observeSeqno failed with status code " + e.status());
+            logWarningAndClose(ctx, "observeSeqno failed.", t);
           }
-        } else {
-          logWarningAndClose(ctx, "observeSeqno failed.", t);
-        }
-      }
-    });
+        })
+        .subscribe();
   }
 
   private void logWarningAndClose(ChannelHandlerContext ctx, String msg, Object... params) {

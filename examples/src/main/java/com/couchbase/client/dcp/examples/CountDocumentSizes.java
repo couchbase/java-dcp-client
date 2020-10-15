@@ -75,13 +75,13 @@ public class CountDocumentSizes {
     });
 
     // Connect the sockets
-    client.connect().await();
+    client.connect().block();
 
     // Initialize the state (start now, never stop)
-    client.initializeState(StreamFrom.BEGINNING, StreamTo.NOW).await();
+    client.initializeState(StreamFrom.BEGINNING, StreamTo.NOW).block();
 
     // Start streaming on all partitions
-    client.startStreaming().await();
+    client.startStreaming().block();
 
     // Sleep and wait until the DCP stream has caught up with the time where we said "now".
     while (true) {
@@ -96,6 +96,6 @@ public class CountDocumentSizes {
     System.out.println("Average Size per Doc: " + totalSize.get() / docCount.get() + "b");
 
     // Proper Shutdown
-    client.disconnect().await();
+    client.disconnect().block();
   }
 }

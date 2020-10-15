@@ -16,16 +16,15 @@
 
 package com.couchbase.client.dcp.highlevel;
 
-import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.util.retry.Retry;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import java.util.function.Consumer;
 
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.any;
 import static java.util.Objects.requireNonNull;
 
 public class Rollback implements DatabaseChangeEvent {
@@ -60,14 +59,13 @@ public class Rollback implements DatabaseChangeEvent {
    */
   public void resume() {
     client.rollbackAndRestartStream(vbucket, seqno)
-        .retryWhen(any()
-            .max(Integer.MAX_VALUE)
-            .delay(Delay.exponential(TimeUnit.MILLISECONDS, TimeUnit.SECONDS.toMillis(5)))
-            .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.info("Retrying rollbackAndRestartStream for vbucket {}", vbucket))
-            .build())
-        .subscribe(
-            () -> LOGGER.info("Rollback for partition {} complete!", vbucket),
-            errorHandler::accept);
+        .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofMillis(10))
+            .maxBackoff(Duration.ofSeconds(5))
+            .doAfterRetry(retrySignal -> LOGGER.info("Retrying rollbackAndRestartStream for vbucket {}", vbucket))
+        )
+        .doOnError(errorHandler::accept)
+        .doOnSuccess(ignore -> LOGGER.info("Rollback for partition {} complete!", vbucket))
+        .subscribe();
   }
 
   @Override

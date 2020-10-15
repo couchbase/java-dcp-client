@@ -22,11 +22,7 @@ import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.config.SecureEnvironment;
-import com.couchbase.client.dcp.core.env.CoreScheduler;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
-import com.couchbase.client.dcp.core.env.resources.NoOpShutdownHook;
-import com.couchbase.client.dcp.core.env.resources.ShutdownHook;
-import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.core.event.EventBus;
 import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.time.Delay;
@@ -72,16 +68,12 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.Completable;
-import rx.CompletableSubscriber;
-import rx.Observable;
-import rx.Scheduler;
-import rx.Subscriber;
-import rx.Subscription;
-import rx.functions.Action1;
-import rx.functions.Func1;
-import rx.functions.Func2;
-import rx.schedulers.Schedulers;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
@@ -102,6 +94,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
@@ -228,20 +221,17 @@ public class Client implements Closeable {
   /**
    * Get the current sequence numbers from all partitions.
    *
-   * @return an {@link Observable} of partition and sequence number.
+   * @return an {@link Flux} of partition and sequence number.
    */
-  private Observable<PartitionAndSeqno> getSeqnos() {
-    return conductor.getSeqnos().flatMap(new Func1<ByteBuf, Observable<PartitionAndSeqno>>() {
-      @Override
-      public Observable<PartitionAndSeqno> call(ByteBuf buf) {
-        int numPairs = buf.readableBytes() / 10; // 2 byte short + 8 byte long
-        List<PartitionAndSeqno> pairs = new ArrayList<>(numPairs);
-        for (int i = 0; i < numPairs; i++) {
-          pairs.add(new PartitionAndSeqno(buf.getShort(10 * i), buf.getLong(10 * i + 2)));
-        }
-        buf.release();
-        return Observable.from(pairs);
+  private Flux<PartitionAndSeqno> getSeqnos() {
+    return conductor.getSeqnos().flatMap(buf -> {
+      int numPairs = buf.readableBytes() / 10; // 2 byte short + 8 byte long
+      List<PartitionAndSeqno> pairs = new ArrayList<>(numPairs);
+      for (int i = 0; i < numPairs; i++) {
+        pairs.add(new PartitionAndSeqno(buf.getShort(10 * i), buf.getLong(10 * i + 2)));
       }
+      buf.release();
+      return Flux.fromIterable(pairs);
     });
   }
 
@@ -453,13 +443,13 @@ public class Client implements Closeable {
   /**
    * Initializes the underlying connections (not the streams) and sets up everything as needed.
    *
-   * @return a {@link Completable} signaling that the connect phase has been completed or failed.
+   * @return a {@link Mono} signaling that the connect phase has been completed or failed.
    */
-  public Completable connect() {
+  public Mono<Void> connect() {
     if (!conductor.disconnected()) {
       // short-circuit connect attempt if the conductor is already connecting/connected.
       LOGGER.debug("Ignoring duplicate connect attempt, already connecting/connected.");
-      return Completable.complete();
+      return Mono.empty();
     }
 
     if (env.dataEventHandler() == null) {
@@ -469,13 +459,9 @@ public class Client implements Closeable {
       throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
     }
     LOGGER.info("Connecting to seed nodes and bootstrapping bucket {}.", meta(env.bucket()));
-    return conductor.connect().onErrorResumeNext(new Func1<Throwable, Completable>() {
-      @Override
-      public Completable call(Throwable throwable) {
-        return disconnect()
-            .andThen(Completable.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable)));
-      }
-    });
+    return conductor.connect().onErrorResume(throwable ->
+        disconnect()
+            .then(Mono.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable))));
   }
 
   /**
@@ -484,13 +470,13 @@ public class Client implements Closeable {
    * If custom state is used (like a shared {@link EventLoopGroup}), then they must be closed and managed
    * separately after this disconnect process has finished.
    *
-   * @return a {@link Completable} signaling that the disconnect phase has been completed or failed.
+   * @return a {@link Mono} signaling that the disconnect phase has been completed or failed.
    */
-  public Completable disconnect() {
+  public Mono<Void> disconnect() {
     return dispatcherGracefulShutdown()
-        .andThen(conductor.stop())
-        .andThen(env.shutdown())
-        .andThen(dispatcherAwaitShutdown());
+        .then(conductor.stop())
+        .then(env.shutdown())
+        .then(dispatcherAwaitShutdown());
   }
 
   /**
@@ -499,11 +485,11 @@ public class Client implements Closeable {
    */
   @Override
   public void close() {
-    disconnect().await(60, TimeUnit.SECONDS);
+    disconnect().block(Duration.ofSeconds(60));
   }
 
-  private Completable dispatcherGracefulShutdown() {
-    return Completable.fromAction(() -> {
+  private Mono<Void> dispatcherGracefulShutdown() {
+    return Mono.fromRunnable(() -> {
       if (listenerDispatcher != null) {
         LOGGER.info("Asking event dispatcher to shut down.");
         listenerDispatcher.gracefulShutdown();
@@ -511,8 +497,8 @@ public class Client implements Closeable {
     });
   }
 
-  private Completable dispatcherAwaitShutdown() {
-    return Completable.fromCallable(() -> {
+  private Mono<Void> dispatcherAwaitShutdown() {
+    return Mono.fromCallable(() -> {
       final long startNanos = System.nanoTime();
       if (listenerDispatcher != null) {
         if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(30))) {
@@ -525,16 +511,18 @@ public class Client implements Closeable {
         }
       }
       return null;
-    }).subscribeOn(Schedulers.io());
+    })
+        .then()
+        .subscribeOn(Schedulers.elastic());
   }
 
   /**
    * @param vbucketToOffset a Map where each key is a vbucket to stream, and the value is the offset from which to resume streaming.
-   * @return a {@link Completable} that completes when the streams have been successfully opened.
+   * @return a {@link Mono} that completes when the streams have been successfully opened.
    */
-  public Completable resumeStreaming(Map<Integer, StreamOffset> vbucketToOffset) {
+  public Mono<Void> resumeStreaming(Map<Integer, StreamOffset> vbucketToOffset) {
     if (vbucketToOffset.isEmpty()) {
-      return Completable.complete();
+      return Mono.empty();
     }
 
     vbucketToOffset.forEach((partition, offset) ->
@@ -555,16 +543,16 @@ public class Client implements Closeable {
    * @deprecated Please use {@link #startStreaming(Collection)} instead.
    */
   @Deprecated
-  public Completable startStreaming(Short... vbids) {
+  public Mono<Void> startStreaming(Short... vbids) {
     return startStreaming(toIntList(vbids));
   }
 
   /**
    * Start streaming for all partitions.
    *
-   * @return a {@link Completable} indicating that streaming has started or failed.
+   * @return a {@link Mono} indicating that streaming has started or failed.
    */
-  public Completable startStreaming() {
+  public Mono<Void> startStreaming() {
     return startStreaming(emptyList());
   }
 
@@ -574,9 +562,9 @@ public class Client implements Closeable {
    * If no ids are provided, all initialized partitions will be started.
    *
    * @param vbids the partition ids (0-indexed) to start streaming for.
-   * @return a {@link Completable} indicating that streaming has started or failed.
+   * @return a {@link Mono} indicating that streaming has started or failed.
    */
-  public Completable startStreaming(Collection<Integer> vbids) {
+  public Mono<Void> startStreaming(Collection<Integer> vbids) {
     int numPartitions = numPartitions();
     final List<Integer> partitions = partitionsForVbids(numPartitions, vbids);
 
@@ -598,26 +586,26 @@ public class Client implements Closeable {
 
     if (initializedPartitions.isEmpty()) {
       LOGGER.info("The configured session state does not require any streams to be opened. Completing immediately.");
-      return Completable.complete();
+      return Mono.empty();
     }
 
     LOGGER.info("Starting to Stream for " + initializedPartitions.size() + " partitions");
     LOGGER.debug("Stream start against partitions: {}", initializedPartitions);
 
-    return Observable
-        .from(initializedPartitions)
-        .flatMapCompletable(partition -> {
+    return Flux
+        .fromIterable(initializedPartitions)
+        .flatMap(partition -> {
           PartitionState partitionState = sessionState().get(partition);
           return conductor.startStreamForPartition(
               partition,
               partitionState.getOffset(),
               partitionState.getEndSeqno()
-          ).onErrorResumeNext(throwable ->
+          ).onErrorResume(throwable ->
               (throwable instanceof RollbackException)
-                  ? Completable.complete() // Ignore rollbacks since they are handled out of band.
-                  : Completable.error(throwable));
+                  ? Mono.empty() // Ignore rollbacks since they are handled out of band.
+                  : Mono.error(throwable));
         })
-        .toCompletable();
+        .then();
   }
 
   /**
@@ -653,7 +641,7 @@ public class Client implements Closeable {
    * @deprecated Please use {@link #stopStreaming(Collection)} instead.
    */
   @Deprecated
-  public Completable stopStreaming(Short... vbids) {
+  public Mono<Void> stopStreaming(Short... vbids) {
     return stopStreaming(toIntList(vbids));
   }
 
@@ -665,23 +653,18 @@ public class Client implements Closeable {
    * will resume from the current position.
    *
    * @param vbids the partition ids (0-indexed) to stop streaming for.
-   * @return a {@link Completable} indicating that streaming has stopped or failed.
+   * @return a {@link Mono} indicating that streaming has stopped or failed.
    */
-  public Completable stopStreaming(Collection<Integer> vbids) {
+  public Mono<Void> stopStreaming(Collection<Integer> vbids) {
     List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
 
-    LOGGER.info("Stopping to Stream for " + partitions.size() + " partitions");
-    LOGGER.debug("Stream stop against partitions: {}", partitions);
-
-    return Observable
-        .from(partitions)
-        .flatMapCompletable(new Func1<Integer, Completable>() {
-          @Override
-          public Completable call(Integer p) {
-            return conductor.stopStreamForPartition(p);
-          }
+    return Flux.fromIterable(partitions)
+        .doOnSubscribe(subscription -> {
+          LOGGER.info("Stopping stream for {} partitions", partitions.size());
+          LOGGER.debug("Stream stop against partitions: {}", partitions);
         })
-        .toCompletable();
+        .flatMap(conductor::stopStreamForPartition)
+        .then();
   }
 
   /**
@@ -709,7 +692,7 @@ public class Client implements Closeable {
    * @deprecated Please use {@link #failoverLogs(Collection)} instead.
    */
   @Deprecated
-  public Observable<ByteBuf> failoverLogs(Short... vbids) {
+  public Flux<ByteBuf> failoverLogs(Short... vbids) {
     return failoverLogs(toIntList(vbids));
   }
 
@@ -720,16 +703,19 @@ public class Client implements Closeable {
    * ByteBufs can be analyzed using the {@link DcpFailoverLogResponse} flyweight.
    *
    * @param vbids the partitions to return the failover logs from.
-   * @return an {@link Observable} containing all failover logs.
+   * @return an {@link Flux} containing all failover logs.
    */
-  public Observable<ByteBuf> failoverLogs(Collection<Integer> vbids) {
+  public Flux<ByteBuf> failoverLogs(Collection<Integer> vbids) {
     List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
 
     LOGGER.debug("Asking for failover logs on partitions {}", partitions);
 
-    return Observable
-        .from(partitions)
-        .flatMapSingle(conductor::getFailoverLog);
+    return Flux.fromIterable(partitions)
+        .flatMap(conductor::getFailoverLog);
+  }
+
+  public Mono<ByteBuf> failoverLog(int vbid) {
+    return Mono.just(vbid).flatMap(conductor::getFailoverLog);
   }
 
   /**
@@ -745,16 +731,10 @@ public class Client implements Closeable {
    * @param partition the partition id
    * @param seqno the sequence number to rollback to
    */
-  public Completable rollbackAndRestartStream(final int partition, final long seqno) {
+  public Mono<Void> rollbackAndRestartStream(final int partition, final long seqno) {
     return stopStreaming(singletonList(partition))
-        .andThen(Completable.create(new Completable.OnSubscribe() {
-          @Override
-          public void call(CompletableSubscriber subscriber) {
-            sessionState().rollbackToPosition(partition, seqno);
-            subscriber.onCompleted();
-          }
-        }))
-        .andThen(startStreaming(singletonList(partition)));
+        .then(Mono.fromRunnable(() -> sessionState().rollbackToPosition(partition, seqno)))
+        .then(startStreaming(singletonList(partition)));
   }
 
 
@@ -796,9 +776,9 @@ public class Client implements Closeable {
    *
    * @param from where to start streaming from.
    * @param to when to stop streaming.
-   * @return A {@link Completable} indicating the success or failure of the state init.
+   * @return A {@link Mono} indicating the success or failure of the state init.
    */
-  public Completable initializeState(final StreamFrom from, final StreamTo to) {
+  public Mono<Void> initializeState(final StreamFrom from, final StreamTo to) {
     if (from == StreamFrom.BEGINNING && to == StreamTo.INFINITY) {
       buzzMe();
       return initFromBeginningToInfinity();
@@ -822,25 +802,22 @@ public class Client implements Closeable {
    *
    * @param format the format used when persisting.
    * @param persistedState the opaque byte array representing the persisted state.
-   * @return A {@link Completable} indicating the success or failure of the state recovery.
+   * @return A {@link Mono} indicating the success or failure of the state recovery.
    */
-  public Completable recoverState(final StateFormat format, final byte[] persistedState) {
-    return Completable.create(new Completable.OnSubscribe() {
-      @Override
-      public void call(CompletableSubscriber subscriber) {
-        LOGGER.info("Recovering state from format {}", format);
-        LOGGER.debug("PersistedState on recovery is: {}", new String(persistedState, StandardCharsets.UTF_8));
+  public Mono<Void> recoverState(final StateFormat format, final byte[] persistedState) {
+    return Mono.create(sink -> {
+      LOGGER.info("Recovering state from format {}", format);
+      LOGGER.debug("PersistedState on recovery is: {}", new String(persistedState, StandardCharsets.UTF_8));
 
-        try {
-          if (format == StateFormat.JSON) {
-            sessionState().setFromJson(persistedState);
-            subscriber.onCompleted();
-          } else {
-            subscriber.onError(new IllegalStateException("Unsupported StateFormat " + format));
-          }
-        } catch (Exception ex) {
-          subscriber.onError(ex);
+      try {
+        if (format == StateFormat.JSON) {
+          sessionState().setFromJson(persistedState);
+          sink.success();
+        } else {
+          sink.error(new IllegalStateException("Unsupported StateFormat " + format));
         }
+      } catch (Exception ex) {
+        sink.error(ex);
       }
     });
   }
@@ -857,10 +834,10 @@ public class Client implements Closeable {
    * @param persistedState the state, may be null or empty.
    * @param from from where to start streaming if persisted state is null or empty.
    * @param to to where to stream if persisted state is null or empty.
-   * @return A {@link Completable} indicating the success or failure of the state recovery or init.
+   * @return A {@link Mono} indicating the success or failure of the state recovery or init.
    */
-  public Completable recoverOrInitializeState(final StateFormat format, final byte[] persistedState,
-                                              final StreamFrom from, final StreamTo to) {
+  public Mono<Void> recoverOrInitializeState(final StateFormat format, final byte[] persistedState,
+                                             final StreamFrom from, final StreamTo to) {
     if (persistedState == null || persistedState.length == 0) {
       return initializeState(from, to);
     } else {
@@ -872,19 +849,16 @@ public class Client implements Closeable {
   /**
    * Initializes the session state from beginning to no end.
    */
-  private Completable initFromBeginningToInfinity() {
-    return Completable.create(new Completable.OnSubscribe() {
-      @Override
-      public void call(CompletableSubscriber subscriber) {
-        LOGGER.info("Initializing state from beginning to no end.");
+  private Mono<Void> initFromBeginningToInfinity() {
+    return Mono.create(sink -> {
+      LOGGER.info("Initializing state from beginning to no end.");
 
-        try {
-          sessionState().setToBeginningWithNoEnd(numPartitions());
-          subscriber.onCompleted();
-        } catch (Exception ex) {
-          LOGGER.warn("Failed to initialize state from beginning to no end.", ex);
-          subscriber.onError(ex);
-        }
+      try {
+        sessionState().setToBeginningWithNoEnd(numPartitions());
+        sink.success();
+      } catch (Exception ex) {
+        LOGGER.warn("Failed to initialize state from beginning to no end.", ex);
+        sink.error(ex);
       }
     });
   }
@@ -892,33 +866,27 @@ public class Client implements Closeable {
   /**
    * Initializes the session state from now to no end.
    */
-  private Completable initFromNowToInfinity() {
-    return initWithCallback(new Action1<PartitionAndSeqno>() {
-      @Override
-      public void call(PartitionAndSeqno partitionAndSeqno) {
-        int partition = partitionAndSeqno.partition();
-        long seqno = partitionAndSeqno.seqno();
-        PartitionState partitionState = sessionState().get(partition);
-        partitionState.setStartSeqno(seqno);
-        partitionState.setSnapshot(new SnapshotMarker(seqno, seqno));
-        sessionState().set(partition, partitionState);
-      }
+  private Mono<Void> initFromNowToInfinity() {
+    return initWithCallback(partitionAndSeqno -> {
+      int partition = partitionAndSeqno.partition();
+      long seqno = partitionAndSeqno.seqno();
+      PartitionState partitionState = sessionState().get(partition);
+      partitionState.setStartSeqno(seqno);
+      partitionState.setSnapshot(new SnapshotMarker(seqno, seqno));
+      sessionState().set(partition, partitionState);
     });
   }
 
   /**
    * Initializes the session state from beginning to now.
    */
-  private Completable initFromBeginningToNow() {
-    return initWithCallback(new Action1<PartitionAndSeqno>() {
-      @Override
-      public void call(PartitionAndSeqno partitionAndSeqno) {
-        int partition = partitionAndSeqno.partition();
-        long seqno = partitionAndSeqno.seqno();
-        PartitionState partitionState = sessionState().get(partition);
-        partitionState.setEndSeqno(seqno);
-        sessionState().set(partition, partitionState);
-      }
+  private Mono<Void> initFromBeginningToNow() {
+    return initWithCallback(partitionAndSeqno -> {
+      int partition = partitionAndSeqno.partition();
+      long seqno = partitionAndSeqno.seqno();
+      PartitionState partitionState = sessionState().get(partition);
+      partitionState.setEndSeqno(seqno);
+      sessionState().set(partition, partitionState);
     });
   }
 
@@ -928,25 +896,20 @@ public class Client implements Closeable {
    * This method grabs the sequence numbers and then calls a callback for customization. Once that is done it
    * grabs the failover logs and populates the session state with the failover log information.
    */
-  private Completable initWithCallback(Action1<PartitionAndSeqno> callback) {
+  private Mono<Void> initWithCallback(Consumer<PartitionAndSeqno> callback) {
     sessionState().setToBeginningWithNoEnd(numPartitions());
 
     return getSeqnos()
         .doOnNext(callback)
-        .reduce(new ArrayList<>(), new Func2<List<Integer>, PartitionAndSeqno, List<Integer>>() {
-          @Override
-          public List<Integer> call(List<Integer> partitions, PartitionAndSeqno partitionAndSeqno) {
-            partitions.add(partitionAndSeqno.partition());
-            return partitions;
-          }
-        })
-        .flatMap(this::failoverLogs)
+        .map(PartitionAndSeqno::partition)
+        .flatMap(this::failoverLog)
         .map(buf -> {
           int partition = DcpFailoverLogResponse.vbucket(buf);
           handleFailoverLogResponse(buf);
           buf.release();
           return partition;
-        }).last().toCompletable();
+        })
+        .then();
   }
 
   /**
@@ -995,7 +958,7 @@ public class Client implements Closeable {
     private Duration configRefreshInterval = Environment.DEFAULT_CONFIG_REFRESH_INTERVAL;
     private long socketConnectTimeout = Environment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
     private int dcpChannelsReconnectMaxAttempts = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
-    private Delay dcpChannelsReconnectDelay = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
+    private Retry dcpChannelsReconnectDelay = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
     private EventBus eventBus;
     private boolean sslEnabled = Environment.DEFAULT_SSL_ENABLED;
     private String sslKeystoreFile;
@@ -1420,10 +1383,10 @@ public class Client implements Closeable {
     /**
      * Delay between retry attempts for DCP channels
      *
-     * @param dcpChannelsReconnectDelay
+     * @deprecated Doesn't do anything.
      */
-    public Builder dcpChannelsReconnectDelay(Delay dcpChannelsReconnectDelay) {
-      this.dcpChannelsReconnectDelay = dcpChannelsReconnectDelay;
+    @Deprecated
+    public Builder dcpChannelsReconnectDelay(Delay ignored) {
       return this;
     }
 
@@ -1597,7 +1560,7 @@ public class Client implements Closeable {
     public static final Duration DEFAULT_CONFIG_REFRESH_INTERVAL = Duration.ofSeconds(2);
     public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
     public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
-    public static final Delay DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Delay.fixed(200, TimeUnit.MILLISECONDS);
+    public static final Retry DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200));
     public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
     public static final boolean DEFAULT_SSL_ENABLED = false;
     private static final int DEFAULT_KV_PORT = 11210;
@@ -1627,13 +1590,12 @@ public class Client implements Closeable {
     private volatile DataEventHandler dataEventHandler;
     private volatile ControlEventHandler controlEventHandler;
     private final PersistedSeqnos persistedSeqnos = PersistedSeqnos.uninitialized();
-    private final Delay dcpChannelsReconnectDelay;
+    private final Retry dcpChannelsReconnectDelay;
     private final int dcpChannelsReconnectMaxAttempts;
 
     private final EventBus eventBus;
     private final Scheduler scheduler;
-    private final ShutdownHook schedulerShutdownHook;
-    private Subscription systemEventSubscription;
+    private Disposable systemEventSubscription;
     private final boolean sslEnabled;
     private final String sslKeystoreFile;
     private final String sslKeystorePassword;
@@ -1669,11 +1631,8 @@ public class Client implements Closeable {
       if (builder.eventBus != null) {
         eventBus = builder.eventBus;
         this.scheduler = null;
-        this.schedulerShutdownHook = new NoOpShutdownHook();
       } else {
-        CoreScheduler scheduler = new CoreScheduler(3);
-        this.scheduler = scheduler;
-        this.schedulerShutdownHook = scheduler;
+        this.scheduler = Schedulers.parallel();
         eventBus = new DefaultDcpEventBus(scheduler);
       }
       sslEnabled = builder.sslEnabled;
@@ -1910,23 +1869,12 @@ public class Client implements Closeable {
      */
     public void setSystemEventHandler(final SystemEventHandler systemEventHandler) {
       if (systemEventSubscription != null) {
-        systemEventSubscription.unsubscribe();
+        systemEventSubscription.dispose();
       }
       if (systemEventHandler != null) {
         systemEventSubscription = eventBus().get()
             .filter(evt -> evt.type().equals(EventType.SYSTEM))
-            .subscribe(new Subscriber<CouchbaseEvent>() {
-              @Override
-              public void onCompleted() { /* Ignoring on purpose. */}
-
-              @Override
-              public void onError(Throwable e) { /* Ignoring on purpose. */ }
-
-              @Override
-              public void onNext(CouchbaseEvent evt) {
-                systemEventHandler.onEvent(evt);
-              }
-            });
+            .subscribe(systemEventHandler::onEvent);
       }
     }
 
@@ -1996,26 +1944,25 @@ public class Client implements Closeable {
      * especially if a custom event loop group is passed in it needs to be shut down
      * separately.
      *
-     * @return a {@link Completable} indicating completion of the shutdown process.
+     * @return a {@link Mono} indicating completion of the shutdown process.
      */
-    public Completable shutdown() {
-      Observable<Boolean> loopShutdown = Observable.empty();
+    public Mono<Void> shutdown() {
+      Mono<Boolean> loopShutdown = Mono.empty();
 
       if (eventLoopGroupIsPrivate) {
-        loopShutdown = Completable.create(subscriber ->
+        loopShutdown = Mono.create(sink ->
             eventLoopGroup.shutdownGracefully(0, 10, TimeUnit.MILLISECONDS)
                 .addListener(future -> {
                   if (future.isSuccess()) {
-                    subscriber.onCompleted();
+                    sink.success();
                   } else {
-                    subscriber.onError(future.cause());
+                    sink.error(future.cause());
                   }
-                })).toObservable();
+                }));
       }
 
-      return Observable.merge(schedulerShutdownHook.shutdown(), loopShutdown)
-          .reduce(true, (previous, current) -> previous && current)
-          .toCompletable();
+      return loopShutdown
+          .then();
     }
 
     @Override
@@ -2042,10 +1989,6 @@ public class Client implements Closeable {
           ", sslKeystorePassword=" + (sslKeystorePassword != null && !sslKeystorePassword.isEmpty()) +
           ", sslKeystore=" + sslKeystore +
           '}';
-    }
-
-    public Delay dcpChannelsReconnectDelay() {
-      return dcpChannelsReconnectDelay;
     }
 
     public int dcpChannelsReconnectMaxAttempts() {

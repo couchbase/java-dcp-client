@@ -15,15 +15,15 @@
  */
 package com.couchbase.client.dcp.core.env.resources;
 
-import rx.Observable;
+import reactor.core.publisher.Mono;
 
 /**
  * {@link ShutdownHook} hook that does nothing and returns true.
  */
 public class NoOpShutdownHook implements ShutdownHook {
   @Override
-  public Observable<Boolean> shutdown() {
-    return Observable.just(true);
+  public Mono<Boolean> shutdown() {
+    return Mono.just(true);
   }
 
   @Override

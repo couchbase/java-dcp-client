@@ -79,7 +79,7 @@ public class StatePersistence {
     });
 
     // Connect the sockets
-    client.connect().await();
+    client.connect().block();
 
     // Try to load the persisted state from file if it exists
     File file = new File(FILENAME);
@@ -91,10 +91,10 @@ public class StatePersistence {
     }
 
     // if the persisted file exists recover, if not start from beginning
-    client.recoverOrInitializeState(StateFormat.JSON, persisted, StreamFrom.BEGINNING, StreamTo.INFINITY).await();
+    client.recoverOrInitializeState(StateFormat.JSON, persisted, StreamFrom.BEGINNING, StreamTo.INFINITY).block();
 
     // Start streaming on all partitions
-    client.startStreaming().await();
+    client.startStreaming().block();
 
     // Persist the State ever 10 seconds
     while (true) {

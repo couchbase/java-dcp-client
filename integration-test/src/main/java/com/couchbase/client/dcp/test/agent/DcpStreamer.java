@@ -33,9 +33,9 @@ import com.couchbase.client.dcp.state.SessionState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.couchbase.client.dcp.test.util.Poller.poll;
@@ -213,17 +213,17 @@ public class DcpStreamer {
       }
     }, FlowControlMode.AUTOMATIC);
 
-    client.connect().await(30, TimeUnit.SECONDS);
+    client.connect().block(Duration.ofSeconds(30));
     try {
-      client.initializeState(from, to).await();
-      client.startStreaming(vbuckets).await();
+      client.initializeState(from, to).block();
+      client.startStreaming(vbuckets).block();
     } catch (Throwable t) {
       stop();
       throw t;
     }
   }
 
-  public Status awaitStreamEnd(long timeout, TimeUnit unit) throws TimeoutException {
+  public Status awaitStreamEnd(long timeout, TimeUnit unit) {
     if (this.streamTo == StreamTo.INFINITY) {
       throw new IllegalStateException("Streaming to infinity; can't wait for that!");
     }
@@ -251,6 +251,6 @@ public class DcpStreamer {
   }
 
   void stop() {
-    client.disconnect().await();
+    client.disconnect().block();
   }
 }

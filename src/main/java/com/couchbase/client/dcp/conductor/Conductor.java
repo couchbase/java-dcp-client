@@ -21,7 +21,6 @@ import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
-import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
@@ -32,18 +31,16 @@ import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
-import com.couchbase.client.dcp.util.retry.RetryBuilder;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.Completable;
-import rx.CompletableSubscriber;
-import rx.Observable;
-import rx.Single;
-import rx.Subscription;
-import rx.schedulers.Schedulers;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,7 +53,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
-import static com.couchbase.client.dcp.util.retry.RetryBuilder.anyOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -86,8 +82,8 @@ public class Conductor {
     this.bucketConfigArbiter = new BucketConfigArbiter(env);
 
     bucketConfigArbiter.configs()
-        .observeOn(Schedulers.from(configUpdateExecutor))
-        .forEach(config -> {
+        .publishOn(Schedulers.fromExecutor(configUpdateExecutor))
+        .subscribe(config -> {
           // Couchbase sometimes says a newly created bucket has no partitions.
           // This doesn't affect cluster topology, but it's a problem for code
           // that needs to know the real partition count during startup.
@@ -108,7 +104,7 @@ public class Conductor {
     return sessionState;
   }
 
-  public Completable connect() {
+  public Mono<Void> connect() {
     stopped = false;
 
     // Connect to every node listed in the bootstrap list.
@@ -131,8 +127,8 @@ public class Conductor {
    * @throws RuntimeException (async) caused by TimeoutException if count does not reach zero before timeout.
    * @throws RuntimeException (async) caused by InterruptedException if interrupted while waiting.
    */
-  private static Completable await(CountDownLatch latch, long timeout, TimeUnit timeoutUnit) {
-    return Completable.fromAction(() -> {
+  private static Mono<Void> await(CountDownLatch latch, long timeout, TimeUnit timeoutUnit) {
+    return Mono.fromRunnable(() -> {
       try {
         if (!latch.await(timeout, timeoutUnit)) {
           throw new RuntimeException(new TimeoutException("Timed out after waiting " + timeout + " " + timeoutUnit + " for latch."));
@@ -155,16 +151,14 @@ public class Conductor {
         .allMatch(c -> c.isState(LifecycleState.DISCONNECTED));
   }
 
-  public Completable stop() {
+  public Mono<Void> stop() {
     LOGGER.debug("Instructed to shutdown.");
     stopped = true;
-    Completable channelShutdown = Observable
-        .from(channels)
-        .flatMapCompletable(DcpChannel::disconnect)
-        .toCompletable()
-        .andThen(Completable.fromAction(configUpdateExecutor::shutdown));
-
-    return channelShutdown.doOnCompleted(() -> LOGGER.info("Shutdown complete."));
+    return Flux.fromIterable(channels)
+        .flatMap(DcpChannel::disconnect)
+        .then(Mono.fromRunnable(configUpdateExecutor::shutdown))
+        .then()
+        .doOnSuccess(ignore -> LOGGER.info("Shutdown complete."));
   }
 
   /**
@@ -174,66 +168,54 @@ public class Conductor {
     return currentConfig.get().numberOfPartitions();
   }
 
-  public Observable<ByteBuf> getSeqnos() {
-    return Observable
-        .from(channels)
+  public Flux<ByteBuf> getSeqnos() {
+    return Flux.fromIterable(channels)
         .flatMap(this::getSeqnosForChannel);
   }
 
-  private Observable<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
-    return Observable
-        .just(channel)
-        .flatMapSingle(DcpChannel::getSeqnos)
-        .retryWhen(anyOf(NotConnectedException.class)
-            .max(Integer.MAX_VALUE)
-            .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-            .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel))
-            .build()
+  private Flux<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
+    return Flux.just(channel)
+        .flatMap(DcpChannel::getSeqnos)
+        .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+            .filter(e -> e instanceof NotConnectedException)
+            .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling get Seqnos for channel {}, not connected (yet).", channel))
         );
   }
 
-  public Single<ByteBuf> getFailoverLog(final int partition) {
-    return Observable
-        .just(partition)
+  public Mono<ByteBuf> getFailoverLog(final int partition) {
+    return Mono.just(partition)
         .map(ignored -> activeChannelByPartition(partition))
-        .flatMapSingle(channel -> channel.getFailoverLog(partition))
-        .retryWhen(anyOf(NotConnectedException.class)
-            .max(Integer.MAX_VALUE)
-            .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-            .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling Get Failover Log for vbid {}, not connected (yet).", partition))
-            .build()
-        ).toSingle();
+        .flatMap(channel -> channel.getFailoverLog(partition))
+        .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+            .filter(e -> e instanceof NotConnectedException)
+            .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Get Failover Log for vbid {}, not connected (yet).", partition))
+        );
   }
 
-  public Completable startStreamForPartition(final int partition, final StreamOffset startOffset, final long endSeqno) {
-    return Observable
-        .just(partition)
-        .map(ignored -> activeChannelByPartition(partition))
-        .flatMapCompletable(channel ->
-            channel.getCollectionsManifest()
-                .flatMapCompletable(manifest -> {
-                  final CollectionsManifest m = manifest.orElse(CollectionsManifest.DEFAULT);
-                  final PartitionState ps = sessionState.get(partition);
-                  ps.setCollectionsManifest(m);
-                  ps.setKeyExtractor(manifest.isPresent() ? KeyExtractor.COLLECTIONS : KeyExtractor.NO_COLLECTIONS);
-                  return channel.openStream(partition, startOffset, endSeqno, m);
-                })
+  public Mono<Void> startStreamForPartition(final int partition, final StreamOffset startOffset, final long endSeqno) {
+    return Mono.just(partition)
+        .map(this::activeChannelByPartition)
+        .flatMap(channel -> channel.getCollectionsManifest()
+            .flatMap(manifest -> {
+              final CollectionsManifest m = manifest.orElse(CollectionsManifest.DEFAULT);
+              final PartitionState ps = sessionState.get(partition);
+              ps.setCollectionsManifest(m);
+              ps.setKeyExtractor(manifest.isPresent() ? KeyExtractor.COLLECTIONS : KeyExtractor.NO_COLLECTIONS);
+              return channel.openStream(partition, startOffset, endSeqno, m);
+            })
         )
-        .retryWhen(anyOf(NotConnectedException.class)
-            .max(Integer.MAX_VALUE)
-            .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-            .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition))
-            .build()
-        )
-        .toCompletable();
+        .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+            .filter(e -> e instanceof NotConnectedException)
+            .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition))
+        );
   }
 
-  public Completable stopStreamForPartition(final int partition) {
+  public Mono<Void> stopStreamForPartition(final int partition) {
     if (streamIsOpen(partition)) {
       DcpChannel channel = activeChannelByPartition(partition);
       return channel.closeStream(partition);
     } else {
-      return Completable.complete();
+      return Mono.empty();
     }
   }
 
@@ -297,32 +279,18 @@ public class Conductor {
       throw new IllegalStateException("Tried to add duplicate channel: " + system(channel));
     }
 
-    channel
-        .connect()
-        .retryWhen(RetryBuilder.anyMatches(t -> !stopped)
-            .max(env.dcpChannelsReconnectMaxAttempts())
-            .delay(env.dcpChannelsReconnectDelay())
-            .doOnRetry((retry, cause, delay, delayUnit) -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node))
-            .build())
-        .subscribe(new CompletableSubscriber() {
-          @Override
-          public void onCompleted() {
-            LOGGER.debug("Completed Node connect for DCP channel {}", node);
+    channel.connect()
+        .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+            .filter(t -> !stopped)
+            .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node))
+        )
+        .doOnSuccess(ignored -> LOGGER.debug("Completed Node connect for DCP channel {}", node))
+        .doOnError(e -> {
+          LOGGER.warn("Got error during connect (maybe retried) for node {}", system(node), e);
+          if (env.eventBus() != null) {
+            env.eventBus().publish(new FailedToAddNodeEvent(node, e));
           }
-
-          @Override
-          public void onError(Throwable e) {
-            LOGGER.warn("Got error during connect (maybe retried) for node {}", system(node), e);
-            if (env.eventBus() != null) {
-              env.eventBus().publish(new FailedToAddNodeEvent(node, e));
-            }
-          }
-
-          @Override
-          public void onSubscribe(Subscription d) {
-            // ignored.
-          }
-        });
+        }).subscribe();
   }
 
   private void remove(final DcpChannel node) {
@@ -338,25 +306,14 @@ public class Conductor {
       }
     }
 
-    node.disconnect().subscribe(new CompletableSubscriber() {
-      @Override
-      public void onCompleted() {
-        LOGGER.debug("Channel remove notified as complete for {}", node.address());
-      }
-
-      @Override
-      public void onError(Throwable e) {
-        LOGGER.warn("Got error during Node removal for node {}", system(node.address()), e);
-        if (env.eventBus() != null) {
-          env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
-        }
-      }
-
-      @Override
-      public void onSubscribe(Subscription d) {
-        // ignored.
-      }
-    });
+    node.disconnect()
+        .doOnSuccess(ignored -> LOGGER.debug("Channel remove notified as complete for {}", node.address()))
+        .doOnError(e -> {
+          LOGGER.warn("Got error during Node removal for node {}", system(node.address()), e);
+          if (env.eventBus() != null) {
+            env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
+          }
+        }).subscribe();
   }
 
   /**
@@ -366,8 +323,8 @@ public class Conductor {
    * @param partition the partition to move if needed
    */
   void maybeMovePartition(final int partition) {
-    Observable
-        .timer(50, TimeUnit.MILLISECONDS)
+    Mono.just(partition)
+        .delayElement(Duration.ofMillis(50))
         .filter(ignored -> {
           PartitionState ps = sessionState.get(partition);
           boolean desiredSeqnoReached = ps.isAtEnd();
@@ -377,41 +334,30 @@ public class Conductor {
           }
           return !desiredSeqnoReached;
         })
-        .flatMapCompletable(ignored -> {
+        .flatMap(ignored -> {
           PartitionState ps = sessionState.get(partition);
           return startStreamForPartition(
               partition,
               ps.getOffset(),
               ps.getEndSeqno()
-          ).retryWhen(anyOf(NotMyVbucketException.class)
-              .max(Integer.MAX_VALUE)
-              .delay(Delay.fixed(200, TimeUnit.MILLISECONDS))
-              .build());
-        }).toCompletable().subscribe(new CompletableSubscriber() {
-      @Override
-      public void onCompleted() {
-        LOGGER.trace("Completed Partition Move for partition {}", partition);
-      }
+          ).retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+              .filter(e -> e instanceof NotMyVbucketException));
+        })
 
-      @Override
-      public void onError(Throwable e) {
-        if (e instanceof RollbackException) {
-          // Benign, so don't log a scary stack trace. A synthetic "rollback" message has been passed
-          // to the Control Event Handler, which may react by calling Client.rollbackAndRestartStream().
-          LOGGER.warn("Rollback during Partition Move for partition {}", partition);
-        } else {
-          LOGGER.warn("Error during Partition Move for partition {}", partition, e);
-        }
-        if (env.eventBus() != null) {
-          env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
-        }
-      }
-
-      @Override
-      public void onSubscribe(Subscription d) {
-        LOGGER.debug("Subscribing for Partition Move for partition {}", partition);
-      }
-    });
+        .doOnSubscribe(subscription -> LOGGER.debug("Subscribing for Partition Move for partition {}", partition))
+        .doOnSuccess(ignored -> LOGGER.trace("Completed Partition Move for partition {}", partition))
+        .doOnError(e -> {
+          if (e instanceof RollbackException) {
+            // Benign, so don't log a scary stack trace. A synthetic "rollback" message has been passed
+            // to the Control Event Handler, which may react by calling Client.rollbackAndRestartStream().
+            LOGGER.warn("Rollback during Partition Move for partition {}", partition);
+          } else {
+            LOGGER.warn("Error during Partition Move for partition {}", partition, e);
+          }
+          if (env.eventBus() != null) {
+            env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
+          }
+        })
+        .subscribe();
   }
-
 }

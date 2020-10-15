@@ -33,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -94,7 +93,7 @@ public class StreamerServiceImpl implements StreamerService {
   }
 
   @Override
-  public DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException {
+  public DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) {
     DcpStreamer.Status status = idToStreamer.get(streamerId).awaitStreamEnd(timeout, unit);
     stop(streamerId);
     return status;
@@ -123,11 +122,11 @@ public class StreamerServiceImpl implements StreamerService {
         .seedNodes(nodes.split(","))
         .build();
 
-    client.connect().await();
+    client.connect().block();
     try {
       return client.numPartitions();
     } finally {
-      client.disconnect().await();
+      client.disconnect().block();
     }
   }
 }

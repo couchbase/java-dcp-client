@@ -27,9 +27,9 @@ import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.Observable;
-import rx.subjects.BehaviorSubject;
-import rx.subjects.Subject;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.ReplayProcessor;
 
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +49,8 @@ import static java.util.Objects.requireNonNull;
 public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource {
   private static final Logger log = LoggerFactory.getLogger(BucketConfigArbiter.class);
 
-  private final Subject<DcpBucketConfig, DcpBucketConfig> configStream = BehaviorSubject.<DcpBucketConfig>create().toSerialized();
+  private final ReplayProcessor<DcpBucketConfig> configStream = ReplayProcessor.cacheLast();
+  private final FluxSink<DcpBucketConfig> configSink = configStream.sink(FluxSink.OverflowStrategy.LATEST);
 
   private final Object revLock = new Object();
 
@@ -84,7 +85,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
         CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, origin);
         selectAlternateNetwork(config);
 
-        configStream.onNext(new DcpBucketConfig(config, environment.sslEnabled()));
+        configSink.next(new DcpBucketConfig(config, environment.sslEnabled()));
 
       } catch (Exception e) {
         log.error("Failed to parse bucket config", e);
@@ -102,7 +103,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   }
 
   @Override
-  public Observable<DcpBucketConfig> configs() {
+  public Flux<DcpBucketConfig> configs() {
     return configStream;
   }
 

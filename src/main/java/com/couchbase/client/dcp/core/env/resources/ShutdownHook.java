@@ -15,14 +15,14 @@
  */
 package com.couchbase.client.dcp.core.env.resources;
 
-import rx.Observable;
+import reactor.core.publisher.Mono;
 
 /**
  * Interface to describe shutdown behavior for a resource that
  * can be asynchronously shut down.
  */
 public interface ShutdownHook {
-  public Observable<Boolean> shutdown();
+  Mono<Boolean> shutdown();
 
-  public boolean isShutdown();
+  boolean isShutdown();
 }

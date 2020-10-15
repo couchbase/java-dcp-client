@@ -69,13 +69,13 @@ public class FlowControl {
     });
 
     // Connect the sockets
-    client.connect().await();
+    client.connect().block();
 
     // Initialize the state (start now, never stop)
-    client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).await();
+    client.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).block();
 
     // Start streaming on all partitions
-    client.startStreaming().await();
+    client.startStreaming().block();
 
     // ZZzzzZZ
     while (true) {

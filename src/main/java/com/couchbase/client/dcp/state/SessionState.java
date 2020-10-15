@@ -21,7 +21,6 @@ import com.couchbase.client.dcp.state.json.SessionStateSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import rx.functions.Action1;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
 
@@ -104,11 +104,11 @@ public class SessionState {
   public void setFromJson(final byte[] persisted) {
     try {
       SessionState decoded = JACKSON.readValue(persisted, SessionState.class);
-      decoded.foreachPartition(new Action1<PartitionState>() {
+      decoded.foreachPartition(new Consumer<PartitionState>() {
         int i = 0;
 
         @Override
-        public void call(PartitionState dps) {
+        public void accept(PartitionState dps) {
           partitionStates.set(i++, dps);
         }
       });
@@ -120,7 +120,7 @@ public class SessionState {
   /**
    * Accessor into the partition state, only use this if really needed.
    * <p>
-   * If you want to avoid going out of bounds, use the simpler iterator way on {@link #foreachPartition(Action1)}.
+   * If you want to avoid going out of bounds, use the simpler iterator way on {@link #foreachPartition(Consumer)}.
    *
    * @param partition the index of the partition.
    * @return the partition state for the given partition id.
@@ -185,14 +185,14 @@ public class SessionState {
    *
    * @param action the action to be called with the state for every partition.
    */
-  public void foreachPartition(final Action1<PartitionState> action) {
+  public void foreachPartition(final Consumer<PartitionState> action) {
     int len = partitionStates.length();
     for (int i = 0; i < len; i++) {
       PartitionState ps = partitionStates.get(i);
       if (ps == null) {
         continue;
       }
-      action.call(ps);
+      action.accept(ps);
     }
   }
 
