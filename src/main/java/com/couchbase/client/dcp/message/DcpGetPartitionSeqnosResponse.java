@@ -18,6 +18,9 @@ package com.couchbase.client.dcp.message;
 
 import io.netty.buffer.ByteBuf;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.couchbase.client.dcp.message.MessageUtil.GET_SEQNOS_OPCODE;
 
 public enum DcpGetPartitionSeqnosResponse {
@@ -27,8 +30,25 @@ public enum DcpGetPartitionSeqnosResponse {
     return buffer.getByte(0) == MessageUtil.MAGIC_RES && buffer.getByte(1) == GET_SEQNOS_OPCODE;
   }
 
+  /**
+   * @deprecated Please use {@link #parse instead}
+   */
+  @Deprecated
   public static int numPairs(final ByteBuf buffer) {
     int bodyLength = MessageUtil.getContent(buffer).readableBytes();
     return bodyLength / 10; // one pair is short + long = 10 bytes
+  }
+
+  public static List<PartitionAndSeqno> parse(final ByteBuf buf) {
+    List<PartitionAndSeqno> result = new ArrayList<>();
+
+    ByteBuf content = MessageUtil.getContent(buf);
+    while (content.isReadable()) {
+      int partition = content.readShort();
+      long seqno = content.readLong();
+      result.add(new PartitionAndSeqno(partition, seqno));
+    }
+
+    return result;
   }
 }

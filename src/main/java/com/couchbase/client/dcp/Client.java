@@ -50,6 +50,7 @@ import com.couchbase.client.dcp.message.DcpSystemEvent;
 import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.OpenConnectionFlag;
+import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
@@ -224,15 +225,7 @@ public class Client implements Closeable {
    * @return an {@link Flux} of partition and sequence number.
    */
   private Flux<PartitionAndSeqno> getSeqnos() {
-    return conductor.getSeqnos().flatMap(buf -> {
-      int numPairs = buf.readableBytes() / 10; // 2 byte short + 8 byte long
-      List<PartitionAndSeqno> pairs = new ArrayList<>(numPairs);
-      for (int i = 0; i < numPairs; i++) {
-        pairs.add(new PartitionAndSeqno(buf.getShort(10 * i), buf.getLong(10 * i + 2)));
-      }
-      buf.release();
-      return Flux.fromIterable(pairs);
-    });
+    return conductor.getSeqnos();
   }
 
   /**
@@ -910,27 +903,6 @@ public class Client implements Closeable {
           return partition;
         })
         .then();
-  }
-
-  /**
-   * An immutable pair consisting of a partition and an associated sequence number.
-   */
-  private static class PartitionAndSeqno {
-    private final int partition;
-    private final long seqno;
-
-    public PartitionAndSeqno(int partition, long seqno) {
-      this.partition = partition;
-      this.seqno = seqno;
-    }
-
-    public int partition() {
-      return partition;
-    }
-
-    public long seqno() {
-      return seqno;
-    }
   }
 
   /**

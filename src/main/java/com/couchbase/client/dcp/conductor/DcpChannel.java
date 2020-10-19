@@ -30,9 +30,11 @@ import com.couchbase.client.dcp.message.DcpCloseStreamRequest;
 import com.couchbase.client.dcp.message.DcpFailoverLogRequest;
 import com.couchbase.client.dcp.message.DcpFailoverLogResponse;
 import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosRequest;
+import com.couchbase.client.dcp.message.DcpGetPartitionSeqnosResponse;
 import com.couchbase.client.dcp.message.DcpOpenStreamRequest;
 import com.couchbase.client.dcp.message.DcpOpenStreamResponse;
 import com.couchbase.client.dcp.message.MessageUtil;
+import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
@@ -585,7 +587,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   /**
    * Returns all seqnos for all vbuckets on that channel.
    */
-  public Mono<ByteBuf> getSeqnos() {
+  public Mono<List<PartitionAndSeqno>> getSeqnos() {
     return Mono.create(sink -> {
       if (state() != LifecycleState.CONNECTED) {
         sink.error(new NotConnectedException());
@@ -602,7 +604,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           if (future.isSuccess()) {
             ByteBuf buf = future.getNow().buffer();
             try {
-              sink.success(MessageUtil.getContent(buf).copy());
+              sink.success(DcpGetPartitionSeqnosResponse.parse(buf));
             } finally {
               buf.release();
             }

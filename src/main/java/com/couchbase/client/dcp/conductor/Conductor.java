@@ -28,6 +28,7 @@ import com.couchbase.client.dcp.events.FailedToRemoveNodeEvent;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
+import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -168,13 +169,14 @@ public class Conductor {
     return currentConfig.get().numberOfPartitions();
   }
 
-  public Flux<ByteBuf> getSeqnos() {
+  public Flux<PartitionAndSeqno> getSeqnos() {
     return Flux.fromIterable(channels)
-        .flatMap(this::getSeqnosForChannel);
+        .flatMap(this::getSeqnosForChannel)
+        .flatMap(Flux::fromIterable);
   }
 
-  private Flux<ByteBuf> getSeqnosForChannel(final DcpChannel channel) {
-    return Flux.just(channel)
+  private Mono<List<PartitionAndSeqno>> getSeqnosForChannel(final DcpChannel channel) {
+    return Mono.just(channel)
         .flatMap(DcpChannel::getSeqnos)
         .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
             .filter(e -> e instanceof NotConnectedException)
