@@ -224,7 +224,7 @@ public class Client implements Closeable {
    *
    * @return an {@link Flux} of partition and sequence number.
    */
-  private Flux<PartitionAndSeqno> getSeqnos() {
+  public Flux<PartitionAndSeqno> getSeqnos() {
     return conductor.getSeqnos();
   }
 
