@@ -16,15 +16,26 @@
 
 package com.couchbase.client.dcp.metrics;
 
+import com.couchbase.client.dcp.config.HostAndPort;
+import io.micrometer.core.instrument.Tags;
+
+import java.util.concurrent.atomic.LongAdder;
+
+import static java.util.Objects.requireNonNull;
+
 public class DcpClientMetrics {
   private final EventCounter reconfigure;
   private final EventCounter addChannel;
   private final EventCounter removeChannel;
+  private final LongAdder scheduledPollingTasks;
+  private final MetricsContext ctx;
 
   public DcpClientMetrics(MetricsContext ctx) {
+    this.ctx = requireNonNull(ctx);
     this.reconfigure = ctx.newEventCounter("reconfigure").build();
     this.addChannel = ctx.newEventCounter("add.channel").build();
     this.removeChannel = ctx.newEventCounter("remove.channel").build();
+    this.scheduledPollingTasks = ctx.registry().gauge("dcp.scheduled.polling.tasks", new LongAdder());
   }
 
   public void incrementReconfigure() {
@@ -32,10 +43,18 @@ public class DcpClientMetrics {
   }
 
   public void incrementAddChannel() {
-     addChannel.increment();
+    addChannel.increment();
   }
 
   public void incrementRemoveChannel() {
     removeChannel.increment();
+  }
+
+  public LongAdder scheduledPollingTasks() {
+    return scheduledPollingTasks;
+  }
+
+  public DcpChannelMetrics channelMetrics(HostAndPort address) {
+    return new DcpChannelMetrics(ctx.withTags(Tags.of("remote", address.format())));
   }
 }

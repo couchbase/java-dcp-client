@@ -25,6 +25,7 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
+import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -67,6 +68,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
   private final SSLEngineFactory sslEngineFactory;
   private final BucketConfigArbiter bucketConfigArbiter;
   private final DcpChannelMetrics metrics;
+  private final DcpClientMetrics clientMetrics;
 
   /**
    * Creates the pipeline.
@@ -76,11 +78,12 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
    */
   public DcpPipeline(final Client.Environment environment,
                      final DcpChannelControlHandler controlHandler, BucketConfigArbiter bucketConfigArbiter,
-                     DcpChannelMetrics metrics) {
+                     DcpChannelMetrics metrics, DcpClientMetrics clientMetrics) {
     this.bucketConfigArbiter = requireNonNull(bucketConfigArbiter);
     this.environment = requireNonNull(environment);
     this.controlHandler = requireNonNull(controlHandler);
     this.metrics = requireNonNull(metrics);
+    this.clientMetrics = requireNonNull(clientMetrics);
     if (environment.sslEnabled()) {
       this.sslEngineFactory = new SSLEngineFactory(environment);
     } else {
@@ -140,7 +143,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     pipeline.addLast(messageHandler);
 
     if (environment.persistencePollingEnabled()) {
-      pipeline.addLast(new PersistencePollingHandler(environment, bucketConfigArbiter, messageHandler));
+      pipeline.addLast(new PersistencePollingHandler(environment, bucketConfigArbiter, messageHandler, clientMetrics));
     }
   }
 }

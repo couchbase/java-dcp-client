@@ -37,17 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class EventCounter {
   public static class Builder {
     private final String name;
-    private MeterRegistry registry = Metrics.globalRegistry;
+    private final MeterRegistry registry;
     private List<Tag> baseTags = new ArrayList<>();
     private LogLevel logLevel = LogLevel.INFO;
 
-    private Builder(String name) {
-      this.name = requireNonNull(name);
-    }
-
-    public Builder registry(MeterRegistry registry) {
+    private Builder(MeterRegistry registry, String name) {
       this.registry = requireNonNull(registry);
-      return this;
+      this.name = requireNonNull(name);
     }
 
     public Builder tag(String key, String value) {
@@ -81,8 +77,8 @@ public class EventCounter {
   private final LogLevel logLevel;
   private final Logger logger;
 
-  public static Builder builder(String name) {
-    return new Builder(name);
+  public static Builder builder(MeterRegistry registry, String name) {
+    return new Builder(registry, name);
   }
 
   private EventCounter(MeterRegistry registry, String name, Iterable<Tag> tags,

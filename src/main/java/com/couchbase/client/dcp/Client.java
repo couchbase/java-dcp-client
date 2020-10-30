@@ -59,6 +59,8 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
@@ -184,7 +186,7 @@ public class Client implements Closeable {
       }
     });
 
-    MetricsContext metricsContext = new MetricsContext("dcp");
+    MetricsContext metricsContext = new MetricsContext(builder.meterRegistry, "dcp");
     conductor = new Conductor(env, new DcpClientMetrics(metricsContext));
     LOGGER.info("Environment Configuration Used: {}", system(env));
   }
@@ -937,6 +939,7 @@ public class Client implements Closeable {
     private String sslKeystorePassword;
     private KeyStore sslKeystore;
     private long persistencePollingIntervalMillis;
+    private MeterRegistry meterRegistry = Metrics.globalRegistry;
 
     /**
      * If the argument is true, configures the client to receive only
@@ -1449,6 +1452,15 @@ public class Client implements Closeable {
       if (bufferAckWatermark == 0) {
         bufferAckWatermark = 80;
       }
+      return this;
+    }
+
+    /**
+     * Specifies the registry the client should use when tracking metrics.
+     * If not called, defaults to Micrometer's global registry.
+     */
+    public Builder meterRegistry(MeterRegistry meterRegistry) {
+      this.meterRegistry = requireNonNull(meterRegistry);
       return this;
     }
 

@@ -16,12 +16,11 @@
 
 package com.couchbase.client.dcp.metrics;
 
-import io.netty.util.concurrent.Future;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
+import io.netty.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,18 +43,14 @@ public class ActionTimer {
   public static class Builder {
     private final String name;
     private Clock clock = Clock.SYSTEM;
-    private MeterRegistry registry = Metrics.globalRegistry;
+    private final MeterRegistry registry;
     private List<Tag> baseTags = new ArrayList<>();
     private LogLevel successLogLevel = LogLevel.INFO;
     private LogLevel failureLogLevel = LogLevel.WARN;
 
-    private Builder(String name) {
-      this.name = requireNonNull(name);
-    }
-
-    public Builder registry(MeterRegistry registry) {
+    private Builder(MeterRegistry registry, String name) {
       this.registry = requireNonNull(registry);
-      return this;
+      this.name = requireNonNull(name);
     }
 
     public Builder tag(String key, String value) {
@@ -106,8 +101,8 @@ public class ActionTimer {
   private final LogLevel failureLogLevel;
   private final Logger logger;
 
-  public static Builder builder(String name) {
-    return new Builder(name);
+  public static Builder builder(MeterRegistry registry, String name) {
+    return new Builder(registry, name);
   }
 
   private ActionTimer(MeterRegistry registry, String name, Iterable<Tag> tags, Clock clock,

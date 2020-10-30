@@ -276,7 +276,7 @@ public class Conductor {
 
   private void add(final HostAndPort node) {
     LOGGER.info("Adding DCP Channel against {}", system(node));
-    final DcpChannel channel = new DcpChannel(node, env, this);
+    final DcpChannel channel = new DcpChannel(node, env, this, metrics);
     if (!channels.add(channel)) {
       throw new IllegalStateException("Tried to add duplicate channel: " + system(channel));
     }

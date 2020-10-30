@@ -39,7 +39,7 @@ import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.VbucketState;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
-import com.couchbase.client.dcp.metrics.MetricsContext;
+import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.dcp.transport.netty.ChannelUtils;
 import com.couchbase.client.dcp.transport.netty.DcpMessageHandler;
@@ -48,7 +48,6 @@ import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.dcp.transport.netty.DcpResponseListener;
 import com.couchbase.client.dcp.util.AdaptiveDelay;
 import com.couchbase.client.dcp.util.AtomicBooleanArray;
-import io.micrometer.core.instrument.Tags;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -90,6 +89,7 @@ import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static io.netty.util.ReferenceCountUtil.safeRelease;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -106,6 +106,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   private volatile Channel channel;
   private volatile ChannelFuture connectFuture;
   private final DcpChannelMetrics metrics;
+  private final DcpClientMetrics clientMetrics;
 
   /**
    * The original host and port used to created the channel.
@@ -130,14 +131,15 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   final AtomicBooleanArray streamIsOpen = new AtomicBooleanArray(1024);
   final Conductor conductor;
 
-  public DcpChannel(HostAndPort address, final Client.Environment env, final Conductor conductor) {
+  public DcpChannel(HostAndPort address, final Client.Environment env, final Conductor conductor, DcpClientMetrics clientMetrics) {
     super(LifecycleState.DISCONNECTED);
     this.address = address;
     this.env = env;
     this.conductor = conductor;
     this.controlHandler = new DcpChannelControlHandler(this);
     this.isShutdown = false;
-    this.metrics = new DcpChannelMetrics(new MetricsContext("dcp", Tags.of("remote", address.format())));
+    this.clientMetrics = requireNonNull(clientMetrics);
+    this.metrics = clientMetrics.channelMetrics(address);
   }
 
   public static HostAndPort getHostAndPort(Channel channel) {
@@ -166,7 +168,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         .remoteAddress(address.host(), address.port())
         .attr(HOST_AND_PORT, address) // stash it away separately for safety (paranoia?)
         .channel(ChannelUtils.channelForEventLoopGroup(env.eventLoopGroup()))
-        .handler(new DcpPipeline(env, controlHandler, conductor.bucketConfigArbiter(), metrics))
+        .handler(new DcpPipeline(env, controlHandler, conductor.bucketConfigArbiter(), metrics, clientMetrics))
         .group(env.eventLoopGroup());
   }
 

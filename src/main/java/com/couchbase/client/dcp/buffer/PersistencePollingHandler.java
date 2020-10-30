@@ -21,7 +21,7 @@ import com.couchbase.client.dcp.conductor.BucketConfigSource;
 import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
-import io.micrometer.core.instrument.Metrics;
+import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.slf4j.Logger;
@@ -40,14 +40,12 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PersistencePollingHandler.class);
 
-  private static final LongAdder scheduledPollingTasks = requireNonNull(
-      Metrics.globalRegistry.gauge("dcp.scheduled.polling.tasks", new LongAdder()));
-
   private final Client.Environment env;
   private final BucketConfigSource bucketConfigSource;
   private final DcpOps dcpOps;
   private final PersistedSeqnos persistedSeqnos;
   private final AtomicBoolean loggedClosureWarning = new AtomicBoolean();
+  private final LongAdder scheduledPollingTasks;
 
   private Disposable configSubscription;
 
@@ -56,11 +54,13 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 
   public PersistencePollingHandler(final Client.Environment env,
                                    final BucketConfigSource bucketConfigSource,
-                                   final DcpRequestDispatcher dispatcher) {
+                                   final DcpRequestDispatcher dispatcher,
+                                   final DcpClientMetrics clientMetrics) {
     this.env = requireNonNull(env);
     this.bucketConfigSource = requireNonNull(bucketConfigSource);
     this.persistedSeqnos = requireNonNull(env.persistedSeqnos());
     this.dcpOps = new DcpOpsImpl(dispatcher);
+    this.scheduledPollingTasks = clientMetrics.scheduledPollingTasks();
   }
 
   @Override

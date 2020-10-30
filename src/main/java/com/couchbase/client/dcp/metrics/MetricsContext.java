@@ -16,32 +16,46 @@
 
 package com.couchbase.client.dcp.metrics;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 
+import static java.util.Objects.requireNonNull;
+
 public class MetricsContext {
+  private final MeterRegistry registry;
   private final String prefix;
   private final Tags tags;
 
-  public MetricsContext(String prefix) {
-    this(prefix, Tags.empty());
+  public MetricsContext(MeterRegistry registry, String prefix) {
+    this(registry, prefix, Tags.empty());
   }
-  public MetricsContext(String prefix, Tags tags) {
+
+  public MetricsContext(MeterRegistry registry, String prefix, Tags tags) {
+    this.registry = requireNonNull(registry);
     this.prefix = prefix.isEmpty() || prefix.endsWith(".") ? prefix : prefix + ".";
-    this.tags = tags;
+    this.tags = requireNonNull(tags);
+  }
+
+  public MeterRegistry registry() {
+    return registry;
+  }
+
+  public MetricsContext withTags(Tags tags) {
+    return new MetricsContext(registry, prefix, Tags.concat(this.tags, tags));
   }
 
   public ActionCounter.Builder newActionCounter(String name) {
-    return ActionCounter.builder(prefix + name)
+    return ActionCounter.builder(registry, prefix + name)
         .tags(tags);
   }
 
   public EventCounter.Builder newEventCounter(String name) {
-    return EventCounter.builder(prefix + name)
+    return EventCounter.builder(registry, prefix + name)
         .tags(tags);
   }
 
   public ActionTimer.Builder newActionTimer(String name) {
-    return ActionTimer.builder(name)
+    return ActionTimer.builder(registry, name)
         .tags(tags);
   }
 }
