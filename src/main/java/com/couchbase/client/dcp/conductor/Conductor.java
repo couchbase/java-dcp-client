@@ -272,6 +272,14 @@ public class Conductor {
         remove(entry.getValue());
       }
     }
+
+    // Tickle the connection status gauge, otherwise it wouldn't get updated until
+    // one of the channels undergoes a state transition.
+    updateConnectionStatus();
+  }
+
+  public void updateConnectionStatus() {
+    metrics.updateConnectionStatus(channels);
   }
 
   private void add(final HostAndPort node) {

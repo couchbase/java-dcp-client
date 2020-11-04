@@ -663,6 +663,12 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
   }
 
   @Override
+  protected void transitionState(final LifecycleState newState) {
+    super.transitionState(newState);
+    conductor.updateConnectionStatus();
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (o instanceof HostAndPort) {
       return address.equals(o);
