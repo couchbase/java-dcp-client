@@ -77,12 +77,11 @@ public class DcpClientMetrics {
    * and overwrite the previous measurements each time there's a connection state change.
    * It's also an easy way to clean up gauges for channels that are no longer part of the cluster.
    */
-  public synchronized void updateConnectionStatus(Collection<DcpChannel> channels) {
+  public synchronized void registerConnectionStatusGauges(Collection<DcpChannel> channels) {
     List<MultiGauge.Row<?>> rows = channels.stream()
         .map(channel -> {
           Tags tags = Tags.of("remote", channel.address().format());
-          double value = channel.isState(LifecycleState.CONNECTED) ? 1 : 0;
-          return MultiGauge.Row.of(tags, value);
+          return MultiGauge.Row.of(tags, () -> channel.isState(LifecycleState.CONNECTED) ? 1 : 0);
         })
         .collect(toList());
 

@@ -113,6 +113,7 @@ public class Conductor {
     // bucket config. The response is used to reconfigure the cluster
     // which adds any missing nodes.
     env.clusterAt().forEach(this::add);
+    updateChannelGauges();
 
     long bootstrapTimeoutMillis = env.bootstrapTimeout().toMillis()
         + env.configRefreshInterval().toMillis(); // allow at least one config refresh
@@ -259,10 +260,13 @@ public class Conductor {
         .map(configHelper::getAddress)
         .collect(toSet());
 
+    boolean nodesChanged = false;
+
     for (HostAndPort address : nodeAddresses) {
       if (!existingChannelsByAddress.containsKey(address)) {
         metrics.incrementAddChannel();
         add(address);
+        nodesChanged = true;
       }
     }
 
@@ -270,16 +274,21 @@ public class Conductor {
       if (!nodeAddresses.contains(entry.getKey())) {
         metrics.incrementRemoveChannel();
         remove(entry.getValue());
+        nodesChanged = true;
       }
     }
 
-    // Tickle the connection status gauge, otherwise it wouldn't get updated until
-    // one of the channels undergoes a state transition.
-    updateConnectionStatus();
+    // Don't (re)register the gauges unless something changed, because registration
+    // requires first unregistering the old gauges, and that can cause unpleasant
+    // unpleasant user experience when the metrics are exported via JMX
+    // (the gauges temporarily vanish from the JMX browser).
+    if (nodesChanged) {
+      updateChannelGauges();
+    }
   }
 
-  public void updateConnectionStatus() {
-    metrics.updateConnectionStatus(channels);
+  private void updateChannelGauges() {
+    metrics.registerConnectionStatusGauges(channels);
   }
 
   private void add(final HostAndPort node) {
