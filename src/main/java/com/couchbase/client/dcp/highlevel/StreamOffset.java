@@ -35,6 +35,11 @@ public class StreamOffset {
    * @param collectionsManifestUid pass zero if client is not collections-aware or if no UID is available.
    */
   public StreamOffset(long vbuuid, long seqno, SnapshotMarker snapshot, long collectionsManifestUid) {
+    if (Long.compareUnsigned(seqno, snapshot.getStartSeqno()) < 0
+        || Long.compareUnsigned(seqno, snapshot.getEndSeqno()) > 0) {
+      throw new IllegalArgumentException("Sequence number " + seqno + " is not within snapshot " + snapshot);
+    }
+
     this.vbuuid = vbuuid;
     this.seqno = seqno;
     this.snapshot = requireNonNull(snapshot);

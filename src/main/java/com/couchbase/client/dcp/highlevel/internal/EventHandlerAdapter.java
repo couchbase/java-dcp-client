@@ -215,7 +215,14 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
     final long vbuuid = vbucketToUuid.get(vbucket);
     final SnapshotMarker snapshot = vbucketToCurrentSnapshot.get(vbucket);
     final long collectionsManifestUid = dcpClient.sessionState().get(vbucket).getCollectionsManifestUid();
-    return new StreamOffset(vbuuid, seqno, snapshot, collectionsManifestUid);
+    try {
+      return new StreamOffset(vbuuid, seqno, snapshot, collectionsManifestUid);
+
+    } catch (IllegalArgumentException e) {
+      log.error("Invalid stream offset detected for partition {} with UUID {}: {}\nClient's view of session state: {}",
+          vbucket, vbuuid, e.getMessage(), dcpClient.sessionState().get(vbucket));
+      throw e;
+    }
   }
 
   private final DataEventHandler dataEventHandler = (flowController, event) -> {
