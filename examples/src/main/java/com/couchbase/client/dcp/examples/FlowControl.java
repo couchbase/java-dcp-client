@@ -49,9 +49,7 @@ public class FlowControl {
     client.controlEventHandler(new ControlEventHandler() {
       @Override
       public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        if (DcpSnapshotMarkerRequest.is(event)) {
-          flowController.ack(event);
-        }
+        flowController.ack(event);
         event.release();
       }
     });

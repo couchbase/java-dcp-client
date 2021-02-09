@@ -384,21 +384,8 @@ public enum MessageUtil {
   }
 
   public static boolean requiresFlowControlAck(ByteBuf message) {
-    if (message.getByte(0) != MessageUtil.MAGIC_REQ) {
-      return false;
-    }
-
-    switch (message.getByte(1)) {
-      case DCP_MUTATION_OPCODE:
-      case DCP_DELETION_OPCODE:
-      case DCP_SNAPSHOT_MARKER_OPCODE:
-      case DCP_EXPIRATION_OPCODE:
-      case DCP_STREAM_END_OPCODE:
-      case DCP_SET_VBUCKET_STATE_OPCODE:
-        return true;
-      default:
-        return false;
-    }
+    return message.getByte(0) == MessageUtil.MAGIC_REQ
+        && message.getByte(1) != DCP_NOOP_OPCODE;
   }
 
   public static byte getDataType(ByteBuf buffer) {

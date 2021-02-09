@@ -53,9 +53,8 @@ public class PrintIncomingChanges {
     client.controlEventHandler(new ControlEventHandler() {
       @Override
       public void onEvent(final ChannelFlowController flowController, final ByteBuf event) {
-        if (DcpSnapshotMarkerRequest.is(event)) {
-          flowController.ack(event);
-        }
+        flowController.ack(event);
+
         if (RollbackMessage.is(event)) {
           final int partition = RollbackMessage.vbucket(event);
           client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))

@@ -122,7 +122,7 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
   @Override
   public void onEvent(ChannelFlowController flowController, ByteBuf event) {
     try {
-      flowController.ack(event); // immediately ACK snapshot markers. Nothing else that arrives here is ACK-able.
+      flowController.ack(event); // immediately ACK snapshot markers, SEQNO_ADVANCED, etc.
 
       final byte opcode = event.getByte(1);
       switch (opcode) {
