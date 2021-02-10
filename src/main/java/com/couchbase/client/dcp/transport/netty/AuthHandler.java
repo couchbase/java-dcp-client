@@ -48,7 +48,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
  */
-class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements CallbackHandler {
+public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements CallbackHandler {
 
   /**
    * The logger used for the auth handler.
@@ -82,7 +82,7 @@ class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements Callbac
    * @param username user/bucket name.
    * @param password password of the user/bucket.
    */
-  AuthHandler(String username, String password) {
+  public AuthHandler(String username, String password) {
     this.username = username;
     this.password = password;
   }

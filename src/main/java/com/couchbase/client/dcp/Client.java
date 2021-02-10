@@ -21,7 +21,6 @@ import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
-import com.couchbase.client.dcp.config.SecureEnvironment;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
 import com.couchbase.client.dcp.core.event.EventBus;
 import com.couchbase.client.dcp.core.event.EventType;
@@ -920,7 +919,7 @@ public class Client implements Closeable {
     private Set<String> collectionNames = new HashSet<>();
     private OptionalLong scopeId = OptionalLong.empty();
     private Optional<String> scopeName = Optional.empty();
-    private CredentialsProvider credentialsProvider = new StaticCredentialsProvider("", "");
+    private Authenticator authenticator = null;
     private ConnectionNameGenerator connectionNameGenerator = DefaultConnectionNameGenerator.INSTANCE;
     private final DcpControl dcpControl = new DcpControl()
         .put(DcpControl.Names.ENABLE_NOOP, "true"); // required for collections, and a good idea anyway
@@ -934,10 +933,7 @@ public class Client implements Closeable {
     private int dcpChannelsReconnectMaxAttempts = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
     private Retry dcpChannelsReconnectDelay = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
     private EventBus eventBus;
-    private boolean sslEnabled = Environment.DEFAULT_SSL_ENABLED;
-    private String sslKeystoreFile;
-    private String sslKeystorePassword;
-    private KeyStore sslKeystore;
+    private SecurityConfig securityConfig = SecurityConfig.builder().build();
     private long persistencePollingIntervalMillis;
     private MeterRegistry meterRegistry = Metrics.globalRegistry;
 
@@ -1101,10 +1097,6 @@ public class Client implements Closeable {
      */
     public Builder bucket(final String bucket) {
       this.bucket = bucket;
-      Credentials cred = credentialsProvider.get(null);
-      if (cred.getUsername().isEmpty()) {
-        username(bucket);
-      }
       return this;
     }
 
@@ -1199,36 +1191,15 @@ public class Client implements Closeable {
     }
 
     public Builder credentials(String username, String password) {
-      this.credentialsProvider = new StaticCredentialsProvider(username, password);
-      return this;
-    }
-
-    /**
-     * @deprecated in favor of {@link #credentials(String, String)}
-     */
-    @Deprecated
-    public Builder username(final String username) {
-      Credentials cred = credentialsProvider.get(null);
-      this.credentialsProvider = new StaticCredentialsProvider(username, cred.getPassword());
-      return this;
+      return credentialsProvider(new StaticCredentialsProvider(username, password));
     }
 
     public Builder credentialsProvider(final CredentialsProvider credentialsProvider) {
-      this.credentialsProvider = requireNonNull(credentialsProvider);
-      return this;
+      return authenticator(new PasswordAuthenticator(credentialsProvider));
     }
 
-    /**
-     * The password to use for authentication.
-     *
-     * @param password the password.
-     * @return this {@link Builder} for nice chainability.
-     * @deprecated in favor of {@link #credentials(String, String)}
-     */
-    @Deprecated
-    public Builder password(final String password) {
-      Credentials cred = credentialsProvider.get(null);
-      this.credentialsProvider = new StaticCredentialsProvider(cred.getUsername(), password);
+    public Builder authenticator(Authenticator authenticator) {
+      this.authenticator = requireNonNull(authenticator);
       return this;
     }
 
@@ -1375,48 +1346,19 @@ public class Client implements Closeable {
       return this;
     }
 
-
     /**
-     * Set if SSL should be enabled (default value {@value Environment#DEFAULT_SSL_ENABLED}).
-     * If true, also set {@link #sslKeystoreFile(String)} and {@link #sslKeystorePassword(String)}.
+     * Sets the TLS configutation options
      */
-    public Builder sslEnabled(final boolean sslEnabled) {
-      this.sslEnabled = sslEnabled;
+    public Builder securityConfig(final SecurityConfig securityConfig) {
+      this.securityConfig = requireNonNull(securityConfig);
       return this;
     }
 
     /**
-     * Defines the location of the SSL Keystore file (default value null, none).
-     * <p>
-     * You can either specify a file or the keystore directly via {@link #sslKeystore(KeyStore)}. If the explicit
-     * keystore is used it takes precedence over the file approach.
+     * Sets the TLS configutation options (from a builder, for convenience)
      */
-    public Builder sslKeystoreFile(final String sslKeystoreFile) {
-      this.sslKeystoreFile = sslKeystoreFile;
-      return this;
-    }
-
-    /**
-     * Sets the SSL Keystore password to be used with the Keystore file (default value null, none).
-     *
-     * @see #sslKeystoreFile(String)
-     */
-    public Builder sslKeystorePassword(final String sslKeystorePassword) {
-      this.sslKeystorePassword = sslKeystorePassword;
-      return this;
-    }
-
-    /**
-     * Sets the SSL Keystore directly and not indirectly via filepath.
-     * <p>
-     * You can either specify a file or the keystore directly via {@link #sslKeystore(KeyStore)}. If the explicit
-     * keystore is used it takes precedence over the file approach.
-     *
-     * @param sslKeystore the keystore to use.
-     */
-    public Builder sslKeystore(final KeyStore sslKeystore) {
-      this.sslKeystore = sslKeystore;
-      return this;
+    public Builder securityConfig(final SecurityConfig.Builder securityConfigBuilder) {
+      return securityConfig(securityConfigBuilder.build());
     }
 
     /**
@@ -1470,6 +1412,14 @@ public class Client implements Closeable {
      * @return the built client instance.
      */
     public Client build() {
+      if (authenticator == null) {
+        throw new IllegalStateException("Must provide authenticator. Simplest way is to call credentials(username, password).");
+      }
+
+      if (authenticator.requiresTls() && !securityConfig.tlsEnabled()) {
+        throw new IllegalStateException("The provided authenticator requires TLS, but TLS was not enabled in the SecurityConfig");
+      }
+
       if (collectionsAware && !dcpControl.noopEnabled()) {
         throw new IllegalStateException("Collections awareness requires NOOPs; must not disable NOOPs.");
       }
@@ -1537,7 +1487,7 @@ public class Client implements Closeable {
    * The {@link Environment} is responsible to carry various configuration and
    * state information throughout the lifecycle.
    */
-  public static class Environment implements SecureEnvironment {
+  public static class Environment {
     private static final Logger log = LoggerFactory.getLogger(Environment.class);
 
     public static final Duration DEFAULT_BOOTSTRAP_TIMEOUT = Duration.ofSeconds(5);
@@ -1546,7 +1496,6 @@ public class Client implements Closeable {
     public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
     public static final Retry DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200));
     public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
-    public static final boolean DEFAULT_SSL_ENABLED = false;
     private static final int DEFAULT_KV_PORT = 11210;
     private static final int DEFAULT_KV_TLS_PORT = 11207;
 
@@ -1559,7 +1508,7 @@ public class Client implements Closeable {
     private final Optional<String> scopeName;
     private final Set<Long> collectionIds;
     private final Set<String> collectionNames;
-    private final CredentialsProvider credentialsProvider;
+    private final Authenticator authenticator;
     private final Duration bootstrapTimeout;
     private final Duration configRefreshInterval;
     private final long connectTimeout;
@@ -1580,10 +1529,7 @@ public class Client implements Closeable {
     private final EventBus eventBus;
     private final Scheduler scheduler;
     private Disposable systemEventSubscription;
-    private final boolean sslEnabled;
-    private final String sslKeystoreFile;
-    private final String sslKeystorePassword;
-    private final KeyStore sslKeystore;
+    private final SecurityConfig securityConfig;
 
     /**
      * Creates a new environment based on the builder.
@@ -1593,7 +1539,7 @@ public class Client implements Closeable {
     private Environment(final Client.Builder builder) {
       connectionNameGenerator = builder.connectionNameGenerator;
       bucket = builder.bucket;
-      credentialsProvider = builder.credentialsProvider;
+      authenticator = builder.authenticator;
       bootstrapTimeout = builder.bootstrapTimeout;
       configRefreshInterval = builder.configRefreshInterval;
       connectTimeout = builder.connectTimeout;
@@ -1619,11 +1565,8 @@ public class Client implements Closeable {
         this.scheduler = Schedulers.parallel();
         eventBus = new DefaultDcpEventBus(scheduler);
       }
-      sslEnabled = builder.sslEnabled;
-      sslKeystoreFile = builder.sslKeystoreFile;
-      sslKeystorePassword = builder.sslKeystorePassword;
-      sslKeystore = builder.sslKeystore;
-      seedNodes = makeDefaultPortsExplicit(builder.seedNodes, builder.sslEnabled);
+      securityConfig = builder.securityConfig;
+      seedNodes = makeDefaultPortsExplicit(builder.seedNodes, securityConfig.tlsEnabled());
       networkResolution = builder.networkResolution;
       persistencePollingIntervalMillis = builder.persistencePollingIntervalMillis;
 
@@ -1751,30 +1694,10 @@ public class Client implements Closeable {
     }
 
     /**
-     * The credentials provider for the connection
+     * The authenticator for the connection
      */
-    public CredentialsProvider credentialsProvider() {
-      return credentialsProvider;
-    }
-
-    /**
-     * Username used.
-     *
-     * @deprecated Use {@link Environment#credentialsProvider()} instead to access username
-     */
-    @Deprecated
-    public String username() {
-      return credentialsProvider.get(null).getUsername();
-    }
-
-    /**
-     * Password of the user.
-     *
-     * @deprecated Use {@link Environment#credentialsProvider()} instead to access password
-     */
-    @Deprecated
-    public String password() {
-      return credentialsProvider.get(null).getPassword();
+    public Authenticator authenticator() {
+      return authenticator;
     }
 
     /**
@@ -1883,24 +1806,11 @@ public class Client implements Closeable {
       return eventBus;
     }
 
-    @Override
-    public boolean sslEnabled() {
-      return sslEnabled;
-    }
-
-    @Override
-    public String sslKeystoreFile() {
-      return sslKeystoreFile;
-    }
-
-    @Override
-    public String sslKeystorePassword() {
-      return sslKeystorePassword;
-    }
-
-    @Override
-    public KeyStore sslKeystore() {
-      return sslKeystore;
+    /**
+     * Returns the TLS configuration
+     */
+    public SecurityConfig securityConfig() {
+      return securityConfig;
     }
 
     private static List<HostAndPort> makeDefaultPortsExplicit(List<HostAndPort> addresses, boolean sslEnabled) {
@@ -1968,10 +1878,7 @@ public class Client implements Closeable {
           ", connectTimeout=" + connectTimeout +
           ", bootstrapTimeout=" + bootstrapTimeout +
           ", configRefreshInterval=" + configRefreshInterval +
-          ", sslEnabled=" + sslEnabled +
-          ", sslKeystoreFile='" + sslKeystoreFile + '\'' +
-          ", sslKeystorePassword=" + (sslKeystorePassword != null && !sslKeystorePassword.isEmpty()) +
-          ", sslKeystore=" + sslKeystore +
+          ", securityConfig=" + securityConfig.exportAsMap() +
           '}';
     }
 

@@ -16,13 +16,11 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
 import com.couchbase.client.dcp.conductor.BucketConfigArbiter;
 import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.DcpControl;
-import com.couchbase.client.dcp.config.SSLEngineFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
@@ -32,7 +30,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +62,6 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
    * The observable where all the control events are fed into for advanced handling up the stack.
    */
   private final DcpChannelControlHandler controlHandler;
-  private final SSLEngineFactory sslEngineFactory;
   private final BucketConfigArbiter bucketConfigArbiter;
   private final DcpChannelMetrics metrics;
   private final DcpClientMetrics clientMetrics;
@@ -84,11 +80,6 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     this.controlHandler = requireNonNull(controlHandler);
     this.metrics = requireNonNull(metrics);
     this.clientMetrics = requireNonNull(clientMetrics);
-    if (environment.sslEnabled()) {
-      this.sslEngineFactory = new SSLEngineFactory(environment);
-    } else {
-      this.sslEngineFactory = null;
-    }
   }
 
   /**
@@ -105,8 +96,12 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
       pipeline.addLast(new HandshakeTimeoutHandler(handshakeTimeoutMillis, TimeUnit.MILLISECONDS));
     }
 
-    if (environment.sslEnabled()) {
-      pipeline.addLast(new SslHandler(sslEngineFactory.get()));
+    if (environment.securityConfig().tlsEnabled()) {
+      pipeline.addLast(SslHandlerFactory.get(
+          ch.alloc(),
+          environment.securityConfig(),
+          DcpChannel.getHostAndPort(ch),
+          environment.authenticator()));
     }
     pipeline.addLast(
         new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false));
@@ -117,8 +112,10 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
 
     DcpControl control = environment.dcpControl();
 
-    Credentials credentials = environment.credentialsProvider().get(DcpChannel.getHostAndPort(ch));
-    pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()))
+    // Maybe add AuthHandler, depending on authentication method
+    environment.authenticator().authKeyValueConnection(pipeline);
+
+    pipeline
         // BucketConfigHandler comes before connect handler because a clustermap change notification
         // could arrive at any time during the connection setup.
         .addLast(new BucketConfigHandler(bucketConfigArbiter, environment.configRefreshInterval()))

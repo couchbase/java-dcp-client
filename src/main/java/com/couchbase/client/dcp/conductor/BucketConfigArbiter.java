@@ -85,7 +85,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
         CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, origin);
         selectAlternateNetwork(config);
 
-        configSink.next(new DcpBucketConfig(config, environment.sslEnabled()));
+        configSink.next(new DcpBucketConfig(config, environment.securityConfig().tlsEnabled()));
 
       } catch (Exception e) {
         log.error("Failed to parse bucket config", e);
