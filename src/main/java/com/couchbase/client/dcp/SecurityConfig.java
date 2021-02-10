@@ -275,19 +275,32 @@ public class SecurityConfig {
 
     /**
      * Loads a trust store from a file path and password and initializes the {@link TrustManagerFactory}.
+     * <p>
+     * Assumes the file format is readable by {@link KeyStore#getDefaultType()}
+     * (this typically includes JKS and PKCS12).
      *
      * @param trustStorePath the path to the truststore.
      * @param trustStorePassword the password (can be null if not password protected).
-     * @param trustStoreType the type of the trust store. If empty, the {@link KeyStore#getDefaultType()} will be used.
+     * @return this {@link Builder} for chaining purposes.
+     */
+    public Builder trustStore(final Path trustStorePath, final String trustStorePassword) {
+      return trustStore(trustStorePath, trustStorePassword, null);
+    }
+
+    /**
+     * Loads a trust store from a file path and password and initializes the {@link TrustManagerFactory}.
+     *
+     * @param trustStorePath the path to the truststore.
+     * @param trustStorePassword the password (can be null if not password protected).
+     * @param trustStoreType (nullable) the type of the trust store. If null, the {@link KeyStore#getDefaultType()} will be used.
      * @return this {@link Builder} for chaining purposes.
      */
     public Builder trustStore(final Path trustStorePath, final String trustStorePassword,
-                              final Optional<String> trustStoreType) {
+                              final String trustStoreType) {
       requireNonNull(trustStorePath, "TrustStorePath");
-      requireNonNull(trustStoreType, "TrustStoreType");
 
       try (InputStream trustStoreInputStream = Files.newInputStream(trustStorePath)) {
-        final KeyStore store = KeyStore.getInstance(trustStoreType.orElse(KeyStore.getDefaultType()));
+        final KeyStore store = KeyStore.getInstance(trustStoreType != null ? trustStoreType : KeyStore.getDefaultType());
         store.load(
             trustStoreInputStream,
             trustStorePassword != null ? trustStorePassword.toCharArray() : null

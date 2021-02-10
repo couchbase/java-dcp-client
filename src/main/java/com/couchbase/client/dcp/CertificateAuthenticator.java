@@ -44,6 +44,20 @@ public class CertificateAuthenticator implements Authenticator {
 
   /**
    * Creates a new {@link CertificateAuthenticator} from a key store path.
+   * <p>
+   * Assumes the file format is readable by {@link KeyStore#getDefaultType()}
+   * (this typically includes JKS and PKCS12).
+   *
+   * @param keyStorePath the file path to the keystore.
+   * @param keyStorePassword the password for the keystore.
+   * @return the created {@link CertificateAuthenticator}.
+   */
+  public static CertificateAuthenticator fromKeyStore(final Path keyStorePath, final String keyStorePassword) {
+    return fromKeyStore(keyStorePath, keyStorePassword, null);
+  }
+
+  /**
+   * Creates a new {@link CertificateAuthenticator} from a key store path.
    *
    * @param keyStorePath the file path to the keystore.
    * @param keyStorePassword the password for the keystore.
