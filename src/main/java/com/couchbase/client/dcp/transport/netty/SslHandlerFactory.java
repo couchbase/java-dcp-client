@@ -25,6 +25,8 @@ import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
@@ -34,13 +36,15 @@ import java.security.cert.X509Certificate;
  * This factory creates {@link SslHandler} based on a given configuration.
  */
 public class SslHandlerFactory {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SslHandlerFactory.class);
+
   private SslHandlerFactory() {
     throw new AssertionError("not instantiable");
   }
 
   public static SslHandler get(final ByteBufAllocator allocator, final SecurityConfig config,
                                HostAndPort peer, Authenticator authenticator) throws Exception {
-    SslProvider provider = OpenSsl.isAvailable() && config.nativeTlsEnabled() ? SslProvider.OPENSSL : SslProvider.JDK;
+    SslProvider provider = getSslProvider(config);
 
     SslContextBuilder context = SslContextBuilder.forClient().sslProvider(provider);
 
@@ -70,4 +74,18 @@ public class SslHandlerFactory {
     return sslHandler;
   }
 
+  private static SslProvider getSslProvider(SecurityConfig config) {
+    if (!config.nativeTlsEnabled()) {
+      LOGGER.info("Using JDK TLS provider (native provider disabled via config).");
+      return SslProvider.JDK;
+    }
+
+    if (!OpenSsl.isAvailable()) {
+      LOGGER.info("Using JDK TLS provider (native provider not available).");
+      return SslProvider.JDK;
+    }
+
+    LOGGER.info("Using native TLS provider.");
+    return SslProvider.OPENSSL;
+  }
 }
