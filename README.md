@@ -27,9 +27,11 @@ We publish the releases (including pre-releases to maven central):
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>dcp-client</artifactId>
-    <version>0.31.0</version>
+    <version>${version}</version>
 </dependency>
 ```
+
+Check the [tags](https://github.com/couchbase/java-dcp-client/tags) to find the latest version.
 
 If you want the bleeding edge, you can check
 out the project from github and build it on your own. It is a maven-based

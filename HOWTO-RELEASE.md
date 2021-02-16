@@ -51,8 +51,7 @@ When you're satisfied with the test results, it's time to...
 
 1. Edit `pom.xml` and remove the `-SNAPSHOT` suffix from the version string.
 2. Edit `integration-test/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
-3. Edit `README.md` and bump the version numbers. There may be references to
-the next snapshot release, so remember to edit those too.
+3. Edit `examples/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
 4. Commit these changes, with message "Prepare x.y.z release"
 (where x.y.z is the version you're releasing).
 
