@@ -102,10 +102,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
           environment.securityConfig(),
           DcpChannel.getHostAndPort(ch),
           environment.authenticator()));
-    } else {
-      LOGGER.info("Using unsecured transport.");
     }
-
     pipeline.addLast(
         new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, MessageUtil.BODY_LENGTH_OFFSET, 4, 12, 0, false));
 

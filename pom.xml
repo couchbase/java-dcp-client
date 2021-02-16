@@ -13,21 +13,11 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.8</java-compat.version>
 
-        <netty.version>4.1.59.Final</netty.version>
-
         <native.folder>${project.build.directory}/native</native.folder>
-        <native.epoll.original>libnetty_transport_native_epoll_x86_64.so</native.epoll.original>
-        <native.epoll.renamed>libcom_couchbase_client_dcp_deps_netty_transport_native_epoll_x86_64.so</native.epoll.renamed>
-        <native.kqueue.original>libnetty_transport_native_kqueue_x86_64.jnilib</native.kqueue.original>
-        <native.kqueue.renamed>libcom_couchbase_client_dcp_deps_netty_transport_native_kqueue_x86_64.jnilib</native.kqueue.renamed>
-        <native.tcnative-linux.original>libnetty_tcnative_linux_x86_64.so</native.tcnative-linux.original>
-        <native.tcnative-linux.renamed>libcom_couchbase_client_dcp_deps_netty_tcnative_linux_x86_64.so</native.tcnative-linux.renamed>
-        <native.tcnative-linux-aarch.original>libnetty_tcnative_linux_aarch_64.so</native.tcnative-linux-aarch.original>
-        <native.tcnative-linux-aarch.renamed>libcom_couchbase_client_dcp_deps_netty_tcnative_linux_aarch_64.so</native.tcnative-linux-aarch.renamed>
-        <native.tcnative-osx.original>libnetty_tcnative_osx_x86_64.jnilib</native.tcnative-osx.original>
-        <native.tcnative-osx.renamed>libcom_couchbase_client_dcp_deps_netty_tcnative_osx_x86_64.jnilib</native.tcnative-osx.renamed>
-        <native.tcnative-windows.original>netty_tcnative_windows_x86_64.dll</native.tcnative-windows.original>
-        <native.tcnative-windows.renamed>com_couchbase_client_dcp_deps_netty_tcnative_windows_x86_64.dll</native.tcnative-windows.renamed>
+        <native-epoll.original>libnetty_transport_native_epoll_x86_64.so</native-epoll.original>
+        <native-epoll.renamed>libcom_couchbase_client_deps_netty_transport_native_epoll_x86_64.so</native-epoll.renamed>
+        <native-kqueue.original>libnetty_transport_native_kqueue_x86_64.jnilib</native-kqueue.original>
+        <native-kqueue.renamed>libcom_couchbase_client_deps_netty_transport_native_kqueue_x86_64.jnilib</native-kqueue.renamed>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -128,25 +118,8 @@
         <!-- Shaded dependencies -->
         <dependency>
             <groupId>io.netty</groupId>
-            <artifactId>netty-codec-http</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-kqueue</artifactId>
-            <version>${netty.version}</version>
-            <classifier>osx-x86_64</classifier>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-epoll</artifactId>
-            <version>${netty.version}</version>
-            <classifier>linux-x86_64</classifier>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-tcnative-boringssl-static</artifactId>
-            <version>2.0.36.Final</version>
+            <artifactId>netty-all</artifactId>
+            <version>4.1.48.Final</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -325,26 +298,12 @@
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>io.netty</groupId>
-                                    <artifactId>netty-transport-native-kqueue</artifactId>
-                                    <outputDirectory>${native.folder}</outputDirectory>
-                                    <classifier>osx-x86_64</classifier>
-                                    <includes>META-INF/native/*</includes>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>io.netty</groupId>
-                                    <artifactId>netty-transport-native-epoll</artifactId>
-                                    <outputDirectory>${native.folder}</outputDirectory>
-                                    <classifier>linux-x86_64</classifier>
-                                    <includes>META-INF/native/*</includes>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>io.netty</groupId>
-                                    <artifactId>netty-tcnative-boringssl-static</artifactId>
+                                    <artifactId>netty-all</artifactId>
                                     <outputDirectory>${native.folder}</outputDirectory>
                                     <includes>META-INF/native/*</includes>
                                 </artifactItem>
                             </artifactItems>
-                            <includes>META-INF/native/*</includes>
+                            <includes>META-INF/native/libnetty_transport_native_epoll_x86_64.so</includes>
                             <outputDirectory>${native.folder}</outputDirectory>
                             <overWriteReleases>false</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
@@ -370,13 +329,9 @@
                         <filter>
                             <artifact>*:*</artifact>
                             <excludes>
-                                <exclude>META-INF/native/${native.epoll.original}</exclude>
-                                <exclude>META-INF/native/${native.kqueue.original}</exclude>
-                                <exclude>META-INF/native/${native.tcnative-linux.original}</exclude>
-                                <exclude>META-INF/native/${native.tcnative-linux-aarch.original}</exclude>
-                                <exclude>META-INF/native/${native.tcnative-osx.original}</exclude>
-                                <exclude>META-INF/native/${native.tcnative-windows.original}</exclude>
-                                <resource>META-INF/services/reactor.blockhound.integration.BlockHoundIntegration</resource>
+                                <exclude>META-INF/native/${native-epoll.original}</exclude>
+                                <exclude>META-INF/native/${native-kqueue.original}</exclude>
+                                <exclude>META-INF/native/libnetty_resolver_dns_native_macos_x86_64.jnilib</exclude>
                             </excludes>
                         </filter>
                         <filter>
@@ -388,29 +343,15 @@
                         </filter>
                     </filters>
                     <transformers>
+                        <!-- Netty Native: with the unpacked .so (see unpack config), rename
+                             it so it has the shaded namespace -->
                         <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.epoll.original}</file>
-                            <resource>META-INF/native/${native.epoll.renamed}</resource>
+                            <file>${native.folder}/META-INF/native/${native-epoll.original}</file>
+                            <resource>META-INF/native/${native-epoll.renamed}</resource>
                         </transformer>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.kqueue.original}</file>
-                            <resource>META-INF/native/${native.kqueue.renamed}</resource>
-                        </transformer>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.tcnative-linux.original}</file>
-                            <resource>META-INF/native/${native.tcnative-linux.renamed}</resource>
-                        </transformer>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.tcnative-linux-aarch.original}</file>
-                            <resource>META-INF/native/${native.tcnative-linux-aarch.renamed}</resource>
-                        </transformer>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.tcnative-osx.original}</file>
-                            <resource>META-INF/native/${native.tcnative-osx.renamed}</resource>
-                        </transformer>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native.tcnative-windows.original}</file>
-                            <resource>META-INF/native/${native.tcnative-windows.renamed}</resource>
+                            <file>${native.folder}/META-INF/native/${native-kqueue.original}</file>
+                            <resource>META-INF/native/${native-kqueue.renamed}</resource>
                         </transformer>
                     </transformers>
                     <relocations>
