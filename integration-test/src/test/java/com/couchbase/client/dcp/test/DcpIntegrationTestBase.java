@@ -67,12 +67,13 @@ public abstract class DcpIntegrationTestBase {
         throw new RuntimeException("Environment variable " + couchbaseVersionEnvar + " must be set when running in Jenkins." +
             " Value should be the version of the 'couchbase/server' docker image to test against.");
       } else {
-        couchbaseVersion = "6.5.0";
+        couchbaseVersion = "6.6.1";
       }
     }
+    //Use private docker repo for build-numbered images
+    String containerRegistry = System.getenv("CONTAINER_REGISTRY");
     //Check if using an internal server build image (ie. 6.5.0-4960), or a released build (ie. 6.5.0)
-    //Only Couchbase org members will have access to the internal builds
-    final String dockerImage = couchbaseVersion.matches("\\d.\\d.\\d-\\d{4}") ? "couchbase/server-internal:" + couchbaseVersion : "couchbase/server:" + couchbaseVersion;
+    final String dockerImage = couchbaseVersion.matches("\\d.\\d.\\d-\\d{4}") ? containerRegistry + "/couchbase/server-internal:" + couchbaseVersion : "couchbase/server:" + couchbaseVersion;
     couchbase = CouchbaseContainer.newCluster(dockerImage, network, "kv1.couchbase.host", HOST_COUCHBASE_UI_PORT);
 
     // Dummy bucket for authenticating management requests (required for Couchbase versions prior to 6.5).
