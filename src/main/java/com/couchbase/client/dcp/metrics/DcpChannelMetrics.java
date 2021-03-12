@@ -29,10 +29,12 @@ import static com.couchbase.client.dcp.message.MessageUtil.DCP_EXPIRATION_OPCODE
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_SNAPSHOT_MARKER_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_STREAM_END_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.OBSERVE_SEQNO_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.getOpcode;
 import static com.couchbase.client.dcp.message.MessageUtil.getShortOpcodeName;
 import static com.couchbase.client.dcp.metrics.LogLevel.DEBUG;
 import static com.couchbase.client.dcp.metrics.LogLevel.NONE;
+import static com.couchbase.client.dcp.metrics.LogLevel.TRACE;
 
 public class DcpChannelMetrics {
   private final MetricsContext ctx;
@@ -84,7 +86,7 @@ public class DcpChannelMetrics {
       prevDcpRequestOpcode = opcode;
       prevDcpRequestCounter = ctx.newActionCounter("client.request")
           .tag("opcode", getShortOpcodeName(opcode))
-          .logLevel(DEBUG)
+          .logLevel(opcode == (OBSERVE_SEQNO_OPCODE & 0xff) ? TRACE : DEBUG)
           .build();
     }
     prevDcpRequestCounter.track(promise, dcpResponse -> {
