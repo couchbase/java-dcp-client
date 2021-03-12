@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBuf;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -35,6 +36,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public abstract class DocumentChange implements DatabaseChangeEvent, FlowControllable {
   private static final long NANOS_PER_SECOND = SECONDS.toNanos(1);
 
+  private static final AtomicLong nextTracingToken = new AtomicLong();
+
+  private final long tracingToken = nextTracingToken.getAndIncrement();
   private final int vbucket;
   private final StreamOffset offset;
   private final ContentAndXattrs contentAndXattrs;
@@ -58,6 +62,16 @@ public abstract class DocumentChange implements DatabaseChangeEvent, FlowControl
     this.receipt = requireNonNull(receipt);
     this.contentAndXattrs = MessageUtil.getContentAndXattrs(byteBuf);
     this.cas = MessageUtil.getCas(byteBuf);
+  }
+
+  /**
+   * Returns an opaque tracing token that uniquely identifies this change
+   * within the current run of the JVM.
+   * <p>
+   * Useful for correlating lifecycle log messages.
+   */
+  public long getTracingToken() {
+    return tracingToken;
   }
 
   /**
