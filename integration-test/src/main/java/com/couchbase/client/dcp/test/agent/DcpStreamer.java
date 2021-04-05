@@ -19,16 +19,17 @@ package com.couchbase.client.dcp.test.agent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
+import com.couchbase.client.dcp.highlevel.CollectionCreated;
+import com.couchbase.client.dcp.highlevel.CollectionDropped;
+import com.couchbase.client.dcp.highlevel.CollectionFlushed;
+import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
+import com.couchbase.client.dcp.highlevel.Deletion;
+import com.couchbase.client.dcp.highlevel.FlowControlMode;
+import com.couchbase.client.dcp.highlevel.Mutation;
+import com.couchbase.client.dcp.highlevel.Rollback;
 import com.couchbase.client.dcp.highlevel.ScopeCreated;
 import com.couchbase.client.dcp.highlevel.ScopeDropped;
-import com.couchbase.client.dcp.highlevel.Deletion;
-import com.couchbase.client.dcp.highlevel.CollectionFlushed;
-import com.couchbase.client.dcp.highlevel.CollectionDropped;
-import com.couchbase.client.dcp.highlevel.CollectionCreated;
-import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
-import com.couchbase.client.dcp.highlevel.Mutation;
 import com.couchbase.client.dcp.highlevel.StreamFailure;
-import com.couchbase.client.dcp.highlevel.FlowControlMode;
 import com.couchbase.client.dcp.state.SessionState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.couchbase.client.dcp.test.util.Poller.poll;
 import static java.util.Objects.requireNonNull;
@@ -56,7 +57,9 @@ public class DcpStreamer {
     SCOPE_DROPS,
     COLLECTION_CREATIONS,
     COLLECTION_DROPS,
-    COLLECTION_FLUSHES
+    COLLECTION_FLUSHES,
+    STREAM_FAILURES,
+    ROLLBACKS,
   }
 
   public static class Status {
@@ -68,9 +71,11 @@ public class DcpStreamer {
     private final long collectionCreations;
     private final long collectionDrops;
     private final long collectionFlushes;
+    private final long streamFailures;
+    private final long rollbacks;
 
 
-    public Status(long mutations, long expirations, long deletions, long scopeCreations, long scopeDrops, long collectionCreations, long collectionDrops, long collectionFlushes) {
+    public Status(long mutations, long expirations, long deletions, long scopeCreations, long scopeDrops, long collectionCreations, long collectionDrops, long collectionFlushes, long streamFailures, long rollbacks) {
       this.mutations = mutations;
       this.expirations = expirations;
       this.deletions = deletions;
@@ -79,6 +84,8 @@ public class DcpStreamer {
       this.collectionCreations = collectionCreations;
       this.collectionDrops = collectionDrops;
       this.collectionFlushes = collectionFlushes;
+      this.streamFailures = streamFailures;
+      this.rollbacks = rollbacks;
     }
 
     public long getMutations() {
@@ -113,6 +120,14 @@ public class DcpStreamer {
       return collectionFlushes;
     }
 
+    public long getStreamFailures() {
+      return streamFailures;
+    }
+
+    public long getRollbacks() {
+      return rollbacks;
+    }
+
     public long getStateCount(State state) {
       switch (state) {
         case DELETIONS:
@@ -131,6 +146,10 @@ public class DcpStreamer {
           return getCollectionDrops();
         case COLLECTION_FLUSHES:
           return getCollectionFlushes();
+        case STREAM_FAILURES:
+          return getStreamFailures();
+        case ROLLBACKS:
+          return getRollbacks();
         default:
           throw new IllegalArgumentException();
       }
@@ -142,25 +161,29 @@ public class DcpStreamer {
           "mutations=" + mutations +
           ", expirations=" + expirations +
           ", deletions=" + deletions +
-          ", scopesCreated=" + scopeCreations +
-          ", scopesDropped=" + scopeDrops +
-          ", collectionsCreated " + collectionCreations +
-          ", collectionsDropped " + collectionDrops +
-          ", collectionsFlushed " + collectionFlushes +
+          ", scopeCreations=" + scopeCreations +
+          ", scopeDrops=" + scopeDrops +
+          ", collectionCreations=" + collectionCreations +
+          ", collectionDrops=" + collectionDrops +
+          ", collectionFlushes=" + collectionFlushes +
+          ", streamFailures=" + streamFailures +
+          ", rollbacks=" + rollbacks +
           '}';
     }
   }
 
   private final Client client;
 
-  private final AtomicLong mutations = new AtomicLong();
-  private final AtomicLong deletions = new AtomicLong();
-  private final AtomicLong expirations = new AtomicLong();
-  private final AtomicLong scopeCreations = new AtomicLong();
-  private final AtomicLong scopeDrops = new AtomicLong();
-  private final AtomicLong collectionCreations = new AtomicLong();
-  private final AtomicLong collectionDrops = new AtomicLong();
-  private final AtomicLong collectionFlushes = new AtomicLong();
+  private final LongAdder mutations = new LongAdder();
+  private final LongAdder deletions = new LongAdder();
+  private final LongAdder expirations = new LongAdder();
+  private final LongAdder scopeCreations = new LongAdder();
+  private final LongAdder scopeDrops = new LongAdder();
+  private final LongAdder collectionCreations = new LongAdder();
+  private final LongAdder collectionDrops = new LongAdder();
+  private final LongAdder collectionFlushes = new LongAdder();
+  private final LongAdder streamFailures = new LongAdder();
+  private final LongAdder rollbacks = new LongAdder();
 
   private final StreamTo streamTo;
 
@@ -171,45 +194,52 @@ public class DcpStreamer {
 
     client.listener(new DatabaseChangeListener() {
       @Override
+      public void onRollback(Rollback rollback) {
+        rollbacks.increment();
+        rollback.resume();
+      }
+
+      @Override
       public void onFailure(StreamFailure streamFailure) {
+        streamFailures.increment();
         LOGGER.error("stream failure", streamFailure.getCause());
       }
 
       @Override
       public void onMutation(Mutation mutation) {
-        mutations.getAndIncrement();
+        mutations.increment();
         mutation.flowControlAck();
       }
 
       @Override
       public void onDeletion(Deletion deletion) {
-        (deletion.isDueToExpiration() ? expirations : deletions).getAndIncrement();
+        (deletion.isDueToExpiration() ? expirations : deletions).increment();
         deletion.flowControlAck();
       }
 
       @Override
       public void onScopeCreated(ScopeCreated scopeCreated) {
-        scopeCreations.getAndIncrement();
+        scopeCreations.increment();
       }
 
       @Override
       public void onScopeDropped(ScopeDropped scopeDropped) {
-        scopeDrops.getAndIncrement();
+        scopeDrops.increment();
       }
 
       @Override
       public void onCollectionCreated(CollectionCreated collectionCreated) {
-        collectionCreations.getAndIncrement();
+        collectionCreations.increment();
       }
 
       @Override
       public void onCollectionDropped(CollectionDropped collectionDropped) {
-        collectionDrops.getAndIncrement();
+        collectionDrops.increment();
       }
 
       @Override
       public void onCollectionFlushed(CollectionFlushed collectionFlushed) {
-        collectionFlushes.getAndIncrement();
+        collectionFlushes.increment();
       }
     }, FlowControlMode.AUTOMATIC);
 
@@ -243,7 +273,18 @@ public class DcpStreamer {
   }
 
   public Status status() {
-    return new Status(mutations.get(), expirations.get(), deletions.get(), scopeCreations.get(), scopeDrops.get(), collectionCreations.get(), collectionDrops.get(), collectionFlushes.get());
+    return new Status(
+        mutations.sum(),
+        expirations.sum(),
+        deletions.sum(),
+        scopeCreations.sum(),
+        scopeDrops.sum(),
+        collectionCreations.sum(),
+        collectionDrops.sum(),
+        collectionFlushes.sum(),
+        streamFailures.sum(),
+        rollbacks.sum()
+    );
   }
 
   SessionState getSessionState() {

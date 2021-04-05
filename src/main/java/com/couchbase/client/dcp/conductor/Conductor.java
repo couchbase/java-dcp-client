@@ -367,14 +367,17 @@ public class Conductor {
         .doOnSuccess(ignored -> LOGGER.trace("Completed Partition Move for partition {}", partition))
         .doOnError(e -> {
           if (e instanceof RollbackException) {
-            // Benign, so don't log a scary stack trace. A synthetic "rollback" message has been passed
-            // to the Control Event Handler, which may react by calling Client.rollbackAndRestartStream().
+            // A synthetic "rollback" message has already been passed to the to the Control Event Handler,
+            // which may react by calling Client.rollbackAndRestartStream().
+            //
+            // Don't log a scary stack trace, and don't publish an event that would cause
+            // EventHandlerAdapter to signal a stream failure.
             LOGGER.warn("Rollback during Partition Move for partition {}", partition);
           } else {
             LOGGER.warn("Error during Partition Move for partition {}", partition, e);
-          }
-          if (env.eventBus() != null) {
-            env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
+            if (env.eventBus() != null) {
+              env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
+            }
           }
         })
         .subscribe();

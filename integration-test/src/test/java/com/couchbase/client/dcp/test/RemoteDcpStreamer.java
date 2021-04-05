@@ -78,7 +78,7 @@ public class RemoteDcpStreamer implements Closeable {
 
     // wait until expected mutations are observed
     status = streamerService.awaitStateCount(streamerId, state, expectedCount, timeout, timeoutUnit);
-    assertEquals(expectedCount, status.getStateCount(state));
+    assertEquals(state.toString(), expectedCount, status.getStateCount(state));
 
     // wait a bit longer to make sure no more arrive
     status = streamerService.awaitStateCount(streamerId, state, expectedCount + 1, quietPeriod, quietPeriodUnit);

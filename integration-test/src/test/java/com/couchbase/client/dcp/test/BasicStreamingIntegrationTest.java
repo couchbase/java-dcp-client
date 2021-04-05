@@ -93,6 +93,41 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
+  public void streamerRecoversFromRollbacksWithoutPersistencePolling() throws Exception {
+    try (TestBucket bucket = newBucket().create()) {
+      try (RemoteDcpStreamer streamer = bucket.newStreamer()
+          // DO NOT mitigate rollbacks
+          .start()) {
+
+        final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
+        streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
+
+        bucket.stopPersistence();
+        bucket.createOneDocumentInEachVbucket("b");
+
+        // Since persistence polling is disabled, expect all of "a" and all of "b"
+        streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
+
+        // Force a reconnect. Client will resume streaming will resume from the
+        // unpersisted state, which triggers a rollback.
+        couchbase().killMemcached(); // implicitly starts persistence
+        couchbase().waitForReadyState();
+
+        bucket.createOneDocumentInEachVbucket("c");
+
+        // Streamer doesn't remove documents after a rollback, so we should see
+        // all three batches.
+        streamer.assertStateCount(batchSize * 3, DcpStreamer.State.MUTATIONS);
+
+        // Make sure each partition rolled back once, and the rollbacks
+        // didn't cause stream failures.
+        streamer.assertStateCount(0, DcpStreamer.State.STREAM_FAILURES);
+        streamer.assertStateCount(batchSize, DcpStreamer.State.ROLLBACKS);
+      }
+    }
+  }
+
+  @Test
   public void rollbackMitigationClearsEventBufferOnReconnect() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
