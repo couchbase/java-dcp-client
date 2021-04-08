@@ -926,7 +926,6 @@ public class Client implements Closeable {
     private final EnumSet<OpenConnectionFlag> connectionFlags = EnumSet.noneOf(OpenConnectionFlag.class);
     private int bufferAckWatermark;
     private boolean poolBuffers = true;
-    private long connectTimeout = Environment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
     private Duration bootstrapTimeout = Environment.DEFAULT_BOOTSTRAP_TIMEOUT;
     private Duration configRefreshInterval = Environment.DEFAULT_CONFIG_REFRESH_INTERVAL;
     private long socketConnectTimeout = Environment.DEFAULT_SOCKET_CONNECT_TIMEOUT;
@@ -1307,16 +1306,6 @@ public class Client implements Closeable {
     }
 
     /**
-     * Time to wait configuration provider socket to connect.
-     *
-     * @param connectTimeout time in milliseconds.
-     */
-    public Builder connectTimeout(long connectTimeout) {
-      this.connectTimeout = connectTimeout;
-      return this;
-    }
-
-    /**
      * The maximum number of reconnect attempts for DCP channels
      *
      * @param dcpChannelsReconnectMaxAttempts
@@ -1492,7 +1481,6 @@ public class Client implements Closeable {
 
     public static final Duration DEFAULT_BOOTSTRAP_TIMEOUT = Duration.ofSeconds(5);
     public static final Duration DEFAULT_CONFIG_REFRESH_INTERVAL = Duration.ofSeconds(2);
-    public static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
     public static final long DEFAULT_SOCKET_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
     public static final Retry DEFAULT_DCP_CHANNELS_RECONNECT_DELAY = Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200));
     public static final int DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS = Integer.MAX_VALUE;
@@ -1511,7 +1499,6 @@ public class Client implements Closeable {
     private final Authenticator authenticator;
     private final Duration bootstrapTimeout;
     private final Duration configRefreshInterval;
-    private final long connectTimeout;
     private final DcpControl dcpControl;
     private final Set<OpenConnectionFlag> connectionFlags;
     private final EventLoopGroup eventLoopGroup;
@@ -1542,7 +1529,6 @@ public class Client implements Closeable {
       authenticator = builder.authenticator;
       bootstrapTimeout = builder.bootstrapTimeout;
       configRefreshInterval = builder.configRefreshInterval;
-      connectTimeout = builder.connectTimeout;
       dcpControl = builder.dcpControl;
       connectionFlags = unmodifiableSet(EnumSet.copyOf(builder.connectionFlags));
       eventLoopGroup = Optional.ofNullable(builder.eventLoopGroup)
@@ -1743,13 +1729,6 @@ public class Client implements Closeable {
     }
 
     /**
-     * Time in milliseconds to wait configuration provider socket to connect.
-     */
-    public long connectTimeout() {
-      return connectTimeout;
-    }
-
-    /**
      * Set/Override the data event handler.
      */
     public void setDataEventHandler(DataEventHandler dataEventHandler) {
@@ -1875,7 +1854,6 @@ public class Client implements Closeable {
           ", eventLoopGroupIsPrivate=" + eventLoopGroupIsPrivate +
           ", poolBuffers=" + poolBuffers +
           ", bufferAckWatermark=" + bufferAckWatermark +
-          ", connectTimeout=" + connectTimeout +
           ", bootstrapTimeout=" + bootstrapTimeout +
           ", configRefreshInterval=" + configRefreshInterval +
           ", securityConfig=" + securityConfig.exportAsMap() +
