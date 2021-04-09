@@ -304,11 +304,12 @@ public class Conductor {
             .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node))
         )
         .doOnSuccess(ignored -> LOGGER.debug("Completed Node connect for DCP channel {}", node))
-        .doOnError(e -> {
+        .onErrorResume(e -> {
           LOGGER.warn("Got error during connect (maybe retried) for node {}", system(node), e);
           if (env.eventBus() != null) {
             env.eventBus().publish(new FailedToAddNodeEvent(node, e));
           }
+          return Mono.empty();
         }).subscribe();
   }
 
@@ -327,11 +328,12 @@ public class Conductor {
 
     node.disconnect()
         .doOnSuccess(ignored -> LOGGER.debug("Channel remove notified as complete for {}", node.address()))
-        .doOnError(e -> {
+        .onErrorResume(e -> {
           LOGGER.warn("Got error during Node removal for node {}", system(node.address()), e);
           if (env.eventBus() != null) {
             env.eventBus().publish(new FailedToRemoveNodeEvent(node.address(), e));
           }
+          return Mono.empty();
         }).subscribe();
   }
 
@@ -365,7 +367,7 @@ public class Conductor {
 
         .doOnSubscribe(subscription -> LOGGER.debug("Subscribing for Partition Move for partition {}", partition))
         .doOnSuccess(ignored -> LOGGER.trace("Completed Partition Move for partition {}", partition))
-        .doOnError(e -> {
+        .onErrorResume(e -> {
           if (e instanceof RollbackException) {
             // A synthetic "rollback" message has already been passed to the to the Control Event Handler,
             // which may react by calling Client.rollbackAndRestartStream().
@@ -379,6 +381,7 @@ public class Conductor {
               env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
             }
           }
+          return Mono.empty();
         })
         .subscribe();
   }

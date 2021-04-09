@@ -20,6 +20,7 @@ import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
@@ -63,7 +64,10 @@ public class Rollback implements DatabaseChangeEvent {
             .maxBackoff(Duration.ofSeconds(5))
             .doAfterRetry(retrySignal -> LOGGER.info("Retrying rollbackAndRestartStream for vbucket {}", vbucket))
         )
-        .doOnError(errorHandler::accept)
+        .onErrorResume(t -> {
+          errorHandler.accept(t);
+          return Mono.empty();
+        })
         .doOnSuccess(ignore -> LOGGER.info("Rollback for partition {} complete!", vbucket))
         .subscribe();
   }

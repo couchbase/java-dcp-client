@@ -200,9 +200,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
             // isShutdown before we could finish the connect :/
             disconnect()
                 .doOnSuccess(v -> sink.success())
-                .doOnError(e -> {
+                .onErrorResume(e -> {
                   LOGGER.warn("Got error during disconnect.", e);
                   sink.error(e);
+                  return Mono.empty();
                 })
                 .subscribe();
 

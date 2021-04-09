@@ -26,6 +26,7 @@ import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.TimeUnit;
 
@@ -59,9 +60,10 @@ public class PrintIncomingChanges {
           final int partition = RollbackMessage.vbucket(event);
           client.rollbackAndRestartStream(partition, RollbackMessage.seqno(event))
               .doOnSuccess(ignore -> System.out.println("Rollback for partition " + partition + " complete!"))
-              .doOnError(e -> {
+              .onErrorResume(e -> {
                 System.err.println("Rollback for partition " + partition + " failed!");
                 e.printStackTrace();
+                return Mono.empty();
               }).subscribe();
         }
         event.release();

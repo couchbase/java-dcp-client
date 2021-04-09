@@ -27,6 +27,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
@@ -180,12 +181,12 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
             logWarningAndClose(ctx, "Fatal error in observeAndRepeat handling observeSeqno response.", t);
           }
         })
-        .doOnError(t -> {
+        .onErrorResume(t -> {
           if (activeGroupId != groupId || t instanceof NotConnectedException) {
             // Graceful shutdown. Ignore any exception.
             LOGGER.debug("Polling group {} is no longer active; stopping polling for {}",
                 groupId, partitionInstance);
-            return;
+            return Mono.empty();
           }
 
           if (t instanceof DcpOps.BadResponseStatusException) {
@@ -200,6 +201,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
           } else {
             logWarningAndClose(ctx, "observeSeqno failed.", t);
           }
+          return Mono.empty();
         })
         .subscribe();
   }
