@@ -95,7 +95,7 @@ public class AgentContainer extends GenericContainer<AgentContainer> {
 
     return new ImageFromDockerfile("dcp-test-agent", true)
         .withDockerfileFromBuilder(dockerfileBuilder -> dockerfileBuilder
-            .from("openjdk:8-jdk-alpine")
+            .from("openjdk:8-jdk-slim")
             .volume("/tmp")
             .add("/app.jar", "app.jar")
             .entryPoint(entryPoint))

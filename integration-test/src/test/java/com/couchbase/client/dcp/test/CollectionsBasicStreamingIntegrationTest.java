@@ -20,9 +20,10 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import com.couchbase.client.dcp.util.Version;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class CollectionsBasicStreamingIntegrationTest extends DcpIntegrationTestBase {
 
@@ -30,14 +31,14 @@ public class CollectionsBasicStreamingIntegrationTest extends DcpIntegrationTest
   private static final int NUMBER_OF_SCOPES = 1;
   private static final int NUMBER_OF_COLLECTIONS = 1;
 
-  @Before
+  @BeforeEach
   public void checkIsCheshireCat() {
     Version version = couchbase().getVersion().orElseThrow(() -> new RuntimeException("Missing Couchbase version"));
-    Assume.assumeTrue(version.isAtLeast(new Version(7, 0, 0)));
+    assumeTrue(version.isAtLeast(new Version(7, 0, 0)));
   }
 
   @Test
-  public void collectionsStreamFromBeginningToNow() throws Exception {
+  void collectionsStreamFromBeginningToNow() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       int scopes = bucket.createScopes(NUMBER_OF_SCOPES, "S").size();
       int collections = bucket.createCollections(NUMBER_OF_COLLECTIONS, "C", "S0").size();
@@ -52,7 +53,7 @@ public class CollectionsBasicStreamingIntegrationTest extends DcpIntegrationTest
   }
 
   @Test
-  public void collectionsStreamFromNowToInfinity() throws Exception {
+  void collectionsStreamFromNowToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       bucket.createScopes(NUMBER_OF_SCOPES, "S-a");
       bucket.createCollections(NUMBER_OF_COLLECTIONS, "C-a", "S-a0");
@@ -74,7 +75,7 @@ public class CollectionsBasicStreamingIntegrationTest extends DcpIntegrationTest
   }
 
   @Test
-  public void collectionsStreamFromBeginningToInfinity() throws Exception {
+  void collectionsStreamFromBeginningToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       int scopesA = bucket.createScopes(NUMBER_OF_SCOPES, "S-a").size();
       int collectionsA = bucket.createCollections(NUMBER_OF_COLLECTIONS, "C-a", "S-a0").size();
@@ -90,7 +91,7 @@ public class CollectionsBasicStreamingIntegrationTest extends DcpIntegrationTest
   }
 
   @Test
-  public void collectionsClientReconnectsAfterServerRestart() throws Exception {
+  void collectionsClientReconnectsAfterServerRestart() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .collectionAware()

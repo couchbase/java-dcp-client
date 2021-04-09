@@ -19,13 +19,13 @@ package com.couchbase.client.dcp.test;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   @Test
-  public void canStreamFromBeginningToNow() throws Exception {
+  void canStreamFromBeginningToNow() throws Exception {
     couchbase().loadSampleBucket("beer-sample");
 
     try (RemoteDcpStreamer streamer = newStreamer("beer-sample")
@@ -37,7 +37,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void canStreamFromNowToInfinity() throws Exception {
+  void canStreamFromNowToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
@@ -46,14 +46,14 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
           .start()) {
 
         streamer.assertStateCount(0, DcpStreamer.State.MUTATIONS);
-        bucket.createOneDocumentInEachVbucket("b").size();
+        bucket.createOneDocumentInEachVbucket("b");
         streamer.assertStateCount(batchSize, DcpStreamer.State.MUTATIONS);
       }
     }
   }
 
   @Test
-  public void canStreamFromBeginningToInfinity() throws Exception {
+  void canStreamFromBeginningToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
 
@@ -66,7 +66,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void rollbackMitigationWillBufferUnpersistedEvents() throws Exception {
+  void rollbackMitigationWillBufferUnpersistedEvents() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .mitigateRollbacks()
@@ -93,7 +93,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void streamerRecoversFromRollbacksWithoutPersistencePolling() throws Exception {
+  void streamerRecoversFromRollbacksWithoutPersistencePolling() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           // DO NOT mitigate rollbacks
@@ -128,7 +128,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void rollbackMitigationClearsEventBufferOnReconnect() throws Exception {
+  void rollbackMitigationClearsEventBufferOnReconnect() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .mitigateRollbacks()
@@ -157,13 +157,13 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void clientReconnectsAfterServerRestart() throws Exception {
+  void clientReconnectsAfterServerRestart() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer().start()) {
         final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();
         agent().resetCluster();
         couchbase().restart();
-        bucket.createOneDocumentInEachVbucket("b").size();
+        bucket.createOneDocumentInEachVbucket("b");
         streamer.assertStateCount(batchSize * 2, DcpStreamer.State.MUTATIONS);
       }
     }
@@ -175,7 +175,7 @@ public class BasicStreamingIntegrationTest extends DcpIntegrationTestBase {
    * When the client connects, make sure it waits for a non-empty partition map.
    */
   @Test
-  public void connectWaitsForPartitionMap() throws Exception {
+  void connectWaitsForPartitionMap() throws Exception {
     for (int i = 0; i < 3; i++) {
       try (TestBucket bucket = newBucket().createWithoutWaiting()) {
         assertEquals(1024, agent().streamer().getNumberOfPartitions(bucket.name()));

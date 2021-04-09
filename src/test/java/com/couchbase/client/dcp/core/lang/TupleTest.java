@@ -15,14 +15,14 @@
  */
 package com.couchbase.client.dcp.core.lang;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TupleTest {
 
   @Test
-  public void shouldCreateWithTwoValues() throws Exception {
+  void shouldCreateWithTwoValues() throws Exception {
     Tuple2<String, Integer> tuple = Tuple.create("value1", 2);
     assertEquals("value1", tuple.value1());
     assertEquals(2, (long) tuple.value2());

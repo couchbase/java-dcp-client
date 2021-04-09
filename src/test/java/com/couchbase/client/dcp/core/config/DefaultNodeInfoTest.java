@@ -17,12 +17,12 @@
 package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.dcp.core.service.ServiceType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies the functionality of the {@link DefaultNodeInfo}.
@@ -33,7 +33,7 @@ import static org.junit.Assert.assertEquals;
 public class DefaultNodeInfoTest {
 
     @Test
-    public void shouldExposeViewServiceWhenAvailable() {
+    void shouldExposeViewServiceWhenAvailable() {
         Map<String, Integer> ports = new HashMap<String, Integer>();
         String viewBase = "http://127.0.0.1:8092/default%2Baa4b515529fa706f1e5f09f21abb5c06";
         DefaultNodeInfo info = new DefaultNodeInfo(viewBase, "localhost:8091", ports, null);
@@ -44,7 +44,7 @@ public class DefaultNodeInfoTest {
     }
 
     @Test
-    public void shouldNotExposeViewServiceWhenNotAvailable() {
+    void shouldNotExposeViewServiceWhenNotAvailable() {
         Map<String, Integer> ports = new HashMap<String, Integer>();
         DefaultNodeInfo info = new DefaultNodeInfo(null, "localhost:8091", ports, null);
 
@@ -53,7 +53,7 @@ public class DefaultNodeInfoTest {
     }
 
     @Test
-    public void shouldExposeRawHostnameFromConstruction() {
+    void shouldExposeRawHostnameFromConstruction() {
         assertEquals(
             "localhost",
             new DefaultNodeInfo(null, "localhost:8091", new HashMap<String, Integer>(), null).hostname()
@@ -66,7 +66,7 @@ public class DefaultNodeInfoTest {
     }
 
     @Test
-    public void shouldHandleIPv6() {
+    void shouldHandleIPv6() {
         Map<String, Integer> ports = new HashMap<String, Integer>();
         DefaultNodeInfo info = new DefaultNodeInfo(null, "[fd63:6f75:6368:2068:c490:b5ff:fe86:9cf7]:8091", ports, null);
 

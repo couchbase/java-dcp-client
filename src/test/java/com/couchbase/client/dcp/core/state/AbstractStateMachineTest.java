@@ -15,11 +15,11 @@
  */
 package com.couchbase.client.dcp.core.state;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the functionality for the {@link AbstractStateMachine}.
@@ -27,7 +27,7 @@ import static org.junit.Assert.assertTrue;
 public class AbstractStateMachineTest {
 
   @Test
-  public void shouldBeInInitialState() {
+  void shouldBeInInitialState() {
     SimpleStateMachine sm = new SimpleStateMachine(LifecycleState.DISCONNECTED);
     assertEquals(LifecycleState.DISCONNECTED, sm.state());
     assertTrue(sm.isState(LifecycleState.DISCONNECTED));
@@ -35,7 +35,7 @@ public class AbstractStateMachineTest {
   }
 
   @Test
-  public void shouldTransitionIntoDifferentState() {
+  void shouldTransitionIntoDifferentState() {
     SimpleStateMachine sm = new SimpleStateMachine(LifecycleState.DISCONNECTED);
 
     sm.transitionState(LifecycleState.CONNECTING);

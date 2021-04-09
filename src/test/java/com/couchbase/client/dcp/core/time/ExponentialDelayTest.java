@@ -15,16 +15,18 @@
  */
 package com.couchbase.client.dcp.core.time;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ExponentialDelayTest {
 
   @Test
-  public void testPowerOfTwoShouldCalculateExponentially() {
+  void testPowerOfTwoShouldCalculateExponentially() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 0, 1, 2);
 
     assertEquals(0, exponentialDelay.calculate(0));
@@ -40,7 +42,7 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTwoShouldRespectLowerBound() {
+  void testPowerOfTwoShouldRespectLowerBound() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 10, 1, 2);
 
     assertEquals(10, exponentialDelay.calculate(0));
@@ -55,7 +57,7 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTwoShouldRespectUpperBound() {
+  void testPowerOfTwoShouldRespectUpperBound() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, 9, 0, 1, 2);
 
     assertEquals(0, exponentialDelay.calculate(0));
@@ -70,7 +72,7 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTwoShouldApplyFactor() {
+  void testPowerOfTwoShouldApplyFactor() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 0, 10, 2);
 
     assertEquals(0, exponentialDelay.calculate(0));
@@ -85,20 +87,20 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTwoShouldNotOverflowInAMillionRetries() {
+  void testPowerOfTwoShouldNotOverflowInAMillionRetries() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Long.MAX_VALUE, 0, 2d, 2);
 
     long previous = Long.MIN_VALUE;
     //the bitwise operation in ExponentialDelay would overflow the step at i = 32
-    for(int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 1000000; i++) {
       long now = exponentialDelay.calculate(i);
-      assertTrue("delay is at " + now + " down from " + previous + ", attempt " + i, now >= previous);
+      assertTrue(now >= previous, "delay is at " + now + " down from " + previous + ", attempt " + i);
       previous = now;
     }
   }
 
   @Test
-  public void testPowerOfTenShouldCalculateExponentially() {
+  void testPowerOfTenShouldCalculateExponentially() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 0, 1, 10);
 
     assertEquals(0, exponentialDelay.calculate(0));
@@ -113,7 +115,7 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTenShouldRespectLowerBound() {
+  void testPowerOfTenShouldRespectLowerBound() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 400, 1, 10);
 
     assertEquals(400, exponentialDelay.calculate(0));
@@ -128,7 +130,7 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTenShouldRespectUpperBound() {
+  void testPowerOfTenShouldRespectUpperBound() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, 500, 0, 1, 10);
 
     assertEquals(0, exponentialDelay.calculate(0));
@@ -143,7 +145,7 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTenShouldApplyFactor() {
+  void testPowerOfTenShouldApplyFactor() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 0, 2, 10);
 
     assertEquals(0, exponentialDelay.calculate(0));
@@ -158,32 +160,32 @@ public class ExponentialDelayTest {
   }
 
   @Test
-  public void testPowerOfTenShouldNotOverflowInAMillionRetries() {
+  void testPowerOfTenShouldNotOverflowInAMillionRetries() {
     Delay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Long.MAX_VALUE, 0, 2d, 10);
 
     long previous = Long.MIN_VALUE;
-    for(int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 1000000; i++) {
       long now = exponentialDelay.calculate(i);
-      assertTrue("delay is at " + now + " down from " + previous + ", attempt " + i, now >= previous);
+      assertTrue(now >= previous, "delay is at " + now + " down from " + previous + ", attempt " + i);
       previous = now;
     }
   }
 
   @Test
-  public void testAlternatePowerAndBitshiftPowerProduceSameResult() {
+  void testAlternatePowerAndBitshiftPowerProduceSameResult() {
     ExponentialDelay exponentialDelay = new ExponentialDelay(TimeUnit.SECONDS, Long.MAX_VALUE, 0, 1, 2);
 
-    for(int i = 1; i < 1000000; i++) {
+    for (int i = 1; i < 1000000; i++) {
       long powValue = exponentialDelay.calculateAlternatePower(i);
       long bitshiftValue = exponentialDelay.calculatePowerOfTwo(i);
 
-      assertEquals("difference at step " + i, powValue, bitshiftValue);
+      assertEquals(powValue, bitshiftValue, "difference at step " + i);
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldFailIfLowerLargerThanUpper() {
-    new ExponentialDelay(TimeUnit.SECONDS, 5, 10, 1, 2);
+  @Test
+  void shouldFailIfLowerLargerThanUpper() {
+    assertThrows(IllegalArgumentException.class, () -> new ExponentialDelay(TimeUnit.SECONDS, 5, 10, 1, 2));
   }
 
 }

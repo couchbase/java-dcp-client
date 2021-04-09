@@ -16,15 +16,15 @@
 package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.dcp.core.service.ServiceType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the functionality of the {@link AbstractBucketConfig}.
@@ -41,7 +41,7 @@ public class AbstractBucketConfigTest {
     private static final String STREAMING_URI = "http://foobar:8091/foo";
 
     @Test
-    public void shouldCheckIfServiceIsEnabled() throws Exception {
+    void shouldCheckIfServiceIsEnabled() throws Exception {
         List<NodeInfo> nodeInfos = new ArrayList<NodeInfo>();
 
         Map<ServiceType, Integer> direct = new HashMap<ServiceType, Integer>();

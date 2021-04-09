@@ -18,10 +18,10 @@ package com.couchbase.client.dcp.core.utils;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 
 public class UnsignedLEB128Test {
@@ -30,7 +30,7 @@ public class UnsignedLEB128Test {
    * https://github.com/couchbase/kv_engine/blob/master/docs/Collections.md#leb128-encoded-examples
    */
   @Test
-  public void kvEngineExamples() {
+  void kvEngineExamples() {
     check("00", "00");
     check("01", "01");
     check("7f", "7f");
@@ -47,19 +47,19 @@ public class UnsignedLEB128Test {
   }
 
   @Test
-  public void wikipediaExample() {
+  void wikipediaExample() {
     check(624485, "e58e26");
   }
 
   @Test
-  public void canHandleMaxUnsignedLong() {
+  void canHandleMaxUnsignedLong() {
     // max unsigned long, 2^64-1 == 18446744073709551615 (also known as -1)
     check("ffffffffffffffff", "ffffffffffffffffff01");
     assertEquals("ffffffffffffffffff01", hexEncode(UnsignedLEB128.encode(-1)));
   }
 
   @Test
-  public void throwsOnOverflow() {
+  void throwsOnOverflow() {
     // One greater than max unsigned long, 2^64 == 18446744073709551616 (overflows unsigned long)
     byte[] tooBig = hexDecode("80808080808080808002");
     assertThrows(ArithmeticException.class, () -> UnsignedLEB128.decode(tooBig));
@@ -67,7 +67,7 @@ public class UnsignedLEB128Test {
   }
 
   @Test
-  public void throwsOnIncompleteInput() {
+  void throwsOnIncompleteInput() {
     // incomplete because the last byte has high order bit set,
     // indicating there should be more bytes to follow.
     byte[] incomplete = new byte[] {(byte) 0x80};
@@ -76,21 +76,21 @@ public class UnsignedLEB128Test {
   }
 
   @Test
-  public void readerIndexUnmodifiedOnThrow() {
+  void readerIndexUnmodifiedOnThrow() {
     ByteBuf incomplete = Unpooled.buffer().writeByte(0x80);
     assertThrows(IndexOutOfBoundsException.class, () -> UnsignedLEB128.read(incomplete));
     assertEquals(0, incomplete.readerIndex());
   }
 
   @Test
-  public void readerIndexAdvancedOnSuccess() {
+  void readerIndexAdvancedOnSuccess() {
     ByteBuf buffer = Unpooled.buffer().writeByte(0x00);
     assertEquals(0, UnsignedLEB128.read(buffer));
     assertEquals(1, buffer.readerIndex());
   }
 
   @Test
-  public void write() {
+  void write() {
     final long value = Long.parseUnsignedLong("cafef00d", 16);
     ByteBuf buffer = Unpooled.buffer();
     UnsignedLEB128.write(buffer, value);
@@ -99,7 +99,7 @@ public class UnsignedLEB128Test {
   }
 
   @Test
-  public void skip() {
+  void skip() {
     ByteBuf buffer = Unpooled.buffer()
         .writeByte(0x80).writeByte(0x01) // two-byte value
         .writeByte(0x00) // one-byte value

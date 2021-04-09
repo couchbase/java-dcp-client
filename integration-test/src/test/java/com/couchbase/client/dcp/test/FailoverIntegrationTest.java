@@ -17,27 +17,27 @@
 package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class FailoverIntegrationTest extends DcpIntegrationTestBase {
 
   private static CouchbaseContainer secondNode;
 
-  @BeforeClass
+  @BeforeAll
   public static void startSecondNode() {
     secondNode = couchbase().addNode();
     couchbase().rebalance();
   }
 
-  @AfterClass
+  @AfterAll
   public static void stopSecondNode() {
     stop(secondNode);
   }
 
   @Test
-  public void failover() throws Exception {
+  void failover() throws Exception {
     final TestBucket bucket = newBucket().replicas(1).create();
 
     final int batchSize = bucket.createOneDocumentInEachVbucket("a").size();

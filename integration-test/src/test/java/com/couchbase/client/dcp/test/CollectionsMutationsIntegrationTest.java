@@ -20,25 +20,26 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import com.couchbase.client.dcp.util.Version;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
+
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class CollectionsMutationsIntegrationTest extends DcpIntegrationTestBase {
 
   private static final int NUMBER_OF_SCOPES = 2;
   private static final int NUMBER_OF_COLLECTIONS = 5;
 
-  @Before
-  public void checkIsCheshireCat() {
+  @BeforeEach
+  void checkIsCheshireCat() {
     Version version = couchbase().getVersion().orElseThrow(() -> new RuntimeException("Missing Couchbase version"));
-    Assume.assumeTrue(version.isAtLeast(new Version(7, 0, 0)));
+    assumeTrue(version.isAtLeast(new Version(7, 0, 0)));
   }
 
   @Test
-  public void canStreamFromBeginningToNow() throws Exception {
+  void canStreamFromBeginningToNow() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       bucket.createScopes(NUMBER_OF_SCOPES, "S").size();
       List<String> collections = bucket.createCollections(NUMBER_OF_COLLECTIONS, "C", "S0");
@@ -59,7 +60,7 @@ public class CollectionsMutationsIntegrationTest extends DcpIntegrationTestBase 
   }
 
   @Test
-  public void canStreamFromNowToInfinity() throws Exception {
+  void canStreamFromNowToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       bucket.createScopes(NUMBER_OF_SCOPES, "S");
       List<String> collections = bucket.createCollections(NUMBER_OF_COLLECTIONS, "C", "S0");
@@ -83,7 +84,7 @@ public class CollectionsMutationsIntegrationTest extends DcpIntegrationTestBase 
   }
 
   @Test
-  public void canStreamFromBeginningToInfinity() throws Exception {
+  void canStreamFromBeginningToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       bucket.createScopes(NUMBER_OF_SCOPES, "S");
       List<String> collections = bucket.createCollections(NUMBER_OF_COLLECTIONS, "C-a", "S0");
@@ -106,7 +107,7 @@ public class CollectionsMutationsIntegrationTest extends DcpIntegrationTestBase 
   }
 
   @Test
-  public void rollbackMitigationWillBufferUnpersistedEvents() throws Exception {
+  void rollbackMitigationWillBufferUnpersistedEvents() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .mitigateRollbacks()
@@ -138,7 +139,7 @@ public class CollectionsMutationsIntegrationTest extends DcpIntegrationTestBase 
   }
 
   @Test
-  public void rollbackMitigationClearsEventBufferOnReconnect() throws Exception {
+  void rollbackMitigationClearsEventBufferOnReconnect() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .mitigateRollbacks()
@@ -171,7 +172,7 @@ public class CollectionsMutationsIntegrationTest extends DcpIntegrationTestBase 
   }
 
   @Test
-  public void clientReconnectsAfterServerRestart() throws Exception {
+  void clientReconnectsAfterServerRestart() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .collectionAware()

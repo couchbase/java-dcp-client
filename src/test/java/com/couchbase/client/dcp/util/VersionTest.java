@@ -15,14 +15,15 @@
  */
 package com.couchbase.client.dcp.util;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class VersionTest {
 
   @Test
-  public void shouldParseMajorMinorPatch() {
+  void shouldParseMajorMinorPatch() {
     Version version = Version.parseVersion("1.2.3");
     assertEquals("1.2.3", version.toString());
     assertEquals(1, version.major());
@@ -31,7 +32,7 @@ public class VersionTest {
   }
 
   @Test
-  public void shouldParseMajorMinor() {
+  void shouldParseMajorMinor() {
     Version version = Version.parseVersion("1.2");
     assertEquals("1.2.0", version.toString());
     assertEquals(1, version.major());
@@ -40,7 +41,7 @@ public class VersionTest {
   }
 
   @Test
-  public void shouldParseMajor() {
+  void shouldParseMajor() {
     Version version = Version.parseVersion("1");
     assertEquals("1.0.0", version.toString());
     assertEquals(1, version.major());
@@ -49,7 +50,7 @@ public class VersionTest {
   }
 
   @Test
-  public void shouldParseMajorMinorPatchGarbage() {
+  void shouldParseMajorMinorPatchGarbage() {
     Version version = Version.parseVersion("1.2.3z-5.4");
     assertEquals("1.2.3", version.toString());
     assertEquals(1, version.major());
@@ -58,7 +59,7 @@ public class VersionTest {
   }
 
   @Test
-  public void shouldParseMajorMinorGarbage() {
+  void shouldParseMajorMinorGarbage() {
     Version version = Version.parseVersion("1.2z-5.4");
     assertEquals("1.2.0", version.toString());
     assertEquals(1, version.major());
@@ -67,7 +68,7 @@ public class VersionTest {
   }
 
   @Test
-  public void shouldParseMajorGarbage() {
+  void shouldParseMajorGarbage() {
     Version version = Version.parseVersion("1z-5.4");
     assertEquals("1.0.0", version.toString());
     assertEquals(1, version.major());
@@ -75,23 +76,23 @@ public class VersionTest {
     assertEquals(0, version.patch());
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldRejectNotStartingWithMajor() {
-    Version.parseVersion("a3.2.4");
+  @Test
+  void shouldRejectNotStartingWithMajor() {
+    assertThrows(IllegalArgumentException.class, () -> Version.parseVersion("a3.2.4"));
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldRejectEmptyString() {
-    Version.parseVersion("");
+  @Test
+  void shouldRejectEmptyString() {
+    assertThrows(IllegalArgumentException.class, () -> Version.parseVersion(""));
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldRejectComponentTooLarge() {
-    Version.parseVersion(Long.toString(((long) Integer.MAX_VALUE) + 1));
+  @Test
+  void shouldRejectComponentTooLarge() {
+    assertThrows(IllegalArgumentException.class, () -> Version.parseVersion(Long.toString(((long) Integer.MAX_VALUE) + 1)));
   }
 
-  @Test(expected = NullPointerException.class)
-  public void shouldNullPointerOnNullVersionString() {
-    Version.parseVersion(null);
+  @Test
+  void shouldNullPointerOnNullVersionString() {
+    assertThrows(NullPointerException.class, () -> Version.parseVersion(null));
   }
 }

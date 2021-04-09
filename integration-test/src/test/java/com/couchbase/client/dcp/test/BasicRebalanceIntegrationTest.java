@@ -1,12 +1,12 @@
 package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class BasicRebalanceIntegrationTest extends DcpIntegrationTestBase {
 
   @Test
-  public void rebalanceDoesNotDisruptStreaming() throws Exception {
+  void rebalanceDoesNotDisruptStreaming() throws Exception {
     // Don't try to clean up the bucket, since the cluster will be broken
     // after the second node is stopped.
     final TestBucket bucket = newBucket().replicas(1).create();

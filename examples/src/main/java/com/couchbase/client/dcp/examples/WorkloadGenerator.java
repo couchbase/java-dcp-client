@@ -16,11 +16,13 @@
 package com.couchbase.client.dcp.examples;
 
 import com.couchbase.client.java.Bucket;
-import com.couchbase.client.java.CouchbaseCluster;
-import com.couchbase.client.java.document.JsonDocument;
-import com.couchbase.client.java.document.json.JsonObject;
+import com.couchbase.client.java.Cluster;
+import com.couchbase.client.java.Collection;
 
 import java.util.UUID;
+
+import static java.util.Collections.singletonMap;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * A simple helper class using the SDK to generate some load on the bucket!
@@ -28,13 +30,15 @@ import java.util.UUID;
 public class WorkloadGenerator {
 
   public static void main(String... args) throws Exception {
-    CouchbaseCluster cluster = CouchbaseCluster.create("127.0.0.1").authenticate("Administrator", "password");
-    Bucket bucket = cluster.openBucket("default");
+    Cluster cluster = Cluster.connect("127.0.0.1", "Administrator", "password");
+    Bucket bucket = cluster.bucket("default");
+    Collection collection = bucket.defaultCollection();
 
     while (true) {
       for (int i = 0; i < 1024; i++) {
-        bucket.upsert(JsonDocument.create("doc:" + i, JsonObject.create().put("uuid", UUID.randomUUID().toString())));
-        Thread.sleep(1000);
+        String docId = "doc:" + i;
+        collection.upsert(docId, singletonMap("uuid", UUID.randomUUID().toString()));
+        SECONDS.sleep(1);
       }
     }
   }

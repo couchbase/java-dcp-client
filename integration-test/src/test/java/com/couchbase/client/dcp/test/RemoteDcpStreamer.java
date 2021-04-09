@@ -25,7 +25,7 @@ import java.util.concurrent.TimeoutException;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RemoteDcpStreamer implements Closeable {
   private final StreamerService streamerService;
@@ -78,7 +78,7 @@ public class RemoteDcpStreamer implements Closeable {
 
     // wait until expected mutations are observed
     status = streamerService.awaitStateCount(streamerId, state, expectedCount, timeout, timeoutUnit);
-    assertEquals(state.toString(), expectedCount, status.getStateCount(state));
+    assertEquals(expectedCount, status.getStateCount(state), state.toString());
 
     // wait a bit longer to make sure no more arrive
     status = streamerService.awaitStateCount(streamerId, state, expectedCount + 1, quietPeriod, quietPeriodUnit);

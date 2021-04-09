@@ -18,9 +18,9 @@ package com.couchbase.client.dcp.test;
 
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import com.couchbase.client.dcp.util.Version;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
@@ -36,8 +36,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public abstract class DcpIntegrationTestBase {
   private static final Logger log = LoggerFactory.getLogger(DcpIntegrationTestBase.class);
@@ -57,7 +57,7 @@ public abstract class DcpIntegrationTestBase {
   private static AgentContainer agentContainer;
   private static RemoteAgent agent;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws Exception {
     final Network network = Network.builder().id("dcp-test-network").build();
     final String couchbaseVersionEnvar = "COUCHBASE";
@@ -84,12 +84,12 @@ public abstract class DcpIntegrationTestBase {
     agent = new RemoteAgent(agentContainer);
   }
 
-  @After
+  @AfterEach
   public void resetClient() throws Exception {
     agent().resetCluster();
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanup() throws Exception {
     stop(agentContainer, couchbase);
   }

@@ -15,15 +15,16 @@
  */
 package com.couchbase.client.dcp.core.time;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FixedDelayTest {
 
   @Test
-  public void shouldCalculateFixedDelay() {
+  void shouldCalculateFixedDelay() {
     Delay fixedDelay = new FixedDelay(3, TimeUnit.SECONDS);
 
     assertEquals(3, fixedDelay.calculate(1));

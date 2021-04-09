@@ -15,10 +15,10 @@
  */
 package com.couchbase.client.dcp.core.utils;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test Base64 encoding and decoding based on the rfc4648 test vectors.
@@ -29,7 +29,7 @@ import static org.junit.Assert.assertEquals;
 public class Base64Test {
 
   @Test
-  public void shouldEncodeVectors() {
+  void shouldEncodeVectors() {
     assertEquals("", Base64.encode("".getBytes()));
     assertEquals("Zg==", Base64.encode("f".getBytes()));
     assertEquals("Zm8=", Base64.encode("fo".getBytes()));
@@ -40,7 +40,7 @@ public class Base64Test {
   }
 
   @Test
-  public void shouldDecodeVectors() {
+  void shouldDecodeVectors() {
     assertArrayEquals("".getBytes(), Base64.decode(""));
     assertArrayEquals("f".getBytes(), Base64.decode("Zg=="));
     assertArrayEquals("fo".getBytes(), Base64.decode("Zm8="));

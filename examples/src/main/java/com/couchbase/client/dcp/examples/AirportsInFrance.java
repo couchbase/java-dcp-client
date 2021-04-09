@@ -15,22 +15,22 @@
  */
 package com.couchbase.client.dcp.examples;
 
-import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.SystemEventHandler;
+import com.couchbase.client.dcp.core.event.CouchbaseEvent;
+import com.couchbase.client.dcp.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.dcp.events.StreamEndEvent;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import com.couchbase.client.dcp.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.java.document.json.JsonObject;
+import com.couchbase.client.java.json.JsonObject;
 
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * A little more involved sample which uses JSON decoding to aggregate the number of airports in france.
@@ -64,7 +64,7 @@ public class AirportsInFrance {
         if (DcpMutationMessage.is(event)) {
           // Using the Java SDKs JsonObject for simple access to the document
           JsonObject content = JsonObject.fromJson(
-              DcpMutationMessage.content(event).toString(StandardCharsets.UTF_8)
+              DcpMutationMessage.content(event).toString(UTF_8)
           );
           if ("airport".equals(content.getString("type"))
               && content.getString("country").toLowerCase().equals("france")) {

@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 import static com.couchbase.client.dcp.test.agent.StreamerService.ALL_VBUCKETS;
 import static com.github.therapi.jackson.ObjectMappers.newLenientObjectMapper;
 import static java.util.Objects.requireNonNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Client for the JSON-RPC API exposed by the test agent.

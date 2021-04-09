@@ -18,14 +18,14 @@ package com.couchbase.client.dcp.state.json;
 import com.couchbase.client.dcp.state.FailoverLogEntry;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SessionStateDeserializerTest {
   @Test
-  public void deserialize() throws Exception {
+  void deserialize() throws Exception {
     SessionState sessionState = new SessionState();
 
     String json = "{\"v\":1,\"ps\":[{\"flog\":[{\"seqno\":5,\"uuid\":12345}],\"ss\":1,\"es\":1000,\"sss\":2,\"ses\":3}]}";

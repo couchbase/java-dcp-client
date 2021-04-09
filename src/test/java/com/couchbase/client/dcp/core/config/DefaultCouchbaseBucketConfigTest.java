@@ -21,16 +21,16 @@ import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
 import com.couchbase.client.dcp.core.service.ServiceType;
 import com.couchbase.client.dcp.core.util.Resources;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies that parsing various bucket configs works as expected through the
@@ -40,7 +40,7 @@ public class DefaultCouchbaseBucketConfigTest {
     private static final HostAndPort localhost = new HostAndPort("127.0.0.1", 0);
 
     @Test
-    public void shouldHavePrimaryPartitionsOnNode() {
+    void shouldHavePrimaryPartitionsOnNode() {
         String raw = Resources.read("config_with_mixed_partitions.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -53,7 +53,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldReplaceHostPlaceholder() {
+    void shouldReplaceHostPlaceholder() {
         String raw = Resources.read("config_with_host_placeholder.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, new HostAndPort("example.com", 0));
@@ -61,7 +61,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldReplaceHostPlaceholderIpv6() {
+    void shouldReplaceHostPlaceholderIpv6() {
         String raw = Resources.read("config_with_host_placeholder.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, new HostAndPort("::1", 0));
@@ -69,7 +69,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldFallbackToNodeHostnameIfNotInNodesExt() {
+    void shouldFallbackToNodeHostnameIfNotInNodesExt() {
         String raw = Resources.read("nodes_ext_without_hostname.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -81,7 +81,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldGracefullyHandleEmptyPartitions() {
+    void shouldGracefullyHandleEmptyPartitions() {
         String raw = Resources.read("config_with_no_partitions.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -92,7 +92,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldLoadEphemeralBucketConfig() {
+    void shouldLoadEphemeralBucketConfig() {
         String raw = Resources.read("ephemeral_bucket_config.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -103,7 +103,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldLoadConfigWithoutBucketCapabilities() {
+    void shouldLoadConfigWithoutBucketCapabilities() {
         String raw = Resources.read("config_without_capabilities.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -117,7 +117,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldLoadConfigWithSameNodesButDifferentPorts() {
+    void shouldLoadConfigWithSameNodesButDifferentPorts() {
         String raw = Resources.read("cluster_run_two_nodes_same_host.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -133,7 +133,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldLoadConfigWithMDS() {
+    void shouldLoadConfigWithMDS() {
         String raw = Resources.read("cluster_run_three_nodes_mds_with_localhost.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -148,7 +148,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldLoadConfigWithIPv6() {
+    void shouldLoadConfigWithIPv6() {
         String raw = Resources.read("config_with_ipv6.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, new HostAndPort("::1", 0));
@@ -166,14 +166,14 @@ public class DefaultCouchbaseBucketConfigTest {
      * capability that is not known to the client still makes it parse properly.
      */
     @Test
-    public void shouldIgnoreUnknownBucketCapabilities() {
+    void shouldIgnoreUnknownBucketCapabilities() {
         String raw = Resources.read("config_with_invalid_capability.json", getClass());
         BucketConfig config = BucketConfigParser.parse(raw, localhost);
         assertEquals(1, config.nodes().size());
     }
 
     @Test
-    public void shouldReadBucketUuid() {
+    void shouldReadBucketUuid() {
         String raw = Resources.read("config_with_mixed_partitions.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);
@@ -182,7 +182,7 @@ public class DefaultCouchbaseBucketConfigTest {
     }
 
     @Test
-    public void shouldHandleMissingBucketUuid() throws Exception {
+    void shouldHandleMissingBucketUuid() throws Exception {
         String raw = Resources.read("config_without_uuid.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
                 BucketConfigParser.parse(raw, localhost);
@@ -194,7 +194,7 @@ public class DefaultCouchbaseBucketConfigTest {
      * This test makes sure that the external hosts are present if set.
      */
     @Test
-    public void shouldIncludeExternalIfPresent() {
+    void shouldIncludeExternalIfPresent() {
         String raw = Resources.read("config_with_external.json", getClass());
         CouchbaseBucketConfig config = (CouchbaseBucketConfig)
             BucketConfigParser.parse(raw, localhost);

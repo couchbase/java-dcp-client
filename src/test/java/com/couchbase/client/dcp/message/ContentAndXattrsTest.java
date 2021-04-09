@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.message;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Collections;
@@ -25,12 +25,12 @@ import java.util.Map;
 import static com.couchbase.client.dcp.TestHelper.loadHexDumpResource;
 import static com.couchbase.client.dcp.core.utils.CbCollections.mapOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ContentAndXattrsTest {
   @Test
-  public void canParseExampleXattrs() throws Exception {
+  void canParseExampleXattrs() throws Exception {
     byte[] encodedXattrs = loadHexDumpResource(getClass(), "encoded-xattrs.txt");
     ContentAndXattrs parsed = ContentAndXattrs.parse((byte) DataType.XATTR.bitmask(), encodedXattrs);
 
@@ -39,7 +39,7 @@ public class ContentAndXattrsTest {
   }
 
   @Test
-  public void canParseWithoutXattrs() throws Exception {
+  void canParseWithoutXattrs() throws Exception {
     byte[] content = "{}".getBytes(UTF_8);
     ContentAndXattrs parsed = ContentAndXattrs.parse((byte) 0, content);
 
@@ -50,7 +50,7 @@ public class ContentAndXattrsTest {
   }
 
   @Test
-  public void canParseWithXattrsAndContent() throws Exception {
+  void canParseWithXattrsAndContent() throws Exception {
     byte[] content = "{}".getBytes(UTF_8);
 
     ByteArrayOutputStream os = new ByteArrayOutputStream();

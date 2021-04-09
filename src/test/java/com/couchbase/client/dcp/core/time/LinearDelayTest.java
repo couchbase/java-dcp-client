@@ -15,15 +15,17 @@
  */
 package com.couchbase.client.dcp.core.time;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class LinearDelayTest {
 
   @Test
-  public void shouldCalculateLinearly() {
+  void shouldCalculateLinearly() {
     Delay linearDelay = new LinearDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 0, 1);
 
     assertEquals(1, linearDelay.calculate(1));
@@ -35,7 +37,7 @@ public class LinearDelayTest {
   }
 
   @Test
-  public void shouldRespectLowerBound() {
+  void shouldRespectLowerBound() {
     Delay linearDelay = new LinearDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 3, 1);
 
     assertEquals(3, linearDelay.calculate(1));
@@ -47,7 +49,7 @@ public class LinearDelayTest {
   }
 
   @Test
-  public void shouldRespectUpperBound() {
+  void shouldRespectUpperBound() {
     Delay linearDelay = new LinearDelay(TimeUnit.SECONDS, 2, 0, 1);
 
     assertEquals(1, linearDelay.calculate(1));
@@ -59,7 +61,7 @@ public class LinearDelayTest {
   }
 
   @Test
-  public void shouldApplyFactor() {
+  void shouldApplyFactor() {
     Delay linearDelay = new LinearDelay(TimeUnit.SECONDS, Integer.MAX_VALUE, 0, 0.5);
 
     assertEquals(1, linearDelay.calculate(1));
@@ -72,9 +74,9 @@ public class LinearDelayTest {
     assertEquals("LinearDelay{growBy 0.5 SECONDS; lower=0, upper=2147483647}", linearDelay.toString());
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldFailIfLowerLargerThanUpper() {
-    new LinearDelay(TimeUnit.SECONDS, 5, 10, 1);
+  @Test
+  void shouldFailIfLowerLargerThanUpper() {
+    assertThrows(IllegalArgumentException.class, () ->new LinearDelay(TimeUnit.SECONDS, 5, 10, 1));
   }
 
 }

@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.config;
 
 import com.couchbase.client.dcp.util.Version;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
 
@@ -29,7 +29,8 @@ import static com.couchbase.client.dcp.message.HelloFeature.SNAPPY;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonMap;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CompressionModeTest {
   private static final Version OLDER = new Version(4, 0, 0);
@@ -37,7 +38,7 @@ public class CompressionModeTest {
   private static final Version VULCAN = new Version(5, 5, 0);
 
   @Test
-  public void effectiveMode() throws Exception {
+  void effectiveMode() throws Exception {
     assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(OLDER));
     assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(WATSON));
     assertEquals(DISABLED, CompressionMode.DISABLED.effectiveMode(VULCAN));
@@ -52,36 +53,36 @@ public class CompressionModeTest {
   }
 
   @Test
-  public void vulcanDisabled() throws Exception {
+  void vulcanDisabled() throws Exception {
     assertEquals(emptySet(), DISABLED.getHelloFeatures(VULCAN));
     assertEquals(emptyMap(), DISABLED.getDcpControls(VULCAN));
   }
 
   @Test
-  public void vulcanForced() throws Exception {
+  void vulcanForced() throws Exception {
     assertEquals(EnumSet.of(DATATYPE, SNAPPY), FORCED.getHelloFeatures(VULCAN));
     assertEquals(singletonMap("force_value_compression", "true"), FORCED.getDcpControls(VULCAN));
   }
 
   @Test
-  public void vulcanDiscretionary() throws Exception {
+  void vulcanDiscretionary() throws Exception {
     assertEquals(EnumSet.of(DATATYPE, SNAPPY), ENABLED.getHelloFeatures(VULCAN));
     assertEquals(emptyMap(), ENABLED.getDcpControls(VULCAN));
   }
 
   @Test
-  public void watsonDisabled() throws Exception {
+  void watsonDisabled() throws Exception {
     // Don't care about hello, doesn't affect server compression behavior
     assertEquals(emptyMap(), DISABLED.getDcpControls(WATSON));
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void watsonForced() throws Exception {
-    FORCED.getDcpControls(WATSON);
+  @Test
+  void watsonForced() throws Exception {
+    assertThrows(IllegalArgumentException.class, () -> FORCED.getDcpControls(WATSON));
   }
 
   @Test
-  public void olderDisabled() throws Exception {
+  void olderDisabled() throws Exception {
     // Don't care about hello, doesn't affect server compression behavior
     assertEquals(emptyMap(), DISABLED.getDcpControls(OLDER));
   }

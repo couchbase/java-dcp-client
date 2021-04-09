@@ -1,16 +1,16 @@
 package com.couchbase.client.dcp;
 
 import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DefaultConnectionNameGeneratorTest {
 
   @Test
-  public void connectionNameLimitEnforced() throws Exception {
+  void connectionNameLimitEnforced() throws Exception {
     final String fiveHundredChars = repeat("x", 500);
 
     final DefaultConnectionNameGenerator generator = DefaultConnectionNameGenerator.forProduct(
@@ -21,7 +21,7 @@ public class DefaultConnectionNameGeneratorTest {
   }
 
   @Test
-  public void userAgentTruncationAccountsForJsonEscapes() throws Exception {
+  void userAgentTruncationAccountsForJsonEscapes() throws Exception {
     final String fiveHundredQuotes = repeat("\"", 500);
 
     final DefaultConnectionNameGenerator generator = DefaultConnectionNameGenerator.forProduct(

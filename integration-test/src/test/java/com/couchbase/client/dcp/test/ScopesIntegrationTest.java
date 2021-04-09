@@ -20,22 +20,23 @@ import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.DcpStreamer;
 import com.couchbase.client.dcp.util.Version;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class ScopesIntegrationTest extends DcpIntegrationTestBase {
   private static final int VB = 1024;
   private static final int NUMBER_OF_SCOPES = 1;
 
-  @Before
+  @BeforeEach
   public void checkIsCheshireCat() {
     Version version = couchbase().getVersion().orElseThrow(() -> new RuntimeException("Missing Couchbase version"));
-    Assume.assumeTrue(version.isAtLeast(new Version(7, 0, 0)));
+    assumeTrue(version.isAtLeast(new Version(7, 0, 0)));
   }
 
   @Test
-  public void scopesStreamFromBeginningToNow() throws Exception {
+  void scopesStreamFromBeginningToNow() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       int scopes = bucket.createScopes(NUMBER_OF_SCOPES, "S").size();
 
@@ -50,7 +51,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void scopesStreamFromNowToInfinity() throws Exception {
+  void scopesStreamFromNowToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       int scopesA = bucket.createScopes(NUMBER_OF_SCOPES, "A").size();
 
@@ -68,7 +69,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void scopesStreamFromBeginningToInfinity() throws Exception {
+  void scopesStreamFromBeginningToInfinity() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       int scopesA = bucket.createScopes(NUMBER_OF_SCOPES, "A").size();
 
@@ -86,7 +87,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void scopesReconnectsAfterServerRestart() throws Exception {
+  void scopesReconnectsAfterServerRestart() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .range(StreamFrom.BEGINNING, StreamTo.INFINITY)
@@ -107,7 +108,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void scopesRollbackMitigationWillBufferUnpersistedEvents() throws Exception {
+  void scopesRollbackMitigationWillBufferUnpersistedEvents() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .mitigateRollbacks()
@@ -131,7 +132,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
   }
 
   @Test
-  public void scopesRollbackMitigationClearsEventBufferOnReconnect() throws Exception {
+  void scopesRollbackMitigationClearsEventBufferOnReconnect() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
       try (RemoteDcpStreamer streamer = bucket.newStreamer()
           .mitigateRollbacks()

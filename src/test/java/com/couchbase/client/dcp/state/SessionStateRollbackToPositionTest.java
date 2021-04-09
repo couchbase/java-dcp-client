@@ -16,18 +16,18 @@
 package com.couchbase.client.dcp.state;
 
 import com.couchbase.client.dcp.highlevel.SnapshotMarker;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
 import static java.util.Collections.singletonList;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 public class SessionStateRollbackToPositionTest {
 
   @Test
-  public void rollbackToPosition() throws Exception {
+  void rollbackToPosition() throws Exception {
     // Populate a session state with dummy data for a single partition
     final SessionState sessionState = new SessionState();
     PartitionState partitionState = new PartitionState();

@@ -16,16 +16,17 @@
 package com.couchbase.client.dcp.core.utils;
 
 import com.couchbase.client.dcp.core.CouchbaseException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ConnectionStringTest {
 
   @Test
-  public void shouldParseValidSchemes() {
+  void shouldParseValidSchemes() {
     ConnectionString parsed = ConnectionString.create("couchbase://");
     assertEquals(ConnectionString.Scheme.COUCHBASE, parsed.scheme());
     assertTrue(parsed.hosts().isEmpty());
@@ -42,13 +43,13 @@ public class ConnectionStringTest {
     assertTrue(parsed.params().isEmpty());
   }
 
-  @Test(expected = CouchbaseException.class)
-  public void shouldFailOnInvalidScheme() {
-    ConnectionString.create("invalid://");
+  @Test
+  void shouldFailOnInvalidScheme() {
+    assertThrows(CouchbaseException.class, () -> ConnectionString.create("invalid://"));
   }
 
   @Test
-  public void shouldParseHostList() {
+  void shouldParseHostList() {
     ConnectionString parsed = ConnectionString.create("couchbase://localhost");
     assertEquals(ConnectionString.Scheme.COUCHBASE, parsed.scheme());
     assertTrue(parsed.params().isEmpty());
@@ -89,7 +90,7 @@ public class ConnectionStringTest {
   }
 
   @Test
-  public void shouldParseParams() {
+  void shouldParseParams() {
     ConnectionString parsed = ConnectionString.create("couchbase://localhost?foo=bar");
     assertEquals(ConnectionString.Scheme.COUCHBASE, parsed.scheme());
     assertEquals(1, parsed.hosts().size());
@@ -107,7 +108,7 @@ public class ConnectionStringTest {
   }
 
   @Test
-  public void shouldParseUsername() {
+  void shouldParseUsername() {
     ConnectionString parsed = ConnectionString.create("couchbase://user@localhost?foo=bar");
     assertEquals(ConnectionString.Scheme.COUCHBASE, parsed.scheme());
     assertEquals("user", parsed.username());
@@ -126,7 +127,7 @@ public class ConnectionStringTest {
   }
 
   @Test
-  public void shouldAcceptSingleIPv6WithoutPort() {
+  void shouldAcceptSingleIPv6WithoutPort() {
     ConnectionString parsed = ConnectionString.create("couchbase://[::1]");
     assertEquals(ConnectionString.Scheme.COUCHBASE, parsed.scheme());
     assertEquals(1, parsed.hosts().size());
@@ -141,7 +142,7 @@ public class ConnectionStringTest {
   }
 
   @Test
-  public void shouldAcceptMultipleIPv6WithoutPort() {
+  void shouldAcceptMultipleIPv6WithoutPort() {
     ConnectionString parsed = ConnectionString.create("couchbase://[::1], [::1]");
     assertEquals(ConnectionString.Scheme.COUCHBASE, parsed.scheme());
     assertEquals(2, parsed.hosts().size());
@@ -160,7 +161,7 @@ public class ConnectionStringTest {
   }
 
   @Test
-  public void shouldAcceptSingleIPv6WithPort() {
+  void shouldAcceptSingleIPv6WithPort() {
     ConnectionString parsed = ConnectionString.create("couchbases://[::1]:8091, [::1]:11210");
     assertEquals(ConnectionString.Scheme.COUCHBASES, parsed.scheme());
     assertEquals(2, parsed.hosts().size());

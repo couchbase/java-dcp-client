@@ -18,18 +18,18 @@ package com.couchbase.client.dcp.message.control;
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpenConnectionRequestTest {
 
   @Test
-  public void testInit() {
+  void testInit() {
     ByteBuf buffer = Unpooled.buffer();
     assertFalse(DcpOpenConnectionRequest.is(buffer));
 
@@ -40,7 +40,7 @@ public class OpenConnectionRequestTest {
   }
 
   @Test
-  public void testSetConnectionName() {
+  void testSetConnectionName() {
     ByteBuf buffer = Unpooled.buffer();
     DcpOpenConnectionRequest.init(buffer, emptySet());
 

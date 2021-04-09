@@ -16,27 +16,27 @@
 
 package com.couchbase.client.dcp.core.logging;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RedactableArgumentTest {
   private static RedactionLevel origLevel;
 
-  @BeforeClass
+  @BeforeAll
   public static void saveOrigLevel() {
     origLevel = RedactionLevel.get();
   }
 
-  @AfterClass
+  @AfterAll
   public static void restoreOrigLevel() {
     RedactionLevel.set(origLevel);
   }
 
   @Test
-  public void shouldNotRedactLogsWhenDisabled() {
+  void shouldNotRedactLogsWhenDisabled() {
     RedactionLevel.set(RedactionLevel.NONE);
 
     assertEquals("1", RedactableArgument.user(1).toString());
@@ -45,7 +45,7 @@ public class RedactableArgumentTest {
   }
 
   @Test
-  public void shouldOnlyRedactUserOnPartial() {
+  void shouldOnlyRedactUserOnPartial() {
     RedactionLevel.set(RedactionLevel.PARTIAL);
 
     assertEquals("<ud>user</ud>", RedactableArgument.user("user").toString());
@@ -54,7 +54,7 @@ public class RedactableArgumentTest {
   }
 
   @Test
-  public void forNowShouldRedactOnlyUserOnFull() {
+  void forNowShouldRedactOnlyUserOnFull() {
     RedactionLevel.set(RedactionLevel.FULL);
 
     assertEquals("<ud>user</ud>", RedactableArgument.user("user").toString());

@@ -1,13 +1,13 @@
 package com.couchbase.client.dcp.util;
 
 import com.couchbase.client.dcp.core.time.Delay;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AdaptiveDelayTest {
 
@@ -25,13 +25,13 @@ public class AdaptiveDelayTest {
   }
 
   @Test
-  public void startsCool() {
+  void startsCool() {
     final AdaptiveDelay adaptiveDelay = new AdaptiveDelay(Delay.fixed(5, SECONDS), Duration.ofSeconds(10));
     assertEquals(0, adaptiveDelay.calculate().toNanos());
   }
 
   @Test
-  public void cooldownEnforced() {
+  void cooldownEnforced() {
     final TestClock clock = new TestClock();
     clock.advance(Duration.ofSeconds(-1)); // nanoTime can be negative, so start here
 
