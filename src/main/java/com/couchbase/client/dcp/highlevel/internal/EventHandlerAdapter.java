@@ -167,7 +167,7 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
           // All we need to do here is dispatch the event to the high-level listener.
           final DcpSystemEvent sysEvent = DcpSystemEvent.parse(event);
           if (sysEvent instanceof DatabaseChangeEvent) {
-            log.info("Received system event: {}", sysEvent);
+            log.debug("Received system event: {}", sysEvent);
             dispatch((DatabaseChangeEvent) sysEvent);
           } else {
             log.warn("Received unrecognized system event:\n{}", MessageUtil.humanize(event));
