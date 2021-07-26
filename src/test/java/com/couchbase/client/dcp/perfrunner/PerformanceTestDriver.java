@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 import static java.util.Collections.singletonMap;
@@ -58,7 +59,7 @@ public class PerformanceTestDriver {
 
   private static class Args {
     private String connectionString;
-    private int dcpMessageCount;
+    private long dcpMessageCount;
     private Properties settings;
     private String collectionString;
   }
@@ -102,7 +103,10 @@ public class PerformanceTestDriver {
     Iterator<String> i = Arrays.asList(args).iterator();
     Args result = new Args();
     result.connectionString = i.next();
-    result.dcpMessageCount = Integer.parseInt(i.next());
+    result.dcpMessageCount = Long.parseLong(i.next());
+    if (result.dcpMessageCount < 1) {
+      throw new IllegalArgumentException("message count must be > 0");
+    }
     File configFile = new File(i.next());
     if (i.hasNext()) {
       result.collectionString = i.next();
@@ -120,7 +124,7 @@ public class PerformanceTestDriver {
     return result;
   }
 
-  private static void registerLowLevelListeners(CountDownLatch latch, Client client) {
+  private static void registerLowLevelListeners(AtomicLong remaining, CountDownLatch latch, Client client) {
     // Don't do anything with control events in this example
     client.controlEventHandler((flowController, event) -> {
       if (DcpSnapshotMarkerRequest.is(event)) {
@@ -140,13 +144,16 @@ public class PerformanceTestDriver {
         totalDecompressedBytes.add(MessageUtil.getContent(event).readableBytes());
       }
 
-      latch.countDown();
       flowController.ack(event);
       event.release();
+
+      if (remaining.decrementAndGet() == 0) {
+        latch.countDown();
+      }
     });
   }
 
-  private static void registerHighLevelListeners(CountDownLatch latch, Client client) {
+  private static void registerHighLevelListeners(AtomicLong remaining, CountDownLatch latch, Client client) {
     client.nonBlockingListener(new DatabaseChangeListener() {
       @Override
       public void onFailure(StreamFailure streamFailure) {
@@ -168,21 +175,25 @@ public class PerformanceTestDriver {
         // High-level API can't tell if the original was compressed or not, so just count the messages.
         totalMessageCount.increment();
         event.flowControlAck();
-        latch.countDown();
+
+        if (remaining.decrementAndGet() == 0) {
+          latch.countDown();
+        }
       }
     });
   }
 
   private static void runTest(final Client client, Args args) throws InterruptedException {
-    final CountDownLatch latch = new CountDownLatch(args.dcpMessageCount);
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicLong remaining = new AtomicLong(args.dcpMessageCount);
 
     final boolean highLevelApi = Boolean.parseBoolean(args.settings.getProperty("highLevelApi", "false"));
     if (highLevelApi) {
       System.out.println("Using high-level API. Won't be collecting compression metrics.");
-      registerHighLevelListeners(latch, client);
+      registerHighLevelListeners(remaining, latch, client);
     } else {
       System.out.println("Using low-level API.");
-      registerLowLevelListeners(latch, client);
+      registerLowLevelListeners(remaining, latch, client);
     }
 
     long startNanos = System.nanoTime();
