@@ -42,7 +42,7 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
   private final Set<String> nodesWithPrimaryPartitions;
 
   private final boolean tainted;
-  private final long rev;
+  private final BucketConfigRevision rev;
   private final boolean ephemeral;
 
   /**
@@ -59,6 +59,7 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
   @JsonCreator
   public DefaultCouchbaseBucketConfig(
       @JsonProperty("rev") long rev,
+      @JsonProperty("revEpoch") long revEpoch,
       @JsonProperty("uuid") String uuid,
       @JsonProperty("name") String name,
       @JsonProperty("uri") String uri,
@@ -74,7 +75,7 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
     List<NodeInfo> extendedNodeInfos = this.nodes(); // includes ports for SSL services
     this.partitionHosts = buildPartitionHosts(extendedNodeInfos, partitionInfo);
     this.nodesWithPrimaryPartitions = buildNodesWithPrimaryPartitions(nodeInfos, partitionInfo.partitions());
-    this.rev = rev;
+    this.rev = new BucketConfigRevision(revEpoch, rev);
 
     // Use bucket capabilities to identify if couchapi is missing (then its ephemeral). If its null then
     // we are running an old version of couchbase which doesn't have ephemeral buckets at all.
@@ -220,7 +221,7 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
   }
 
   @Override
-  public long rev() {
+  public BucketConfigRevision rev() {
     return rev;
   }
 

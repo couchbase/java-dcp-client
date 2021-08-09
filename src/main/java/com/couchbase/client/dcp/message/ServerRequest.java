@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.dcp.conductor.BucketConfigSink;
 import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.config.BucketConfigRevision;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
@@ -65,10 +66,20 @@ public class ServerRequest {
   private static void handleConfigChangeNotification(ChannelHandlerContext ctx, ByteBuf message, BucketConfigSink bucketConfigSink) {
     log.debug("{} Received bucket config from server notification", system(ctx.channel()));
 
-    long rev = MessageUtil.getExtras(message).readUnsignedInt();
     String clustermap = MessageUtil.getContentAsString(message);
     HostAndPort remote = DcpChannel.getHostAndPort(ctx.channel());
-    bucketConfigSink.accept(remote, clustermap, rev);
+
+    // See http://review.couchbase.org/c/kv_engine/+/154131
+    ByteBuf extras = MessageUtil.getExtras(message);
+    if (extras.readableBytes() >= 16) {
+      long epoch = extras.readLong();
+      long rev = extras.readLong();
+      bucketConfigSink.accept(remote, clustermap, new BucketConfigRevision(epoch, rev));
+    } else {
+      // Instead of assuming the 32-bit revision in the extras is correct,
+      // let the sink parse the revision from the JSON.
+      bucketConfigSink.accept(remote, clustermap);
+    }
 
     // Couchbase Server does not expect a response to this notification.
   }

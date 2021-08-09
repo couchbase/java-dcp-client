@@ -17,9 +17,10 @@
 package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.config.BucketConfigRevision;
 
 public interface BucketConfigSink {
   void accept(HostAndPort origin, String rawConfig);
 
-  void accept(HostAndPort origin, String rawConfig, long rev);
+  void accept(HostAndPort origin, String rawConfig, BucketConfigRevision rev);
 }

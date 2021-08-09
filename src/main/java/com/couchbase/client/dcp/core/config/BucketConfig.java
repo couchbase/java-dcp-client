@@ -121,7 +121,7 @@ public interface BucketConfig {
    *
    * @return the rev number, might be 0.
    */
-  long rev();
+  BucketConfigRevision rev();
 
   /**
    * The bucket type.

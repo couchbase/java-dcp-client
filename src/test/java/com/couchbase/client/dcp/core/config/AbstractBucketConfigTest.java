@@ -74,8 +74,8 @@ public class AbstractBucketConfigTest {
         }
 
         @Override
-        public long rev() {
-            return 0;
+        public BucketConfigRevision rev() {
+            return new BucketConfigRevision(0, 0);
         }
 
         @Override

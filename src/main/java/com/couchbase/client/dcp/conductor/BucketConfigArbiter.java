@@ -21,6 +21,7 @@ import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.AlternateAddress;
 import com.couchbase.client.dcp.core.config.BucketConfig;
+import com.couchbase.client.dcp.core.config.BucketConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
@@ -32,6 +33,7 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.ReplayProcessor;
 
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,7 +57,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   private final Object revLock = new Object();
 
   // @GuardedBy("revLock")
-  private long currentRev = -1;
+  private BucketConfigRevision currentRev = new BucketConfigRevision(0, 0);
 
   // @GuardedBy("revLock")
   private boolean hasDeterminedAlternateNetworkName = false;
@@ -70,9 +72,9 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   }
 
   @Override
-  public void accept(HostAndPort origin, String rawConfig, long rev) {
+  public void accept(HostAndPort origin, String rawConfig, BucketConfigRevision rev) {
     synchronized (revLock) {
-      if (rev <= currentRev) {
+      if (!rev.newerThan(currentRev)) {
         log.debug("Ignoring bucket config revision {} from {}; not newer than current revision {}", origin, rev, currentRev);
         return;
       }
@@ -168,12 +170,19 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   }
 
   private static final Pattern REV_PATTERN = Pattern.compile("\"rev\"\\s*:\\s*(-?\\d+)");
+  private static final Pattern REV_EPOCH_PATTERN = Pattern.compile("\"revEpoch\"\\s*:\\s*(-?\\d+)");
 
-  private static long getRev(String rawConfig) {
-    Matcher m = REV_PATTERN.matcher(rawConfig);
-    if (m.find()) {
-      return Long.parseLong(m.group(1));
-    }
-    throw new IllegalArgumentException("Failed to locate revision property in " + system(rawConfig));
+  private static OptionalLong matchLong(Pattern pattern, String s) {
+    Matcher m = pattern.matcher(s);
+    return m.find() ? OptionalLong.of(Long.parseLong(m.group(1))) : OptionalLong.empty();
+  }
+
+  private static BucketConfigRevision getRev(String rawConfig) {
+    long rev = matchLong(REV_PATTERN, rawConfig).orElseThrow(() ->
+        new IllegalArgumentException("Failed to locate revision property in " + system(rawConfig)));
+
+    long epoch = matchLong(REV_EPOCH_PATTERN, rawConfig).orElse(0);
+
+    return new BucketConfigRevision(epoch, rev);
   }
 }

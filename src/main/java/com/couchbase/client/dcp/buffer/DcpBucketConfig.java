@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.buffer;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.core.config.AlternateAddress;
+import com.couchbase.client.dcp.core.config.BucketConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.DefaultNodeInfo;
 import com.couchbase.client.dcp.core.config.NodeInfo;
@@ -57,7 +58,7 @@ public class DcpBucketConfig {
         .collect(toList()));
   }
 
-  public long rev() {
+  public BucketConfigRevision rev() {
     return config.rev();
   }
 
