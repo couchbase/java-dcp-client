@@ -72,9 +72,11 @@ public class ServerRequest {
     // See http://review.couchbase.org/c/kv_engine/+/154131
     ByteBuf extras = MessageUtil.getExtras(message);
     if (extras.readableBytes() >= 16) {
-      long epoch = extras.readLong();
-      long rev = extras.readLong();
-      bucketConfigSink.accept(remote, clustermap, new BucketConfigRevision(epoch, rev));
+      // TODO test this optimization against Couchbase 7.0.2
+//      long epoch = extras.readLong();
+//      long rev = extras.readLong();
+//      bucketConfigSink.accept(remote, clustermap, new BucketConfigRevision(epoch, rev));
+      bucketConfigSink.accept(remote, clustermap);
     } else {
       // Instead of assuming the 32-bit revision in the extras is correct,
       // let the sink parse the revision from the JSON.
