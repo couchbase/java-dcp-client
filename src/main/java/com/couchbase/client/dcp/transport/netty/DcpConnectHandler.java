@@ -255,12 +255,20 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   @Override
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
     try {
-      connectionName = connectionNameGenerator.name();
+      connectionName = connectionNameWorkaround(connectionNameGenerator.name());
       step.issueRequest(ctx);
 
     } catch (Throwable t) {
       fail(ctx, t);
     }
+  }
+
+  private static String connectionNameWorkaround(String name) {
+    // Workaround for MB-48655. Prior to Couchbase Server 7.1, DCP clients with { or }
+    // in the name are not logged properly from within memcached.
+    return name
+        .replace("{", "")
+        .replace("}", "");
   }
 
   /**
