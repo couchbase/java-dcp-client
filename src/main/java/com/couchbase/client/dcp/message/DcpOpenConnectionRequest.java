@@ -20,7 +20,9 @@ import io.netty.buffer.Unpooled;
 
 import java.util.Set;
 
+import static com.couchbase.client.dcp.ConnectionNameGenerator.CONNECTION_NAME_MAX_UTF8_BYTES;
 import static com.couchbase.client.dcp.message.MessageUtil.OPEN_CONNECTION_OPCODE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public enum DcpOpenConnectionRequest {
   ;
@@ -51,6 +53,10 @@ public enum DcpOpenConnectionRequest {
    * Set the connection name on the buffer.
    */
   public static void connectionName(final ByteBuf buffer, final String connectionName) {
+    int nameLen = connectionName.getBytes(UTF_8).length;
+    if (nameLen > CONNECTION_NAME_MAX_UTF8_BYTES) {
+      throw new IllegalArgumentException("DCP connection name must be no longer than " + CONNECTION_NAME_MAX_UTF8_BYTES + " UTF-8 bytes, but got " + nameLen + " bytes. Connection name: '" + connectionName + "'");
+    }
     MessageUtil.setKey(connectionName, buffer);
   }
 

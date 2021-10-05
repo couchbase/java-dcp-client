@@ -28,10 +28,12 @@ package com.couchbase.client.dcp;
  */
 public interface ConnectionNameGenerator {
 
+  int CONNECTION_NAME_MAX_UTF8_BYTES = 200;
+
   /**
-   * Generate the name for a DCP Connection.
+   * Generates the name for a DCP Connection.
    * <p>
-   * The name must be no longer than 200 bytes when converted to UTF-8.
+   * The UTF-8 encoding of the name must be no longer than {@value #CONNECTION_NAME_MAX_UTF8_BYTES} bytes.
    */
   String name();
 }

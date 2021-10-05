@@ -67,7 +67,7 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
     // Of the 200 bytes, 46 are consumed by the fixed length "i" field and various JSON bits and pieces. That leaves
     // 154 bytes for the JSON form of the user agent string, including enclosing quotes and any JSON escape sequences.
     // We can assume 1 byte per character, since the User Agent builder only outputs ASCII characters.
-    final int userAgentJsonMaxLength = 154;
+    final int userAgentJsonMaxLength = ConnectionNameGenerator.CONNECTION_NAME_MAX_UTF8_BYTES - 46;
     this.userAgent = truncateAsJson(userAgentBuilder.build(), userAgentJsonMaxLength);
   }
 
