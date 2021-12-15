@@ -35,6 +35,11 @@ public interface DcpOps {
       this.status = requireNonNull(status);
     }
 
+    public BadResponseStatusException(ResponseStatus status, String message) {
+      super(status + " ; " + message);
+      this.status = requireNonNull(status);
+    }
+
     ResponseStatus status() {
       return status;
     }

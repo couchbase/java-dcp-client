@@ -604,15 +604,24 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
       sendRequest(buffer).addListener(new DcpResponseListener() {
         @Override
         public void operationComplete(Future<DcpResponse> future) throws Exception {
-          if (future.isSuccess()) {
-            ByteBuf buf = future.getNow().buffer();
-            try {
-              sink.success(DcpGetPartitionSeqnosResponse.parse(buf));
-            } finally {
-              buf.release();
-            }
-          } else {
+          if (!future.isSuccess()) {
             sink.error(future.cause());
+            return;
+          }
+
+          DcpResponse response = future.getNow();
+          ByteBuf buf = response.buffer();
+          try {
+            if (!response.status().isSuccess()) {
+              String content = MessageUtil.getContentAsString(response.buffer());
+              String msg = "Failed to get seqnos. Details: " + content;
+              sink.error(new DcpOps.BadResponseStatusException(response.status(), msg));
+              return;
+            }
+
+            sink.success(DcpGetPartitionSeqnosResponse.parse(buf));
+          } finally {
+            buf.release();
           }
         }
       });
