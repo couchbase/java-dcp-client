@@ -19,15 +19,14 @@ package com.couchbase.client.dcp.test;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.test.agent.BucketService;
-import com.couchbase.client.dcp.test.agent.CollectionService;
 import com.couchbase.client.dcp.test.agent.ClusterService;
+import com.couchbase.client.dcp.test.agent.CollectionService;
 import com.couchbase.client.dcp.test.agent.DocumentService;
 import com.couchbase.client.dcp.test.agent.StreamerService;
-import com.github.therapi.jsonrpc.client.JdkHttpClient;
+import com.github.therapi.jsonrpc.client.JdkHttpJsonRpcTransport;
 import com.github.therapi.jsonrpc.client.ServiceFactory;
 import com.google.common.base.Strings;
 
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
@@ -61,20 +60,15 @@ public class RemoteAgent {
   }
 
   public RemoteAgent(String jsonRpcEndpoint) {
-    try {
-      JdkHttpClient client = new JdkHttpClient(jsonRpcEndpoint);
-      client.setReadTimeout(120, TimeUnit.SECONDS);
-      ServiceFactory serviceFactory = new ServiceFactory(newLenientObjectMapper(), client);
+    JdkHttpJsonRpcTransport transport = new JdkHttpJsonRpcTransport(jsonRpcEndpoint);
+    transport.setReadTimeout(120, TimeUnit.SECONDS);
+    ServiceFactory serviceFactory = new ServiceFactory(newLenientObjectMapper(), transport);
 
-      this.bucketService = serviceFactory.createService(BucketService.class);
-      this.documentService = serviceFactory.createService(DocumentService.class);
-      this.streamerService = serviceFactory.createService(StreamerService.class);
-      this.clusterService = serviceFactory.createService(ClusterService.class);
-      this.collectionService = serviceFactory.createService(CollectionService.class);
-
-    } catch (MalformedURLException e) {
-      throw new IllegalArgumentException(e);
-    }
+    this.bucketService = serviceFactory.createService(BucketService.class);
+    this.documentService = serviceFactory.createService(DocumentService.class);
+    this.streamerService = serviceFactory.createService(StreamerService.class);
+    this.clusterService = serviceFactory.createService(ClusterService.class);
+    this.collectionService = serviceFactory.createService(CollectionService.class);
   }
 
   /**
