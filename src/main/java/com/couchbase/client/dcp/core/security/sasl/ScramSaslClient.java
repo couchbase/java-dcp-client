@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Couchbase, Inc.
+ * Copyright (c) 2018 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.dcp.core.security.sasl;
 
-import com.couchbase.client.dcp.core.utils.Base64;
+package com.couchbase.client.dcp.core.security.sasl;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -33,23 +32,25 @@ import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Implementation of a SCRAM-SHA512, SCRAM-SHA256 and SCRAM-SHA1 enabled {@link SaslClient}.
- */
-public class ShaSaslClient implements SaslClient {
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-  private static final byte[] CLIENT_KEY = "Client Key".getBytes();
-  private static final byte[] SERVER_KEY = "Server Key".getBytes();
+class ScramSaslClient implements SaslClient {
+
+  private static final byte[] CLIENT_KEY = "Client Key".getBytes(UTF_8);
+  private static final byte[] SERVER_KEY = "Server Key".getBytes(UTF_8);
+
+  private static final SecureRandom random = new SecureRandom();
 
   private final String name;
   private final String hmacAlgorithm;
   private final CallbackHandler callbacks;
   private final MessageDigest digest;
 
-  private String clientNonce;
+  private final String clientNonce;
   private byte[] salt;
   private byte[] saltedPassword;
   private int iterationCount;
@@ -60,33 +61,33 @@ public class ShaSaslClient implements SaslClient {
   private String serverFinalMessage;
   private String nonce;
 
-  public ShaSaslClient(CallbackHandler cbh, int sha) throws NoSuchAlgorithmException {
-    callbacks = cbh;
-    switch (sha) {
-      case 512:
+  ScramSaslClient(final ScramSaslClientFactory.Mode mode, final CallbackHandler callbackHandler)
+      throws NoSuchAlgorithmException {
+    callbacks = callbackHandler;
+
+    switch (mode) {
+      case SCRAM_SHA512:
         digest = MessageDigest.getInstance("SHA-512");
-        name = "SCRAM-SHA512";
+        name = ScramSaslClientFactory.Mode.SCRAM_SHA512.mech();
         hmacAlgorithm = "HmacSHA512";
         break;
-      case 256:
+      case SCRAM_SHA256:
         digest = MessageDigest.getInstance("SHA-256");
-        name = "SCRAM-SHA256";
+        name = ScramSaslClientFactory.Mode.SCRAM_SHA256.mech();
         hmacAlgorithm = "HmacSHA256";
         break;
-      case 1:
+      case SCRAM_SHA1:
         digest = MessageDigest.getInstance("SHA-1");
-        name = "SCRAM-SHA1";
+        name = ScramSaslClientFactory.Mode.SCRAM_SHA1.mech();
         hmacAlgorithm = "HmacSHA1";
         break;
       default:
-        throw new RuntimeException("Invalid SHA version specified");
+        throw new RuntimeException("Unsupported SHA version specified");
     }
 
-
-    SecureRandom random = new SecureRandom();
     byte[] random_nonce = new byte[21];
     random.nextBytes(random_nonce);
-    clientNonce = Base64.encode(random_nonce);
+    clientNonce = Base64.getEncoder().encodeToString(random_nonce);
   }
 
   @Override
@@ -108,11 +109,11 @@ public class ShaSaslClient implements SaslClient {
 
       clientFirstMessage = "n,,n=" + getUserName() + ",r=" + clientNonce;
       clientFirstMessageBare = clientFirstMessage.substring(3);
-      return clientFirstMessage.getBytes();
+      return clientFirstMessage.getBytes(UTF_8);
     } else if (serverFirstMessage == null) {
-      serverFirstMessage = new String(challenge);
+      serverFirstMessage = new String(challenge, UTF_8);
 
-      HashMap<String, String> attributes = new HashMap<String, String>();
+      HashMap<String, String> attributes = new HashMap<>();
       try {
         decodeAttributes(attributes, serverFirstMessage);
       } catch (Exception ex) {
@@ -126,7 +127,7 @@ public class ShaSaslClient implements SaslClient {
             nonce = entry.getValue();
             break;
           case 's':
-            salt = Base64.decode(entry.getValue());
+            salt = Base64.getDecoder().decode(entry.getValue());
             break;
           case 'i':
             iterationCount = Integer.parseInt(entry.getValue());
@@ -145,12 +146,12 @@ public class ShaSaslClient implements SaslClient {
       generateSaltedPassword();
 
       clientFinalMessageNoProof = "c=biws,r=" + nonce;
-      String client_final_message = clientFinalMessageNoProof + ",p=" + Base64.encode(getClientProof());
-      return client_final_message.getBytes();
+      String client_final_message = clientFinalMessageNoProof + ",p=" + Base64.getEncoder().encodeToString(getClientProof());
+      return client_final_message.getBytes(UTF_8);
     } else if (serverFinalMessage == null) {
-      serverFinalMessage = new String(challenge);
+      serverFinalMessage = new String(challenge, UTF_8);
 
-      HashMap<String, String> attributes = new HashMap<String, String>();
+      HashMap<String, String> attributes = new HashMap<>();
       try {
         decodeAttributes(attributes, serverFinalMessage);
       } catch (Exception ex) {
@@ -166,7 +167,7 @@ public class ShaSaslClient implements SaslClient {
         throw new SaslException("Syntax error from the server");
       }
 
-      String myServerSignature = Base64.encode(getServerSignature());
+      String myServerSignature = Base64.getEncoder().encodeToString(getServerSignature());
       if (!myServerSignature.equals(attributes.get("v"))) {
         throw new SaslException("Server signature is incorrect");
       }
@@ -183,13 +184,13 @@ public class ShaSaslClient implements SaslClient {
   }
 
   @Override
-  public byte[] unwrap(byte[] incoming, int offset, int len) throws SaslException {
-    return new byte[0];
+  public byte[] unwrap(byte[] incoming, int offset, int len) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
-  public byte[] wrap(byte[] outgoing, int offset, int len) throws SaslException {
-    return new byte[0];
+  public byte[] wrap(byte[] outgoing, int offset, int len) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -198,17 +199,15 @@ public class ShaSaslClient implements SaslClient {
   }
 
   @Override
-  public void dispose() throws SaslException {
+  public void dispose() {
 
   }
 
   private String getUserName() throws SaslException {
     final NameCallback nameCallback = new NameCallback("Username");
     try {
-      callbacks.handle(new Callback[] { nameCallback });
-    } catch (IOException e) {
-      throw new SaslException("Missing callback fetch username", e);
-    } catch (UnsupportedCallbackException e) {
+      callbacks.handle(new Callback[]{nameCallback});
+    } catch (IOException | UnsupportedCallbackException e) {
       throw new SaslException("Missing callback fetch username", e);
     }
 
@@ -257,11 +256,11 @@ public class ShaSaslClient implements SaslClient {
       if (password == null || password.isEmpty()) {
         key = new EmptySecretKey(hmacAlgorithm);
       } else {
-        key = new SecretKeySpec(password.getBytes(), hmacAlgorithm);
+        key = new SecretKeySpec(password.getBytes(UTF_8), hmacAlgorithm);
       }
       mac.init(key);
       mac.update(salt);
-      mac.update("\00\00\00\01".getBytes()); // Append INT(1)
+      mac.update(new byte[]{0, 0, 0, 1}); // Append INT(1)
 
       byte[] un = mac.doFinal();
       mac.update(un);
@@ -303,9 +302,7 @@ public class ShaSaslClient implements SaslClient {
     final PasswordCallback passwordCallback = new PasswordCallback("Password", false);
     try {
       callbacks.handle(new Callback[]{passwordCallback});
-    } catch (IOException e) {
-      throw new SaslException("Missing callback fetch password", e);
-    } catch (UnsupportedCallbackException e) {
+    } catch (IOException | UnsupportedCallbackException e) {
       throw new SaslException("Missing callback fetch password", e);
     }
 
@@ -321,19 +318,20 @@ public class ShaSaslClient implements SaslClient {
 
   /**
    * Generate the Server Signature. It is computed as:
-   * <p></p>
+   * <pre>
    * SaltedPassword  := Hi(Normalize(password), salt, i)
    * ServerKey       := HMAC(SaltedPassword, "Server Key")
-   * ServerSignature := HMAC(ServerKey, AuthMessage)
+   * ServerSignature := HMAC(ServerKey, AuthMessage)</p>
+   * </pre>
    */
   private byte[] getServerSignature() {
     byte[] serverKey = hmac(saltedPassword, SERVER_KEY);
-    return hmac(serverKey, getAuthMessage().getBytes());
+    return hmac(serverKey, getAuthMessage().getBytes(UTF_8));
   }
 
   /**
    * Generate the Client Proof. It is computed as:
-   * <p></p>
+   * <pre>
    * SaltedPassword  := Hi(Normalize(password), salt, i)
    * ClientKey       := HMAC(SaltedPassword, "Client Key")
    * StoredKey       := H(ClientKey)
@@ -342,11 +340,12 @@ public class ShaSaslClient implements SaslClient {
    * client-final-message-without-proof
    * ClientSignature := HMAC(StoredKey, AuthMessage)
    * ClientProof     := ClientKey XOR ClientSignature
+   * </pre>
    */
   private byte[] getClientProof() {
     byte[] clientKey = hmac(saltedPassword, CLIENT_KEY);
     byte[] storedKey = digest.digest(clientKey);
-    byte[] clientSignature = hmac(storedKey, getAuthMessage().getBytes());
+    byte[] clientSignature = hmac(storedKey, getAuthMessage().getBytes(UTF_8));
 
     xor(clientKey, clientSignature);
     return clientKey;
@@ -406,7 +405,8 @@ public class ShaSaslClient implements SaslClient {
 
     @Override
     public byte[] getEncoded() {
-      return new byte[] {};
+      return new byte[0];
     }
   }
+
 }

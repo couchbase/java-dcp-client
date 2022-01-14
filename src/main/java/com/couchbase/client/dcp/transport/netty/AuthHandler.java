@@ -16,7 +16,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.core.endpoint.kv.AuthenticationException;
-import com.couchbase.client.dcp.core.security.sasl.Sasl;
+import com.couchbase.client.dcp.core.security.sasl.CouchbaseSaslClientFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.SaslAuthRequest;
@@ -193,7 +193,7 @@ public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements 
       throw new AuthenticationException("Received empty SASL mechanisms list from server: " + remote);
     }
 
-    saslClient = Sasl.createSaslClient(supportedMechanisms, null, "couchbase", remote, null, this);
+    saslClient = new CouchbaseSaslClientFactory().createSaslClient(supportedMechanisms, null, "couchbase", remote, null, this);
     selectedMechanism = saslClient.getMechanismName();
 
     byte[] bytePayload = saslClient.hasInitialResponse() ? saslClient.evaluateChallenge(new byte[]{}) : null;
