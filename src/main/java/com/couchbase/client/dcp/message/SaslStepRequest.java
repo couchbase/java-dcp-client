@@ -46,7 +46,7 @@ public enum SaslStepRequest {
   /**
    * Sets the challenge response payload.
    */
-  public static void challengeResponse(ByteBuf challengeResponse, ByteBuf buffer) {
+  public static void challengeResponse(byte[] challengeResponse, ByteBuf buffer) {
     MessageUtil.setContent(challengeResponse, buffer);
   }
 

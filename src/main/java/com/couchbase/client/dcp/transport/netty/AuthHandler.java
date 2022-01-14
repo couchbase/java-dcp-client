@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.dcp.Credentials;
 import com.couchbase.client.dcp.core.endpoint.kv.AuthenticationException;
 import com.couchbase.client.dcp.core.security.sasl.CouchbaseSaslClientFactory;
 import com.couchbase.client.dcp.message.MessageUtil;
@@ -26,11 +27,7 @@ import com.couchbase.client.dcp.message.SaslListMechsResponse;
 import com.couchbase.client.dcp.message.SaslStepRequest;
 import com.couchbase.client.dcp.message.SaslStepResponse;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,50 +38,25 @@ import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.sasl.SaslClient;
 import java.io.IOException;
+import java.util.Arrays;
 
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_CONTINUE;
 import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_ERROR;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Performs SASL authentication against the socket and once complete removes itself.
  */
 public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements CallbackHandler {
-
-  /**
-   * The logger used for the auth handler.
-   */
   private static final Logger LOGGER = LoggerFactory.getLogger(AuthHandler.class);
 
-  /**
-   * Username used to authenticate against the bucket (likely to be the bucket name itself).
-   */
-  private final String username;
-
-  /**
-   * The user/bucket password.
-   */
-  private final String password;
-
-  /**
-   * The SASL client reused from core-io since it has our SCRAM-* additions that are not
-   * provided by the vanilla JDK implementation.
-   */
+  private final Credentials credentials;
   private SaslClient saslClient;
-
-  /**
-   * Stores the selected SASL mechanism in the process.
-   */
   private String selectedMechanism;
 
-  /**
-   * Creates a new auth handler.
-   *
-   * @param username user/bucket name.
-   * @param password password of the user/bucket.
-   */
-  public AuthHandler(String username, String password) {
-    this.username = username;
-    this.password = password;
+  public AuthHandler(Credentials credentials) {
+    this.credentials = requireNonNull(credentials);
   }
 
   /**
@@ -94,127 +66,105 @@ public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements 
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
     ByteBuf request = ctx.alloc().buffer();
     SaslListMechsRequest.init(request);
-    ctx.writeAndFlush(request);
+    send(ctx, request);
   }
 
   /**
-   * Every time we recieve a message as part of the negotiation process, handle
-   * it according to the req/res process.
+   * Every time we receive a message as part of the negotiation process,
+   * handle it according to the req/res process.
    */
   @Override
   protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
     if (SaslListMechsResponse.is(msg)) {
       handleListMechsResponse(ctx, msg);
-    } else if (SaslAuthResponse.is(msg)) {
-      handleAuthResponse(ctx, msg);
-    } else if (SaslStepResponse.is(msg)) {
-      checkIsAuthed(ctx, MessageUtil.getResponseStatus(msg));
+
+    } else if (SaslAuthResponse.is(msg) || SaslStepResponse.is(msg)) {
+      handleSaslResponse(ctx, msg);
+
     } else {
-      throw new IllegalStateException("Received unexpected SASL response! " + MessageUtil.humanize(msg));
+      throw new IllegalStateException("Received unexpected packet during SASL exchange! " + MessageUtil.humanize(msg));
     }
   }
 
   /**
    * Runs the SASL challenge protocol and dispatches the next step if required.
    */
-  private void handleAuthResponse(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
-    if (saslClient.isComplete()) {
-      checkIsAuthed(ctx, MessageUtil.getResponseStatus(msg));
-      return;
-    }
+  private void handleSaslResponse(final ChannelHandlerContext ctx, final ByteBuf msg) {
+    try {
+      ResponseStatus status = MessageUtil.getResponseStatus(msg);
 
-    ByteBuf challengeBuf = SaslAuthResponse.challenge(msg);
-    byte[] challenge = new byte[challengeBuf.readableBytes()];
-    challengeBuf.readBytes(challenge);
-    byte[] evaluatedBytes = saslClient.evaluateChallenge(challenge);
-
-    if (evaluatedBytes != null) {
-      ByteBuf content;
-
-      // This is needed against older server versions where the protocol does not
-      // align on cram and plain, the else block is used for all the newer cram-sha*
-      // mechanisms.
-      //
-      // Note that most likely this is only executed in the CRAM-MD5 case only, but
-      // just to play it safe keep it for both mechanisms.
-      if (selectedMechanism.equals("CRAM-MD5") || selectedMechanism.equals("PLAIN")) {
-        String[] evaluated = new String(evaluatedBytes).split(" ");
-        content = Unpooled.copiedBuffer(username + "\0" + evaluated[1], UTF_8);
-      } else {
-        content = Unpooled.wrappedBuffer(evaluatedBytes);
-      }
-
-      ByteBuf request = ctx.alloc().buffer();
-      SaslStepRequest.init(request);
-      SaslStepRequest.mechanism(selectedMechanism, request);
-      SaslStepRequest.challengeResponse(content, request);
-
-      ChannelFuture future = ctx.writeAndFlush(request);
-      future.addListener(new GenericFutureListener<Future<Void>>() {
-        @Override
-        public void operationComplete(Future<Void> future) throws Exception {
-          if (!future.isSuccess()) {
-            LOGGER.warn("Error during SASL Auth negotiation phase.", future.cause());
-            originalPromise().setFailure(future.cause());
+      if (status.isSuccess()) {
+        if (!saslClient.isComplete()) {
+          // verify server signature
+          byte[] serverFinal = MessageUtil.getContentAsByteArray(msg);
+          saslClient.evaluateChallenge(serverFinal);
+          if (!saslClient.isComplete()) {
+            throw new IllegalStateException("SASL exchange incomplete");
           }
         }
-      });
-    } else {
-      throw new AuthenticationException("SASL Challenge evaluation returned null.");
-    }
 
+        LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
+        ctx.pipeline().remove(this);
+        originalPromise().setSuccess();
+        ctx.fireChannelActive();
+
+      } else if (status == AUTH_CONTINUE) {
+        byte[] challenge = MessageUtil.getContentAsByteArray(msg);
+        byte[] challengeResponse = saslClient.evaluateChallenge(challenge);
+
+        ByteBuf request = ctx.alloc().buffer();
+        SaslStepRequest.init(request);
+        SaslStepRequest.mechanism(selectedMechanism, request);
+        SaslStepRequest.challengeResponse(challengeResponse, request);
+        send(ctx, request);
+
+      } else if (status == AUTH_ERROR) {
+        // Bad credentials
+        throw new AuthenticationException("SASL Authentication Failure");
+
+      } else {
+        throw new AuthenticationException("Unhandled SASL auth status: " + status);
+      }
+
+    } catch (Throwable t) {
+      fail(t);
+    }
   }
 
   /**
-   * Check if the authentication process succeeded or failed based on the response status.
-   */
-  private void checkIsAuthed(final ChannelHandlerContext ctx, final ResponseStatus status) {
-    if (status.isSuccess()) {
-      LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
-      ctx.pipeline().remove(this);
-      originalPromise().setSuccess();
-      ctx.fireChannelActive();
-
-    } else if (status == AUTH_ERROR) {
-      originalPromise().setFailure(new AuthenticationException("SASL Authentication Failure"));
-
-    } else {
-      originalPromise().setFailure(new AuthenticationException("Unhandled SASL auth status: " + status));
-    }
-  }
-
-  /**
-   * Helper method to parse the list of supported SASL mechs and dispatch the initial auth request following.
+   * Parses the list of supported SASL mechanisms and dispatches the initial auth request.
    */
   private void handleListMechsResponse(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
-    String remote = ctx.channel().remoteAddress().toString();
-    String[] supportedMechanisms = SaslListMechsResponse.supportedMechs(msg);
-    if (supportedMechanisms.length == 0) {
-      throw new AuthenticationException("Received empty SASL mechanisms list from server: " + remote);
-    }
-
-    saslClient = new CouchbaseSaslClientFactory().createSaslClient(supportedMechanisms, null, "couchbase", remote, null, this);
-    selectedMechanism = saslClient.getMechanismName();
-
-    byte[] bytePayload = saslClient.hasInitialResponse() ? saslClient.evaluateChallenge(new byte[]{}) : null;
-    ByteBuf payload = bytePayload != null ? ctx.alloc().buffer().writeBytes(bytePayload) : Unpooled.EMPTY_BUFFER;
-
-    ByteBuf request = ctx.alloc().buffer();
-    SaslAuthRequest.init(request);
-    SaslAuthRequest.mechanism(selectedMechanism, request);
-    SaslAuthRequest.challengeResponse(payload, request);
-    payload.release();
-
-    ChannelFuture future = ctx.writeAndFlush(request);
-    future.addListener(new GenericFutureListener<Future<Void>>() {
-      @Override
-      public void operationComplete(Future<Void> future) throws Exception {
-        if (!future.isSuccess()) {
-          LOGGER.warn("Error during SASL Auth negotiation phase.", future.cause());
-          originalPromise().setFailure(future.cause());
-        }
+    try {
+      String remote = ctx.channel().remoteAddress().toString();
+      String[] supportedMechanisms = SaslListMechsResponse.supportedMechs(msg);
+      if (supportedMechanisms.length == 0) {
+        throw new AuthenticationException("Received empty SASL mechanisms list from server: " + system(remote));
       }
-    });
+
+      saslClient = new CouchbaseSaslClientFactory().createSaslClient(supportedMechanisms, null, "couchbase", remote, null, this);
+      if (saslClient == null) {
+        throw new AuthenticationException(
+            "Failed to create a SASL client for any of the negotiated mechanisms: "
+                + Arrays.toString(supportedMechanisms));
+      }
+
+      selectedMechanism = saslClient.getMechanismName();
+      LOGGER.debug("Selected SASL mechanism: {}", selectedMechanism);
+
+      byte[] payload = saslClient.hasInitialResponse()
+          ? saslClient.evaluateChallenge(new byte[0])
+          : new byte[0];
+
+      ByteBuf request = ctx.alloc().buffer();
+      SaslAuthRequest.init(request);
+      SaslAuthRequest.mechanism(selectedMechanism, request);
+      SaslAuthRequest.challengeResponse(payload, request);
+      send(ctx, request);
+
+    } catch (Throwable t) {
+      fail(t);
+    }
   }
 
   /**
@@ -224,13 +174,26 @@ public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements 
   public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
     for (Callback callback : callbacks) {
       if (callback instanceof NameCallback) {
-        ((NameCallback) callback).setName(username);
+        ((NameCallback) callback).setName(credentials.getUsername());
       } else if (callback instanceof PasswordCallback) {
-        ((PasswordCallback) callback).setPassword(password.toCharArray());
+        ((PasswordCallback) callback).setPassword(credentials.getPassword().toCharArray());
       } else {
         throw new AuthenticationException("SASLClient requested unsupported callback: " + callback);
       }
     }
+  }
+
+  private void fail(Throwable cause) {
+    originalPromise().setFailure(cause);
+  }
+
+  private void send(ChannelHandlerContext ctx, ByteBuf request) {
+    ctx.writeAndFlush(request).addListener(future -> {
+      if (!future.isSuccess()) {
+        LOGGER.warn("Error during SASL Auth negotiation phase.", future.cause());
+        fail(future.cause());
+      }
+    });
   }
 
 }

@@ -34,6 +34,6 @@ public class PasswordAuthenticator implements Authenticator {
   public void authKeyValueConnection(ChannelPipeline pipeline) {
     HostAndPort remoteAddress = DcpChannel.getHostAndPort(pipeline.channel());
     Credentials credentials = credentialsProvider.get(remoteAddress);
-    pipeline.addLast(new AuthHandler(credentials.getUsername(), credentials.getPassword()));
+    pipeline.addLast(new AuthHandler(credentials));
   }
 }

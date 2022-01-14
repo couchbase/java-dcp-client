@@ -32,8 +32,8 @@ public enum SaslAuthResponse {
   /**
    * Returns the server challenge.
    */
-  public static ByteBuf challenge(final ByteBuf buffer) {
-    return MessageUtil.getContent(buffer);
+  public static byte[] challenge(final ByteBuf buffer) {
+    return MessageUtil.getContentAsByteArray(buffer);
   }
 
 }
