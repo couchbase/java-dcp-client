@@ -29,7 +29,9 @@ import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
+import com.couchbase.client.dcp.events.LoggingTracer;
 import com.couchbase.client.dcp.events.StreamEndEvent;
+import com.couchbase.client.dcp.events.Tracer;
 import com.couchbase.client.dcp.highlevel.DatabaseChangeListener;
 import com.couchbase.client.dcp.highlevel.DocumentChange;
 import com.couchbase.client.dcp.highlevel.FlowControlMode;
@@ -53,6 +55,7 @@ import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
+import com.couchbase.client.dcp.metrics.LogLevel;
 import com.couchbase.client.dcp.metrics.MetricsContext;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
@@ -79,7 +82,6 @@ import reactor.util.retry.Retry;
 
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -97,11 +99,13 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.core.utils.CbCollections.isNullOrEmpty;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
+import static com.couchbase.client.dcp.metrics.LogLevel.NONE;
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -935,6 +939,7 @@ public class Client implements Closeable {
     private SecurityConfig securityConfig = SecurityConfig.builder().build();
     private long persistencePollingIntervalMillis;
     private MeterRegistry meterRegistry = Metrics.globalRegistry;
+    private Tracer tracer = Tracer.NOOP;
 
     /**
      * If the argument is true, configures the client to receive only
@@ -1121,6 +1126,19 @@ public class Client implements Closeable {
      */
     public Builder collectionsAware(boolean enable) {
       this.collectionsAware = enable;
+      return this;
+    }
+
+    /**
+     * Enables fine-grained trace logging to the
+     * "com.couchbase.client.dcp.trace" category.
+     *
+     * @param level level at which to log the trace messages
+     * @param documentIdIsInteresting (nullable) tests a document ID and returns true
+     * if events related to this document ID should be logged. Null means log events for all documents.
+     */
+    public Builder trace(LogLevel level, Predicate<String> documentIdIsInteresting) {
+      this.tracer = level == NONE ? Tracer.NOOP : new LoggingTracer(level, documentIdIsInteresting);
       return this;
     }
 
@@ -1517,6 +1535,7 @@ public class Client implements Closeable {
     private final Scheduler scheduler;
     private Disposable systemEventSubscription;
     private final SecurityConfig securityConfig;
+    private final Tracer tracer;
 
     /**
      * Creates a new environment based on the builder.
@@ -1544,6 +1563,7 @@ public class Client implements Closeable {
       collectionNames = Collections.unmodifiableSet(builder.collectionNames);
       scopeId = builder.scopeId;
       scopeName = builder.scopeName;
+      this.tracer = builder.tracer;
       if (builder.eventBus != null) {
         eventBus = builder.eventBus;
         this.scheduler = null;
@@ -1790,6 +1810,10 @@ public class Client implements Closeable {
      */
     public SecurityConfig securityConfig() {
       return securityConfig;
+    }
+
+    public Tracer tracer() {
+      return tracer;
     }
 
     private static List<HostAndPort> makeDefaultPortsExplicit(List<HostAndPort> addresses, boolean sslEnabled) {

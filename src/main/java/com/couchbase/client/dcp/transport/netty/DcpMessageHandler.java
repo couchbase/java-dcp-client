@@ -31,6 +31,7 @@ import com.couchbase.client.dcp.message.DcpStreamEndMessage;
 import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
+import com.couchbase.client.dcp.events.Tracer;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -96,6 +97,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
 
   private final DcpChannelMetrics metrics;
 
+  private final Tracer tracer;
+
   /**
    * A counter for assigning an ID to each request. There should never be
    * two outstanding requests with the same ID on the same channel.
@@ -148,10 +151,13 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
     this.controlHandler = controlHandler;
     this.flowController = new ChannelFlowControllerImpl(channel, environment);
     this.metrics = requireNonNull(metrics);
+    this.tracer = environment.tracer();
   }
 
   @Override
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+    tracer.onConnectionOpen(String.valueOf(ctx.channel()));
+
     this.volatileContext = ctx;
     super.channelActive(ctx);
   }
@@ -166,6 +172,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
    */
   @Override
   public void channelInactive(final ChannelHandlerContext ctx) throws Exception {
+    tracer.onConnectionClose(String.valueOf(ctx.channel()));
+
     volatileContext = null; // Make sure future `sendRequest` calls fail.
 
     Exception connectionClosed = new NotConnectedException("Channel became inactive while awaiting response.");
@@ -363,8 +371,10 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
     metrics.recordServerRequest(message);
 
     if (isDataMessage(message)) {
+      tracer.onDataEvent(message, ctx.channel());
       dataEventHandler.onEvent(flowController, message);
     } else if (isControlMessage(message)) {
+      tracer.onControlEvent(message, ctx.channel());
       controlHandler.onEvent(flowController, message);
     } else if (DcpNoopRequest.is(message)) {
       try {

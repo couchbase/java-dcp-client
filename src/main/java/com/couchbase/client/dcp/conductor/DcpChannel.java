@@ -437,6 +437,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
       DcpOpenStreamRequest.snapshotStartSeqno(buffer, snapshotStartSeqno);
       DcpOpenStreamRequest.snapshotEndSeqno(buffer, snapshotEndSeqno);
 
+      final Map<String, Object> value = new HashMap<>();
 
       if (COLLECTIONS.isEnabled(channel)) {
         final Set<Long> collectionIds = new HashSet<>(env.collectionIds());
@@ -465,8 +466,6 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           scopeId = env.scopeId();
         }
 
-        final Map<String, Object> value = new HashMap<>();
-
         // NOTE: this is the manifest UID from the stream offset, which may differ from the current manifest.
         value.put("uid", formatUid(collectionsManifestuid));
 
@@ -485,10 +484,13 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         }
       }
 
+      env.tracer().onStreamStart(address, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, value);
+
       sendRequest(buffer).addListener(new DcpResponseListener() {
         @Override
         public void operationComplete(Future<DcpResponse> future) throws Exception {
           if (!future.isSuccess()) {
+            env.tracer().onStreamStartFailed(address, vbid, future.cause().toString());
             LOGGER.debug("Failed open Stream against {} with vbid: {}", address, vbid);
             streamIsOpen.set(vbid, false);
             sink.error(future.cause());
@@ -499,6 +501,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           final ByteBuf buf = dcpResponse.buffer();
           try {
             final ResponseStatus status = dcpResponse.status();
+
+            if (!status.isSuccess()) {
+              env.tracer().onStreamStartFailed(address, vbid, status.formatted());
+            }
 
             if (status == KEY_EXISTS) {
               LOGGER.debug("Stream already open against {} with vbid: {}", address, vbid);
