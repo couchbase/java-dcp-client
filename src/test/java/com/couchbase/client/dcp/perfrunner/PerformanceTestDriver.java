@@ -124,7 +124,7 @@ public class PerformanceTestDriver {
     return result;
   }
 
-  private static void registerLowLevelListeners(AtomicLong remaining, CountDownLatch latch, Client client) {
+  private static void registerLowLevelListeners(AtomicLong remaining, CountDownLatch latch, Client client, boolean skipDecompression) {
     // Don't do anything with control events in this example
     client.controlEventHandler((flowController, event) -> {
       if (DcpSnapshotMarkerRequest.is(event)) {
@@ -136,12 +136,14 @@ public class PerformanceTestDriver {
     client.dataEventHandler((flowController, event) -> {
       totalMessageCount.increment();
 
-      if (MessageUtil.isSnappyCompressed(event)) {
-        compressedMessageCount.increment();
-        totalCompressedBytes.add(MessageUtil.getRawContent(event).readableBytes());
+      if (!skipDecompression) {
+        if (MessageUtil.isSnappyCompressed(event)) {
+          compressedMessageCount.increment();
+          totalCompressedBytes.add(MessageUtil.getRawContent(event).readableBytes());
 
-        // getContent() triggers decompression, so it's important for perf test to call it.
-        totalDecompressedBytes.add(MessageUtil.getContent(event).readableBytes());
+          // getContent() triggers decompression, so it's important for perf test to call it.
+          totalDecompressedBytes.add(MessageUtil.getContent(event).readableBytes());
+        }
       }
 
       flowController.ack(event);
@@ -188,12 +190,21 @@ public class PerformanceTestDriver {
     final AtomicLong remaining = new AtomicLong(args.dcpMessageCount);
 
     final boolean highLevelApi = Boolean.parseBoolean(args.settings.getProperty("highLevelApi", "false"));
+    final boolean skipDecompression = Boolean.parseBoolean(args.settings.getProperty("skipDecompression"));
+
+    if (highLevelApi && skipDecompression) {
+      throw new IllegalArgumentException("Can't skip decompression when using high level API");
+    }
+
     if (highLevelApi) {
       System.out.println("Using high-level API. Won't be collecting compression metrics.");
       registerHighLevelListeners(remaining, latch, client);
     } else {
       System.out.println("Using low-level API.");
-      registerLowLevelListeners(remaining, latch, client);
+      if (skipDecompression) {
+        System.out.println("Skipping decompression; won't be collecting compression metrics.");
+      }
+      registerLowLevelListeners(remaining, latch, client, skipDecompression);
     }
 
     long startNanos = System.nanoTime();
