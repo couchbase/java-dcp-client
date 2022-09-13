@@ -24,6 +24,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -35,12 +36,18 @@ public class Rollback implements DatabaseChangeEvent {
   private final int vbucket;
   private final long seqno;
   private final Consumer<Throwable> errorHandler;
+  private final StreamOffset failedStartOffset;
 
   public Rollback(Client client, int vbucket, long seqno, Consumer<Throwable> errorHandler) {
     this.client = requireNonNull(client);
     this.vbucket = vbucket;
     this.seqno = seqno;
     this.errorHandler = requireNonNull(errorHandler);
+
+    // A zero offset can never cause a rollback -- just need this to be non-null.
+    // Decided not to expose the optionality to the user, since a null value indicates a DCP client bug.
+    this.failedStartOffset = Optional.ofNullable(client.sessionState().get(vbucket).getMostRecentOpenStreamOffset())
+        .orElse(StreamOffset.ZERO);
   }
 
   public int getVbucket() {
@@ -53,6 +60,15 @@ public class Rollback implements DatabaseChangeEvent {
    */
   public long getSeqno() {
     return seqno;
+  }
+
+  /**
+   * Returns the requested start offset that lead to this rollback.
+   * <p>
+   * Useful only for diagnostic purposes.
+   */
+  public StreamOffset getFailedStartOffset() {
+    return failedStartOffset;
   }
 
   /**

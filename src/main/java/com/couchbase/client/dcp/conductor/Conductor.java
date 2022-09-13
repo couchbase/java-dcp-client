@@ -204,6 +204,7 @@ public class Conductor {
               final PartitionState ps = sessionState.get(partition);
               ps.setCollectionsManifest(m);
               ps.setKeyExtractor(manifest.isPresent() ? KeyExtractor.COLLECTIONS : KeyExtractor.NO_COLLECTIONS);
+              ps.setMostRecentOpenStreamOffset(startOffset);
               return channel.openStream(partition, startOffset, endSeqno, m);
             })
         )

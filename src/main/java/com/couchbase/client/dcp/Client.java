@@ -321,10 +321,13 @@ public class Client implements Closeable {
         } else if (RollbackMessage.is(event)) {
           // even if forwarded to the user, warn in case the user is not
           // aware of rollback messages.
+          int partition = RollbackMessage.vbucket(event);
+          StreamOffset failedStartOffset = sessionState().get(partition).getMostRecentOpenStreamOffset();
           LOGGER.warn(
-              "Received rollback for vbucket {} to seqno {}",
-              RollbackMessage.vbucket(event),
-              RollbackMessage.seqno(event)
+              "Received rollback for vbucket {} to seqno {} ; requested start offset was: {}",
+              partition,
+              RollbackMessage.seqno(event),
+              StreamOffset.describe(failedStartOffset)
           );
         } else if (DcpSeqnoAdvancedRequest.is(event)) {
           handleSeqnoAdvanced(event);
@@ -497,19 +500,19 @@ public class Client implements Closeable {
 
   private Mono<Void> dispatcherAwaitShutdown() {
     return Mono.fromCallable(() -> {
-      final long startNanos = System.nanoTime();
-      if (listenerDispatcher != null) {
-        if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(30))) {
-          LOGGER.info("Forcing event dispatcher to shut down.");
-          listenerDispatcher.shutdownNow();
-          if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(10))) {
-            LOGGER.warn("Event dispatcher still hasn't terminated after {} seconds.",
-                NANOSECONDS.toSeconds(System.nanoTime() - startNanos));
+          final long startNanos = System.nanoTime();
+          if (listenerDispatcher != null) {
+            if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(30))) {
+              LOGGER.info("Forcing event dispatcher to shut down.");
+              listenerDispatcher.shutdownNow();
+              if (!listenerDispatcher.awaitTermination(Duration.ofSeconds(10))) {
+                LOGGER.warn("Event dispatcher still hasn't terminated after {} seconds.",
+                    NANOSECONDS.toSeconds(System.nanoTime() - startNanos));
+              }
+            }
           }
-        }
-      }
-      return null;
-    })
+          return null;
+        })
         .then()
         .subscribeOn(Schedulers.elastic());
   }

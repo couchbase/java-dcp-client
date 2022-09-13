@@ -21,6 +21,7 @@ import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import reactor.util.annotation.Nullable;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -79,6 +80,13 @@ public class PartitionState {
    * to have one per partition.
    */
   private volatile KeyExtractor keyExtractor;
+
+  /**
+   * For diagnostic purposes, records the offset used for this partition's
+   * most recent "open stream" request.
+   */
+  @JsonIgnore
+  private volatile StreamOffset mostRecentOpenStreamOffset;
 
   public static PartitionState fromOffset(StreamOffset offset) {
     PartitionState ps = new PartitionState();
@@ -254,6 +262,15 @@ public class PartitionState {
   @JsonIgnore
   public StreamOffset getOffset() {
     return new StreamOffset(getLastUuid(), getStartSeqno(), getSnapshot(), getCollectionsManifestUid());
+  }
+
+  @Nullable
+  public StreamOffset getMostRecentOpenStreamOffset() {
+    return mostRecentOpenStreamOffset;
+  }
+
+  public void setMostRecentOpenStreamOffset(@Nullable StreamOffset offset) {
+    this.mostRecentOpenStreamOffset = offset;
   }
 
   @Override

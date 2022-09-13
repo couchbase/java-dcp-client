@@ -16,6 +16,8 @@
 
 package com.couchbase.client.dcp.highlevel;
 
+import reactor.util.annotation.Nullable;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -69,6 +71,20 @@ public class StreamOffset {
   @Override
   public String toString() {
     return vbuuid + "@" + seqno + "m" + collectionsManifestUid + snapshot;
+  }
+
+  /**
+   * Returns the same info as toString(), but in a format readable by humans without special knowledge.
+   */
+  public static String describe(@Nullable StreamOffset offset) {
+    if (offset == null) {
+      return "<unknown>";
+    }
+
+    return "partitionUuid = " + offset.getVbuuid() +
+        ", seqno = " + offset.getSeqno() +
+        ", snapshot = " + offset.getSnapshot() +
+        ", collectionManifestUid = " + offset.getCollectionsManifestUid();
   }
 
   @Override
