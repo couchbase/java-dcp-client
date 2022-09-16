@@ -29,17 +29,17 @@
 
     <name>Couchbase Java DCP Client</name>
     <description>The official, lightweight DCP Client for the JVM.</description>
-    <url>http://couchbase.com</url>
+    <url>https://couchbase.com</url>
 
     <organization>
         <name>Couchbase, Inc.</name>
-        <url>http://couchbase.com</url>
+        <url>https://couchbase.com</url>
     </organization>
 
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
@@ -56,7 +56,7 @@
 
     <issueManagement>
         <system>Couchbase JIRA</system>
-        <url>http://www.couchbase.com/issues/browse/JDCP</url>
+        <url>https://www.couchbase.com/issues/browse/JDCP</url>
     </issueManagement>
 
     <developers>
@@ -176,7 +176,7 @@
         <dependency>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>animal-sniffer-annotations</artifactId>
-            <version>1.20</version>
+            <version>1.22</version>
             <optional>true</optional>
             <!-- if you are using badly written Maven plugins then blame them and add
             <scope>provided</scope>
@@ -421,7 +421,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-enforcer-plugin</artifactId>
-                        <version>3.0.0-M2</version>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <id>enforce-release</id>
@@ -455,7 +455,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-enforcer-plugin</artifactId>
-                        <version>3.0.0-M2</version>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <id>enforce-no-releases</id>
