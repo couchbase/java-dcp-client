@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.core.config;
 import com.couchbase.client.dcp.core.config.BucketConfig;
 import com.couchbase.client.dcp.core.config.DefaultCouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.NodeInfo;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * A configuration representing the couchbase bucket.

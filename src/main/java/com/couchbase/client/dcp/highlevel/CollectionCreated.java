@@ -20,7 +20,7 @@ import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import com.couchbase.client.dcp.message.DcpSystemEvent;
 import com.couchbase.client.dcp.message.MessageUtil;
-import io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
 import java.util.OptionalLong;
 

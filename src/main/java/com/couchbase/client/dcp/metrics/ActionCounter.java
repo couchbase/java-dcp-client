@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.metrics;
 
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.GenericFutureListener;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;

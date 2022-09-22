@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp.state;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonCreator;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Represents a single entry in a failover log per partition state.

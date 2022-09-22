@@ -16,8 +16,8 @@
 package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.dcp.core.service.ServiceType;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.List;
 

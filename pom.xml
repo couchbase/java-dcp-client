@@ -12,13 +12,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java-compat.version>1.8</java-compat.version>
-        <junit.version>5.8.2</junit.version>
-
-        <native.folder>${project.build.directory}/native</native.folder>
-        <native-epoll.original>libnetty_transport_native_epoll_x86_64.so</native-epoll.original>
-        <native-epoll.renamed>libcom_couchbase_client_deps_netty_transport_native_epoll_x86_64.so</native-epoll.renamed>
-        <native-kqueue.original>libnetty_transport_native_kqueue_x86_64.jnilib</native-kqueue.original>
-        <native-kqueue.renamed>libcom_couchbase_client_deps_netty_transport_native_kqueue_x86_64.jnilib</native-kqueue.renamed>
+        <junit.version>5.9.0</junit.version>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -96,6 +90,11 @@
     <dependencies>
         <!-- Exposed, Required Dependencies -->
         <dependency>
+            <groupId>com.couchbase.client</groupId>
+            <artifactId>core-io</artifactId>
+            <version>2.3.4</version>
+        </dependency>
+        <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>
             <version>3.4.22</version>
@@ -111,28 +110,11 @@
             <version>1.7.36</version>
         </dependency>
 
-        <!-- Shaded dependencies -->
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>4.1.82.Final</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.13.4</version>
-        </dependency>
-        <dependency>
-            <groupId>org.iq80.snappy</groupId>
-            <artifactId>snappy</artifactId>
-            <version>0.4</version>
-        </dependency>
-
         <!-- Test Dependencies -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>4.2.0</version>
+            <version>4.8.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -200,7 +182,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.1</version>
+                <version>2.22.2</version>
                 <configuration>
                     <useSystemClassLoader>false</useSystemClassLoader>
                     <argLine>-Djava.awt.headless=true</argLine>
@@ -243,7 +225,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.10.4</version>
+                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -252,14 +234,11 @@
                         </goals>
                     </execution>
                 </executions>
-                <configuration>
-                    <additionalparam>-Xdoclint:none</additionalparam>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
-                <version>1.6</version>
+                <version>3.0.1</version>
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
@@ -287,113 +266,6 @@
                     <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                     <autoReleaseAfterClose>${autoReleaseAfterClose}</autoReleaseAfterClose>
                 </configuration>
-            </plugin>
-
-            <!-- Used for Netty Native: unpack the .so from the artifact so
-                 it is accessible for shade plugin transformer, haha -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.1.2</version>
-                <executions>
-                    <execution>
-                        <id>unpack</id>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.netty</groupId>
-                                    <artifactId>netty-all</artifactId>
-                                    <outputDirectory>${native.folder}</outputDirectory>
-                                    <includes>META-INF/native/*</includes>
-                                </artifactItem>
-                            </artifactItems>
-                            <includes>META-INF/native/libnetty_transport_native_epoll_x86_64.so</includes>
-                            <outputDirectory>${native.folder}</outputDirectory>
-                            <overWriteReleases>false</overWriteReleases>
-                            <overWriteSnapshots>true</overWriteSnapshots>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.2</version>
-                <configuration>
-                    <artifactSet>
-                        <includes>
-                            <include>com.fasterxml.jackson.core:*</include>
-                            <include>io.netty:*</include>
-                            <include>org.iq80.snappy:*</include>
-                        </includes>
-                    </artifactSet>
-                    <filters>
-                        <!-- Netty Native: avoid putting the original .so in the shaded jar -->
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>META-INF/native/${native-epoll.original}</exclude>
-                                <exclude>META-INF/native/${native-kqueue.original}</exclude>
-                                <exclude>META-INF/native/libnetty_resolver_dns_native_macos_x86_64.jnilib</exclude>
-                            </excludes>
-                        </filter>
-                        <filter>
-                            <artifact>com.fasterxml.jackson.core:*</artifact>
-                            <excludes>
-                                <!-- Not required, and the service descriptor interferes with Java 9 modules (JVMCBC-530) -->
-                                <exclude>META-INF/**</exclude>
-                            </excludes>
-                        </filter>
-                    </filters>
-                    <transformers>
-                        <!-- Netty Native: with the unpacked .so (see unpack config), rename
-                             it so it has the shaded namespace -->
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native-epoll.original}</file>
-                            <resource>META-INF/native/${native-epoll.renamed}</resource>
-                        </transformer>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                            <file>${native.folder}/META-INF/native/${native-kqueue.original}</file>
-                            <resource>META-INF/native/${native-kqueue.renamed}</resource>
-                        </transformer>
-                    </transformers>
-                    <relocations>
-                        <relocation>
-                            <pattern>io.netty</pattern>
-                            <shadedPattern>com.couchbase.client.dcp.deps.io.netty</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>com.fasterxml</pattern>
-                            <shadedPattern>com.couchbase.client.dcp.deps.com.fasterxml</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>org.iq80.snappy</pattern>
-                            <shadedPattern>com.couchbase.client.dcp.deps.org.iq80.snappy</shadedPattern>
-                        </relocation>
-                        <!-- This is a hack, it should actually be an exclusion pattern on io.netty
-                             but for some reason this doesn't work. This is a workaround to repair
-                             the renaming damage done by the earlier io.netty rule. -->
-                        <relocation>
-                            <pattern>com.couchbase.client.dcp.deps.com.couchbase.client</pattern>
-                            <shadedPattern>com.couchbase.client</shadedPattern>
-                        </relocation>
-                    </relocations>
-                    <createSourcesJar>true</createSourcesJar>
-                    <shadeSourcesContent>true</shadeSourcesContent>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
 

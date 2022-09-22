@@ -25,7 +25,7 @@ import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import com.couchbase.client.dcp.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import org.apache.commons.io.IOUtils;
 
 import java.io.File;

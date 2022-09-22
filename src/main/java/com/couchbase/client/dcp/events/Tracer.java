@@ -17,8 +17,8 @@
 package com.couchbase.client.dcp.events;
 
 import com.couchbase.client.dcp.config.HostAndPort;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.channel.Channel;
 
 import java.util.Map;
 

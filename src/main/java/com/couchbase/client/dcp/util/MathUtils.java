@@ -12,7 +12,7 @@ public class MathUtils {
    *
    * @param x left operand
    * @param y right operand
-   * @return true if x < y
+   * @return true if x is less than y
    */
   public static boolean lessThanUnsigned(long x, long y) {
     return Long.compareUnsigned(x, y) < 0;

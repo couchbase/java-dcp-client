@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp;
 
-import io.netty.handler.ssl.SslContextBuilder;
+import com.couchbase.client.core.deps.io.netty.handler.ssl.SslContextBuilder;
 
 import javax.net.ssl.KeyManagerFactory;
 import java.io.InputStream;

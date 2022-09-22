@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp;
 
-import io.netty.buffer.ByteBufUtil;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBufUtil;
 import org.apache.commons.io.IOUtils;
 
 import java.io.ByteArrayOutputStream;

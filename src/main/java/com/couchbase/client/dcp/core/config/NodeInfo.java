@@ -17,8 +17,8 @@ package com.couchbase.client.dcp.core.config;
 
 
 import com.couchbase.client.dcp.core.service.ServiceType;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.Map;
 

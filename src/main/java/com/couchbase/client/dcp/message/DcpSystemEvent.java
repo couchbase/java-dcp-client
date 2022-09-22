@@ -22,7 +22,7 @@ import com.couchbase.client.dcp.highlevel.CollectionFlushed;
 import com.couchbase.client.dcp.highlevel.ScopeCreated;
 import com.couchbase.client.dcp.highlevel.ScopeDropped;
 import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
-import io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -30,7 +30,7 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

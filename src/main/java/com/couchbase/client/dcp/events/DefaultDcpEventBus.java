@@ -26,12 +26,6 @@ import reactor.core.publisher.FluxProcessor;
 import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Scheduler;
 
-/**
- * Like {@link com.couchbase.client.dcp.core.event.DefaultEventBus} but buffers on backpressure instead of dropping.
- * This is important in order not to drop critical events like {@link StreamEndEvent}s that only get sent once.
- *
- * @since 0.13.0
- */
 public class DefaultDcpEventBus implements EventBus {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultDcpEventBus.class);

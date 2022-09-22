@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.highlevel.internal;
 
 import com.couchbase.client.dcp.core.utils.UnsignedLEB128;
 import com.couchbase.client.dcp.message.MessageUtil;
-import io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 

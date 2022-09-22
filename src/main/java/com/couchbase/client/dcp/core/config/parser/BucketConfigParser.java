@@ -19,8 +19,8 @@ import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.core.config.BucketConfig;
 import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.InjectableValues;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.DeserializationFeature;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.InjectableValues;
 
 import java.io.IOException;
 

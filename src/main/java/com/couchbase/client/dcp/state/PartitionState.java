@@ -19,8 +19,8 @@ import com.couchbase.client.dcp.highlevel.SnapshotMarker;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
 import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonIgnore;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonProperty;
 import reactor.util.annotation.Nullable;
 
 import java.util.List;

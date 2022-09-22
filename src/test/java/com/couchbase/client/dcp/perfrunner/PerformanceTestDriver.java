@@ -27,7 +27,7 @@ import com.couchbase.client.dcp.highlevel.Mutation;
 import com.couchbase.client.dcp.highlevel.StreamFailure;
 import com.couchbase.client.dcp.message.DcpSnapshotMarkerRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.FileInputStream;

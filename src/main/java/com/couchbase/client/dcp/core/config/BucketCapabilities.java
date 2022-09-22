@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonValue;
 
 /**
  * Describes the bucket capabilities in an abstract fashion as provided by

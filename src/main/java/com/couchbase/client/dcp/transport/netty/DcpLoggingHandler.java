@@ -16,17 +16,17 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.message.MessageUtil;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufHolder;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBufHolder;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandler;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandler.Sharable;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.core.deps.io.netty.handler.logging.LogLevel;
+import com.couchbase.client.core.deps.io.netty.handler.logging.LoggingHandler;
 
 /**
  * A {@link ChannelHandler} that logs all events using a logging framework.
- * By default, all events are logged at <tt>DEBUG</tt> level.
+ * By default, all events are logged at {@code DEBUG} level.
  */
 @Sharable
 public class DcpLoggingHandler extends LoggingHandler {

@@ -18,7 +18,7 @@ package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.state.FailoverLogEntry;
-import io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
 import java.util.ArrayList;
 import java.util.Collections;

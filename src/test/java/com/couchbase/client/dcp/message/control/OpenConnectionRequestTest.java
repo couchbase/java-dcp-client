@@ -16,8 +16,8 @@
 package com.couchbase.client.dcp.message.control;
 
 import com.couchbase.client.dcp.message.DcpOpenConnectionRequest;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 
 import static java.nio.charset.StandardCharsets.UTF_8;

@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.test.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.netty.util.ResourceLeakDetector;
+import com.couchbase.client.core.deps.io.netty.util.ResourceLeakDetector;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -17,8 +17,8 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.dcp.transport.netty.DcpConnectHandler;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.core.deps.io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
 
 import java.util.Arrays;
 import java.util.Map;

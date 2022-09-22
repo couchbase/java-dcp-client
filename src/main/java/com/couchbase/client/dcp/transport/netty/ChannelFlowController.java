@@ -16,7 +16,7 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.dcp.Client;
-import io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
 public interface ChannelFlowController {
   /**

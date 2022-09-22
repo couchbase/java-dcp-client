@@ -22,9 +22,9 @@ import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.ServerRequest;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.core.deps.io.netty.channel.SimpleChannelInboundHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -242,7 +242,7 @@ public class SecurityConfig {
      * Allows to provide a trust manager factory directly for maximum flexibility.
      * <p>
      * While providing the most flexibility, most users will find the other overloads more convenient, like passing
-     * in a {@link #trustStore(KeyStore)} directly or via filepath {@link #trustStore(Path, String, Optional)}.
+     * in a {@link #trustStore(KeyStore)} directly or via filepath {@link #trustStore(Path, String, String)}.
      *
      * @param trustManagerFactory the trust manager factory to use.
      * @return this {@link Builder} for chaining purposes.

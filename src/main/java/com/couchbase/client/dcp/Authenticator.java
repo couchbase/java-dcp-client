@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp;
 
-import io.netty.channel.ChannelPipeline;
-import io.netty.handler.ssl.SslContextBuilder;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelPipeline;
+import com.couchbase.client.core.deps.io.netty.handler.ssl.SslContextBuilder;
 
 public interface Authenticator {
 

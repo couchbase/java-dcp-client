@@ -17,10 +17,10 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.dcp.highlevel.internal.CollectionIdAndKey;
 import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
-import io.netty.buffer.Unpooled;
-import org.iq80.snappy.Snappy;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBufUtil;
+import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
+import com.couchbase.client.core.deps.org.iq80.snappy.Snappy;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;

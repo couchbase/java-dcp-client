@@ -17,8 +17,8 @@ package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.core.service.ServiceType;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonCreator;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.MalformedURLException;
 import java.net.URL;

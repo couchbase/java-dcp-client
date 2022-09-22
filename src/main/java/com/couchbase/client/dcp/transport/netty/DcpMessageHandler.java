@@ -32,16 +32,16 @@ import com.couchbase.client.dcp.message.DcpSystemEventRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.events.Tracer;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.concurrent.EventExecutor;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.ImmediateEventExecutor;
-import io.netty.util.concurrent.Promise;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelInboundHandlerAdapter;
+import com.couchbase.client.core.deps.io.netty.handler.timeout.IdleState;
+import com.couchbase.client.core.deps.io.netty.handler.timeout.IdleStateEvent;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.EventExecutor;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.ImmediateEventExecutor;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +49,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-import static io.netty.util.ReferenceCountUtil.safeRelease;
+import static com.couchbase.client.core.deps.io.netty.util.ReferenceCountUtil.safeRelease;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -63,14 +63,14 @@ import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.epoll.Epoll;
-import io.netty.channel.epoll.EpollEventLoopGroup;
-import io.netty.channel.kqueue.KQueue;
-import io.netty.channel.kqueue.KQueueEventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.util.concurrent.DefaultThreadFactory;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.channel.EventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.channel.epoll.Epoll;
+import com.couchbase.client.core.deps.io.netty.channel.epoll.EpollEventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueue;
+import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueueEventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.channel.nio.NioEventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
@@ -1229,8 +1229,8 @@ public class Client implements Closeable {
      * which appears in the Couchbase Server logs for log entries associated
      * with this client.
      * <p>
-     * The product name may consist of alpha-numeric ASCII characters, plus
-     * the following special characters: <code>!#$%&'*+-.^_`|~</code>
+     * The product name may consist of alphanumeric ASCII characters, plus
+     * the following special characters: <code>!#$%&amp;'*+-.^_`|~</code>
      * <p>
      * Invalid characters will be converted to underscores.
      * <p>
@@ -1633,7 +1633,7 @@ public class Client implements Closeable {
 
     /**
      * Returns the interval between observeSeqno requests.
-     * Values <= 0 disable persistence polling.
+     * Non-positive values disable persistence polling.
      */
     public long persistencePollingIntervalMillis() {
       return persistencePollingIntervalMillis;

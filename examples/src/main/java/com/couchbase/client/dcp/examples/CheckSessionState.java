@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.examples;
 
 import com.couchbase.client.dcp.state.SessionState;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.IOException;
