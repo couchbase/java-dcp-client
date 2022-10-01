@@ -65,17 +65,17 @@ public class DefaultPortInfo implements PortInfo {
       String service = entry.getKey();
       int port = entry.getValue();
       if (service.equals("mgmt")) {
-        ports.put(ServiceType.CONFIG, port);
+        ports.put(ServiceType.MANAGER, port);
       } else if (service.equals("capi")) {
-        ports.put(ServiceType.VIEW, port);
+        ports.put(ServiceType.VIEWS, port);
       } else if (service.equals("kv")) {
-        ports.put(ServiceType.BINARY, port);
+        ports.put(ServiceType.KV, port);
       } else if (service.equals("kvSSL")) {
-        sslPorts.put(ServiceType.BINARY, port);
+        sslPorts.put(ServiceType.KV, port);
       } else if (service.equals("capiSSL")) {
-        sslPorts.put(ServiceType.VIEW, port);
+        sslPorts.put(ServiceType.VIEWS, port);
       } else if (service.equals("mgmtSSL")) {
-        sslPorts.put(ServiceType.CONFIG, port);
+        sslPorts.put(ServiceType.MANAGER, port);
       } else if (service.equals("n1ql")) {
         ports.put(ServiceType.QUERY, port);
       } else if (service.equals("n1qlSSL")) {

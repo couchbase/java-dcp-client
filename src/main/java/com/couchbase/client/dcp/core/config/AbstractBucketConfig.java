@@ -94,16 +94,16 @@ public abstract class AbstractBucketConfig implements BucketConfig {
 
       // this is an ephemeral bucket (not supporting views), don't enable views!
       if (!bucketCapabilities.contains(BucketCapabilities.COUCHAPI)) {
-        ports.remove(ServiceType.VIEW);
-        sslPorts.remove(ServiceType.VIEW);
+        ports.remove(ServiceType.VIEWS);
+        sslPorts.remove(ServiceType.VIEWS);
       }
 
       // make sure only kv nodes are added if they are actually also in the nodes
       // list and not just in nodesExt, since the kv service might be available
       // on the cluster but not yet enabled for this specific bucket.
       if (nodeInfo == null) {
-        ports.remove(ServiceType.BINARY);
-        sslPorts.remove(ServiceType.BINARY);
+        ports.remove(ServiceType.KV);
+        sslPorts.remove(ServiceType.KV);
       }
 
       converted.add(new DefaultNodeInfo(hostname, ports, sslPorts, aa));

@@ -148,12 +148,12 @@ public class DefaultCouchbaseBucketConfig extends AbstractBucketConfig implement
       }
       for (NodeInfo nodeInfo : nodeInfos) {
         // Make sure we only take into account nodes which contain KV
-        if (!nodeInfo.services().containsKey(ServiceType.BINARY)) {
+        if (!nodeInfo.services().containsKey(ServiceType.KV)) {
           continue;
         }
 
         if (nodeInfo.hostname().equals(convertedHost) &&
-            (nodeInfo.services().get(ServiceType.BINARY) == directPort || directPort == 0)) {
+            (nodeInfo.services().get(ServiceType.KV) == directPort || directPort == 0)) {
           partitionHosts.add(nodeInfo);
         }
       }

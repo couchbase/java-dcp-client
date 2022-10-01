@@ -98,8 +98,8 @@ public class DefaultCouchbaseBucketConfigTest {
             BucketConfigParser.parse(raw, localhost);
 
         assertTrue(config.ephemeral());
-        assertTrue(config.serviceEnabled(ServiceType.BINARY));
-        assertFalse(config.serviceEnabled(ServiceType.VIEW));
+        assertTrue(config.serviceEnabled(ServiceType.KV));
+        assertFalse(config.serviceEnabled(ServiceType.VIEWS));
     }
 
     @Test
@@ -112,8 +112,8 @@ public class DefaultCouchbaseBucketConfigTest {
         assertEquals(0, config.numberOfReplicas());
         assertEquals(64, config.numberOfPartitions());
         assertEquals(2, config.nodes().size());
-        assertTrue(config.serviceEnabled(ServiceType.BINARY));
-        assertTrue(config.serviceEnabled(ServiceType.VIEW));
+        assertTrue(config.serviceEnabled(ServiceType.KV));
+        assertTrue(config.serviceEnabled(ServiceType.VIEWS));
     }
 
     @Test
@@ -127,9 +127,9 @@ public class DefaultCouchbaseBucketConfigTest {
         assertEquals(1024, config.numberOfPartitions());
         assertEquals(2, config.nodes().size());
         assertEquals("192.168.1.194", config.nodes().get(0).hostname());
-        assertEquals(9000, (int)config.nodes().get(0).services().get(ServiceType.CONFIG));
+        assertEquals(9000, (int)config.nodes().get(0).services().get(ServiceType.MANAGER));
         assertEquals("192.168.1.194", config.nodes().get(1).hostname());
-        assertEquals(9001, (int)config.nodes().get(1).services().get(ServiceType.CONFIG));
+        assertEquals(9001, (int)config.nodes().get(1).services().get(ServiceType.MANAGER));
     }
 
     @Test
@@ -142,9 +142,9 @@ public class DefaultCouchbaseBucketConfigTest {
         assertEquals("192.168.0.102", config.nodes().get(0).hostname());
         assertEquals("127.0.0.1", config.nodes().get(1).hostname());
         assertEquals("127.0.0.1", config.nodes().get(2).hostname());
-        assertTrue(config.nodes().get(0).services().containsKey(ServiceType.BINARY));
-        assertTrue(config.nodes().get(1).services().containsKey(ServiceType.BINARY));
-        assertFalse(config.nodes().get(2).services().containsKey(ServiceType.BINARY));
+        assertTrue(config.nodes().get(0).services().containsKey(ServiceType.KV));
+        assertTrue(config.nodes().get(1).services().containsKey(ServiceType.KV));
+        assertFalse(config.nodes().get(2).services().containsKey(ServiceType.KV));
     }
 
     @Test

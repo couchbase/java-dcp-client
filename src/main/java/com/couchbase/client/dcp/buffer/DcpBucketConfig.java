@@ -129,7 +129,7 @@ public class DcpBucketConfig {
   }
 
   public HostAndPort getAddress(final NodeInfo node) {
-    int port = getServicePortMap(node).get(ServiceType.BINARY);
+    int port = getServicePortMap(node).get(ServiceType.KV);
     return new HostAndPort(node.hostname(), port);
   }
 
@@ -138,7 +138,7 @@ public class DcpBucketConfig {
   }
 
   private boolean hasBinaryService(final NodeInfo node) {
-    return getServicePortMap(node).containsKey(ServiceType.BINARY);
+    return getServicePortMap(node).containsKey(ServiceType.KV);
   }
 
   public int numberOfReplicas() {

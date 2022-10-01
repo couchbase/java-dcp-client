@@ -111,13 +111,13 @@ public class DefaultNodeInfo implements NodeInfo {
       String type = entry.getKey();
       Integer port = entry.getValue();
       if (type.equals("direct")) {
-        services.put(ServiceType.BINARY, port);
+        services.put(ServiceType.KV, port);
       }
     }
-    services.put(ServiceType.CONFIG, configPort);
+    services.put(ServiceType.MANAGER, configPort);
     if (viewUri != null) {
       try {
-        services.put(ServiceType.VIEW, new URL(viewUri).getPort());
+        services.put(ServiceType.VIEWS, new URL(viewUri).getPort());
       } catch (MalformedURLException ex) {
         throw new ConfigurationException("Could not parse VIEW URL.", ex);
       }

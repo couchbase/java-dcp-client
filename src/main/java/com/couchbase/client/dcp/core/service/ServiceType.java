@@ -23,42 +23,40 @@ public enum ServiceType {
   /**
    * Views and Design Documents.
    */
-  VIEW(BucketServiceMapping.ONE_FOR_ALL),
+  VIEWS(ServiceScope.CLUSTER),
 
   /**
    * Key/Value type operations.
    */
-  BINARY(BucketServiceMapping.ONE_BY_ONE),
+  KV(ServiceScope.BUCKET),
 
   /**
    * Query (N1QL) operations.
    */
-  QUERY(BucketServiceMapping.ONE_FOR_ALL),
+  QUERY(ServiceScope.CLUSTER),
 
   /**
-   * HTTP config operations.
+   * The Cluster Manager service ("ns server")
    */
-  CONFIG(BucketServiceMapping.ONE_FOR_ALL),
+  MANAGER(ServiceScope.CLUSTER),
 
   /**
    * Search (CBFT) operations.
    */
-  SEARCH(BucketServiceMapping.ONE_FOR_ALL),
+  SEARCH(ServiceScope.CLUSTER),
 
   /**
    * Analytics operations.
    */
-  ANALYTICS(BucketServiceMapping.ONE_FOR_ALL);
+  ANALYTICS(ServiceScope.CLUSTER);
 
-  // If adding a new ServiceType, add to RingBufferMonitor
+  private final ServiceScope scope;
 
-  private final BucketServiceMapping mapping;
-
-  private ServiceType(BucketServiceMapping mapping) {
-    this.mapping = mapping;
+  private ServiceType(ServiceScope scope) {
+    this.scope = scope;
   }
 
-  public BucketServiceMapping mapping() {
-    return mapping;
+  public ServiceScope scope() {
+    return scope;
   }
 }

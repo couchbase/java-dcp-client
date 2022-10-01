@@ -47,18 +47,18 @@ public class AbstractBucketConfigTest {
         Map<ServiceType, Integer> direct = new HashMap<ServiceType, Integer>();
         Map<ServiceType, Integer> ssl = new HashMap<ServiceType, Integer>();
 
-        direct.put(ServiceType.BINARY, 1234);
-        direct.put(ServiceType.CONFIG, 1235);
-        ssl.put(ServiceType.BINARY, 4567);
+        direct.put(ServiceType.KV, 1234);
+        direct.put(ServiceType.MANAGER, 1235);
+        ssl.put(ServiceType.KV, 4567);
 
         nodeInfos.add(new DefaultNodeInfo("127.0.0.1", direct, ssl, null));
 
         BucketConfig bc = new SampleBucketConfig(nodeInfos, null);
 
-        assertTrue(bc.serviceEnabled(ServiceType.BINARY));
-        assertTrue(bc.serviceEnabled(ServiceType.CONFIG));
+        assertTrue(bc.serviceEnabled(ServiceType.KV));
+        assertTrue(bc.serviceEnabled(ServiceType.MANAGER));
         assertFalse(bc.serviceEnabled(ServiceType.QUERY));
-        assertFalse(bc.serviceEnabled(ServiceType.VIEW));
+        assertFalse(bc.serviceEnabled(ServiceType.VIEWS));
     }
 
     static class SampleBucketConfig extends AbstractBucketConfig {
