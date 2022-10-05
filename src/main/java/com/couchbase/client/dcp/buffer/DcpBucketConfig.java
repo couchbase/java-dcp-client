@@ -17,21 +17,15 @@
 package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.dcp.config.HostAndPort;
-import com.couchbase.client.dcp.core.CouchbaseException;
-import com.couchbase.client.dcp.core.config.AlternateAddress;
-import com.couchbase.client.dcp.core.config.BucketConfigRevision;
+import com.couchbase.client.dcp.core.config.ConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
-import com.couchbase.client.dcp.core.config.DefaultNodeInfo;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.service.ServiceType;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
-import static java.util.Collections.emptyMap;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSystem;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -41,58 +35,31 @@ import static java.util.stream.Collectors.toList;
  * and analyzes the partition map to support persistence polling.
  */
 public class DcpBucketConfig {
-  private final boolean sslEnabled;
   private final CouchbaseBucketConfig config;
   private final NodeToPartitionMultimap map;
-  private final List<NodeInfo> allNodes;
-  private final List<NodeInfo> allDataNodes;
+  private final List<NodeInfo> allKvNodes;
 
-  public DcpBucketConfig(final CouchbaseBucketConfig config, final boolean sslEnabled) {
+  public DcpBucketConfig(final CouchbaseBucketConfig config) {
     this.config = requireNonNull(config);
-    this.sslEnabled = sslEnabled;
     this.map = new NodeToPartitionMultimap(config);
-    this.allNodes = resolveAlternateAddresses(config);
 
-    allDataNodes = unmodifiableList(allNodes.stream()
-        .filter(this::hasBinaryService)
-        .collect(toList()));
+    allKvNodes = unmodifiableList(
+        config.nodes().stream()
+            .filter(node -> node.has(ServiceType.KV))
+            .collect(toList())
+    );
   }
 
-  public BucketConfigRevision rev() {
-    return config.rev();
+  public ConfigRevision rev() {
+    return config.revision();
   }
 
   public int numberOfPartitions() {
-    return config.numberOfPartitions();
+    return config.partitions().size();
   }
 
   public List<NodeInfo> nodes() {
-    return allNodes;
-  }
-
-  private static List<NodeInfo> resolveAlternateAddresses(CouchbaseBucketConfig config) {
-    return config.nodes().stream()
-        .map(DcpBucketConfig::resolveAlternateAddress)
-        .collect(toList());
-  }
-
-  private static NodeInfo resolveAlternateAddress(NodeInfo nodeInfo) {
-    final String networkName = nodeInfo.useAlternateNetwork();
-    if (networkName == null) {
-      return nodeInfo; // don't use alternate
-    }
-
-    final AlternateAddress alternate = nodeInfo.alternateAddresses().get(networkName);
-    if (alternate == null) {
-      throw new CouchbaseException("Node " + system(nodeInfo.hostname()) + " has no alternate hostname for network [" + networkName + "]");
-    }
-
-    final Map<ServiceType, Integer> services = new HashMap<>(nodeInfo.services());
-    final Map<ServiceType, Integer> sslServices = new HashMap<>(nodeInfo.sslServices());
-    services.putAll(alternate.services());
-    sslServices.putAll(alternate.sslServices());
-
-    return new DefaultNodeInfo(alternate.hostname(), services, sslServices, emptyMap());
+    return allKvNodes;
   }
 
   public List<PartitionInstance> getHostedPartitions(final HostAndPort nodeAddress) throws NoSuchElementException {
@@ -103,8 +70,8 @@ public class DcpBucketConfig {
   /**
    * Returns an unmodifiable list containing only those nodes that are running the KV service.
    */
-  public List<NodeInfo> getDataNodes() {
-    return allDataNodes;
+  public List<NodeInfo> getKvNodes() {
+    return allKvNodes;
   }
 
   public int getNodeIndex(final HostAndPort nodeAddress) throws NoSuchElementException {
@@ -115,12 +82,12 @@ public class DcpBucketConfig {
       }
       nodeIndex++;
     }
-    throw new NoSuchElementException("Failed to locate " + system(nodeAddress) + " in bucket config.");
+    throw new NoSuchElementException("Failed to locate " + redactSystem(nodeAddress) + " in bucket config.");
   }
 
   public HostAndPort getActiveNodeKvAddress(int partition) {
-    final int index = config.nodeIndexForMaster(partition, false);
-    final NodeInfo node = nodes().get(index);
+    NodeInfo node = config.partitions().active(partition)
+        .orElseThrow(() -> new IllegalStateException("No active node for partition " + partition));
     return getAddress(node);
   }
 
@@ -129,16 +96,10 @@ public class DcpBucketConfig {
   }
 
   public HostAndPort getAddress(final NodeInfo node) {
-    int port = getServicePortMap(node).get(ServiceType.KV);
-    return new HostAndPort(node.hostname(), port);
-  }
-
-  private Map<ServiceType, Integer> getServicePortMap(final NodeInfo node) {
-    return sslEnabled ? node.sslServices() : node.services();
-  }
-
-  private boolean hasBinaryService(final NodeInfo node) {
-    return getServicePortMap(node).containsKey(ServiceType.KV);
+    return new HostAndPort(
+        node.host(),
+        node.port(ServiceType.KV)
+            .orElseThrow(() -> new IllegalArgumentException("Node not running KV service: " + node)));
   }
 
   public int numberOfReplicas() {

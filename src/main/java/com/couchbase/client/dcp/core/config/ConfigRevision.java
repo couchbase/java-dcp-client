@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Couchbase, Inc.
+ * Copyright 2022 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,33 @@
 
 package com.couchbase.client.dcp.core.config;
 
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import java.util.Comparator;
 import java.util.Objects;
 
-public class BucketConfigRevision implements Comparable<BucketConfigRevision> {
-  private static final Comparator<BucketConfigRevision> comparator =
-      Comparator.comparing(BucketConfigRevision::epoch)
-          .thenComparing(BucketConfigRevision::rev);
+
+public class ConfigRevision implements Comparable<ConfigRevision> {
+  private static final Comparator<ConfigRevision> comparator =
+      Comparator.comparing(ConfigRevision::epoch)
+          .thenComparing(ConfigRevision::rev);
 
   private final long epoch;
   private final long rev;
 
-  public BucketConfigRevision(long epoch, long rev) {
-    if (rev < 0) {
-      throw new IllegalArgumentException("rev must be non-negative");
+  public static ConfigRevision parse(ObjectNode json) {
+    int epoch = json.path("epoch").intValue(); // zero if not present (server is too old to know about epochs)
+    JsonNode revNode = json.path("rev");
+    if (!revNode.isInt()) {
+      throw new IllegalArgumentException("Missing or non-integer 'rev' field.");
     }
-    this.epoch = Math.max(0, epoch);
-    this.rev = rev;
+    return new ConfigRevision(epoch, revNode.intValue());
   }
 
-  public boolean newerThan(BucketConfigRevision other) {
-    return compareTo(other) > 0;
+  public ConfigRevision(long epoch, long rev) {
+    this.epoch = epoch;
+    this.rev = rev;
   }
 
   public long epoch() {
@@ -48,13 +54,8 @@ public class BucketConfigRevision implements Comparable<BucketConfigRevision> {
   }
 
   @Override
-  public int compareTo(BucketConfigRevision o) {
+  public int compareTo(ConfigRevision o) {
     return comparator.compare(this, o);
-  }
-
-  @Override
-  public String toString() {
-    return epoch + "." + rev;
   }
 
   @Override
@@ -65,12 +66,21 @@ public class BucketConfigRevision implements Comparable<BucketConfigRevision> {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    BucketConfigRevision that = (BucketConfigRevision) o;
+    ConfigRevision that = (ConfigRevision) o;
     return epoch == that.epoch && rev == that.rev;
+  }
+
+  @Override
+  public String toString() {
+    return epoch + "." + rev;
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(epoch, rev);
+  }
+
+  public boolean newerThan(ConfigRevision other) {
+    return this.compareTo(other) > 0;
   }
 }

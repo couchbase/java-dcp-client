@@ -19,27 +19,21 @@ package com.couchbase.client.dcp.conductor;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.HostAndPort;
-import com.couchbase.client.dcp.core.config.AlternateAddress;
-import com.couchbase.client.dcp.core.config.BucketConfig;
-import com.couchbase.client.dcp.core.config.BucketConfigRevision;
+import com.couchbase.client.dcp.core.config.ConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
-import com.couchbase.client.dcp.core.config.NodeInfo;
-import com.couchbase.client.dcp.core.config.parser.BucketConfigParser;
-import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.dcp.core.config.CouchbaseBucketConfigParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.ReplayProcessor;
 
-import java.util.Map;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSystem;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,13 +51,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   private final Object revLock = new Object();
 
   // @GuardedBy("revLock")
-  private BucketConfigRevision currentRev = new BucketConfigRevision(0, 0);
-
-  // @GuardedBy("revLock")
-  private boolean hasDeterminedAlternateNetworkName = false;
-
-  // @GuardedBy("revLock")
-  private String alternateNetworkName; // null means use primary
+  private ConfigRevision currentRev = new ConfigRevision(0, 0);
 
   private final Client.Environment environment;
 
@@ -72,22 +60,34 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   }
 
   @Override
-  public void accept(HostAndPort origin, String rawConfig, BucketConfigRevision rev) {
+  public void accept(HostAndPort origin, String rawConfig, ConfigRevision rev) {
     synchronized (revLock) {
       if (!rev.newerThan(currentRev)) {
-        log.debug("Ignoring bucket config revision {} from {}; not newer than current revision {}", origin, rev, currentRev);
+        log.debug("Ignoring config revision {} from {}; not newer than current revision {}", origin, rev, currentRev);
         return;
       }
 
-      log.debug("Received bucket config revision {} from {} -> {}", rev, origin, system(rawConfig));
+      log.debug("Received config revision {} from {} -> {}", rev, origin, redactSystem(rawConfig));
+
+      if (!rawConfig.contains("\"nodeLocator\"")) {
+        log.info("Received a global config (revision {})." +
+                " Ignoring it, because a global config doesn't have info about the bucket." +
+                " Waiting for a bucket config instead!",
+            rev);
+        return;
+      }
 
       try {
         currentRev = rev;
 
-        CouchbaseBucketConfig config = (CouchbaseBucketConfig) BucketConfigParser.parse(rawConfig, origin);
-        selectAlternateNetwork(config);
+        CouchbaseBucketConfig config = CouchbaseBucketConfigParser.parse(
+            rawConfig.getBytes(UTF_8),
+            origin.host(),
+            environment.portSelector(),
+            environment.networkSelector()
+        );
 
-        configSink.next(new DcpBucketConfig(config, environment.securityConfig().tlsEnabled()));
+        configSink.next(new DcpBucketConfig(config));
 
       } catch (Exception e) {
         log.error("Failed to parse bucket config", e);
@@ -109,66 +109,6 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
     return configStream;
   }
 
-  private void selectAlternateNetwork(CouchbaseBucketConfig config) {
-    if (!Thread.holdsLock(revLock)) {
-      throw new IllegalStateException("Must hold revLock");
-    }
-
-    if (!hasDeterminedAlternateNetworkName) {
-      final Set<String> seedHosts = environment.clusterAt().stream()
-          .map(HostAndPort::host)
-          .collect(Collectors.toSet());
-      alternateNetworkName = determineNetworkResolution(config, environment.networkResolution(), seedHosts);
-      hasDeterminedAlternateNetworkName = true;
-
-      String displayName = alternateNetworkName == null ? "<default>" : alternateNetworkName;
-      if (NetworkResolution.AUTO.equals(environment.networkResolution())) {
-        displayName = "auto -> " + displayName;
-      }
-      log.info("Selected network: {}", displayName);
-    }
-    config.useAlternateNetwork(alternateNetworkName);
-  }
-
-  /**
-   * Helper method to figure out which network resolution should be used.
-   * <p>
-   * if DEFAULT is selected, then null is returned which is equal to the "internal" or default
-   * config mode. If AUTO is used then we perform the select heuristic based off of the seed
-   * hosts given. All other resolution settings (i.e. EXTERNAL) are returned directly and are
-   * considered to be part of the alternate address configs.
-   *
-   * @param config the config to check against
-   * @param nr the network resolution setting from the environment
-   * @param seedHosts the seed hosts from bootstrap for autoconfig.
-   * @return the found setting if external is used, null if internal/default is used.
-   */
-  private static String determineNetworkResolution(final BucketConfig config, final NetworkResolution nr,
-                                                   final Set<String> seedHosts) {
-    if (nr.equals(NetworkResolution.DEFAULT)) {
-      return null;
-    } else if (nr.equals(NetworkResolution.AUTO)) {
-      for (NodeInfo info : config.nodes()) {
-        if (seedHosts.contains(info.hostname())) {
-          return null;
-        }
-
-        Map<String, AlternateAddress> aa = info.alternateAddresses();
-        if (aa != null && !aa.isEmpty()) {
-          for (Map.Entry<String, AlternateAddress> entry : aa.entrySet()) {
-            AlternateAddress alternateAddress = entry.getValue();
-            if (alternateAddress != null && seedHosts.contains(alternateAddress.hostname())) {
-              return entry.getKey();
-            }
-          }
-        }
-      }
-      return null;
-    } else {
-      return nr.name();
-    }
-  }
-
   private static final Pattern REV_PATTERN = Pattern.compile("\"rev\"\\s*:\\s*(-?\\d+)");
   private static final Pattern REV_EPOCH_PATTERN = Pattern.compile("\"revEpoch\"\\s*:\\s*(-?\\d+)");
 
@@ -177,12 +117,12 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
     return m.find() ? OptionalLong.of(Long.parseLong(m.group(1))) : OptionalLong.empty();
   }
 
-  private static BucketConfigRevision getRev(String rawConfig) {
+  private static ConfigRevision getRev(String rawConfig) {
     long rev = matchLong(REV_PATTERN, rawConfig).orElseThrow(() ->
-        new IllegalArgumentException("Failed to locate revision property in " + system(rawConfig)));
+        new IllegalArgumentException("Failed to locate revision property in " + redactSystem(rawConfig)));
 
     long epoch = matchLong(REV_EPOCH_PATTERN, rawConfig).orElse(0);
 
-    return new BucketConfigRevision(epoch, rev);
+    return new ConfigRevision(epoch, rev);
   }
 }

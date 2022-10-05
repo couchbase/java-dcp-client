@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.couchbase.client.core.config.CouchbaseBucketConfig.PARTITION_NOT_EXISTENT;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 
@@ -37,12 +38,13 @@ class NodeToPartitionMultimap {
       new HashMap<>();
 
   NodeToPartitionMultimap(final CouchbaseBucketConfig bucketConfig) {
-    for (int partition = 0; partition < bucketConfig.numberOfPartitions(); partition++) {
-      put(bucketConfig.nodeIndexForMaster(partition, false), new PartitionInstance(partition, 0));
+    bucketConfig.partitions().forEach((partition, info) -> {
+      put(info.nodeIndexForActive().orElse(PARTITION_NOT_EXISTENT), new PartitionInstance(partition, 0));
+
       for (int r = 0; r < bucketConfig.numberOfReplicas(); r++) {
-        put(bucketConfig.nodeIndexForReplica(partition, r, false), new PartitionInstance(partition, r + 1));
+        put(info.nodeIndexForReplica(r).orElse(PARTITION_NOT_EXISTENT), new PartitionInstance(partition, r + 1));
       }
-    }
+    });
 
     freezeValues(nodeIndexToHostedPartitions);
   }
@@ -63,7 +65,7 @@ class NodeToPartitionMultimap {
   }
 
   /**
-   * Returns the partition instances whose node indexes are < 0.
+   * Returns the partition instances whose node indexes are negative.
    */
   List<PartitionInstance> getAbsent() {
     List<PartitionInstance> absentPartitions = new ArrayList<>();

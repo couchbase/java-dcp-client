@@ -249,7 +249,7 @@ public class Conductor {
   private void reconfigure(DcpBucketConfig configHelper) {
     metrics.incrementReconfigure();
 
-    final List<NodeInfo> nodes = configHelper.getDataNodes();
+    final List<NodeInfo> nodes = configHelper.getKvNodes();
     if (nodes.isEmpty()) {
       throw new IllegalStateException("Bucket config helper returned no data nodes");
     }

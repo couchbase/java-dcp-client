@@ -58,8 +58,16 @@ public class RedactableArgument {
    * @param message the message to redact.
    * @return a new {@link RedactableArgument}.
    */
-  public static RedactableArgument user(final Object message) {
+  public static RedactableArgument redactUser(final Object message) {
     return new RedactableArgument(ArgumentType.USER, message);
+  }
+
+  /**
+   * @deprecated  Please use {@link #redactUser(Object)} instead.
+   */
+  @Deprecated
+  public static RedactableArgument user(final Object message) {
+    return redactUser(message);
   }
 
   /**
@@ -79,8 +87,16 @@ public class RedactableArgument {
    * @param message the message to redact.
    * @return a new {@link RedactableArgument}.
    */
-  public static RedactableArgument meta(final Object message) {
+  public static RedactableArgument redactMeta(final Object message) {
     return new RedactableArgument(ArgumentType.META, message);
+  }
+
+  /**
+   * @deprecated  Please use {@link #redactMeta(Object)} instead.
+   */
+  @Deprecated
+  public static RedactableArgument meta(final Object message) {
+    return redactMeta(message);
   }
 
   /**
@@ -97,8 +113,16 @@ public class RedactableArgument {
    * @param message the message to redact.
    * @return a new {@link RedactableArgument}.
    */
-  public static RedactableArgument system(final Object message) {
+  public static RedactableArgument redactSystem(final Object message) {
     return new RedactableArgument(ArgumentType.SYSTEM, message);
+  }
+
+  /**
+   * @deprecated  Please use {@link #redactSystem(Object)} instead.
+   */
+  @Deprecated
+  public static RedactableArgument system(final Object message) {
+    return redactSystem(message);
   }
 
   /**
@@ -118,7 +142,7 @@ public class RedactableArgument {
   @Override
   public String toString() {
     // The exact syntax for "system" and "meta" redaction is yet to be determined.
-    // In the mean time, we've been asked to redact *only* "user" data.
+    // In the meantime, we've been asked to redact *only* "user" data.
     if (type != ArgumentType.USER) {
       return message();
     }

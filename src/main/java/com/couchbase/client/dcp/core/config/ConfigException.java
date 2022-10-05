@@ -15,20 +15,23 @@
  */
 package com.couchbase.client.dcp.core.config;
 
-public interface Partition {
+import com.couchbase.client.dcp.core.CouchbaseException;
 
-  /**
-   * Returns the master node index for this partition.
-   *
-   * @return the master node index.
-   */
-  int primary();
+public class ConfigException extends CouchbaseException {
 
-  /**
-   * Returns the replica index for this partition.
-   *
-   * @param num number of replica.
-   * @return the replica node index, -1 if not set.
-   */
-  int replica(int num);
+  public ConfigException() {
+    super();
+  }
+
+  public ConfigException(String message) {
+    super(message);
+  }
+
+  public ConfigException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
+  public ConfigException(Throwable cause) {
+    super(cause);
+  }
 }

@@ -320,7 +320,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
     // not found for gets etc). The client would know that such commands
     // was executed when it encounters the response for the next command
     // requested issued by the client."
-    // -- https://github.com/couchbase/memcached/blob/master/docs/BinaryProtocol.md#introduction-1
+    // -- https://github.com/couchbase/kv_engine/blob/master/docs/BinaryProtocol.md#introduction-1
 
     // The DCP client does not send any "quiet commands", so we assume
     // a 1:1 relationship between requests and responses, and FIFO order.

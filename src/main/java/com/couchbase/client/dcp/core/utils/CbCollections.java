@@ -18,15 +18,22 @@ package com.couchbase.client.dcp.core.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
+import static java.util.Collections.sort;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -195,5 +202,28 @@ public class CbCollections {
     if (map.put(key, value) != null) {
       throw new IllegalArgumentException("Duplicate key: " + key);
     }
+  }
+
+  public static <T1, T2> List<T2> transform(Collection<? extends T1> original, Function<? super T1, ? extends T2> transformer) {
+    return original.stream()
+        .map(transformer)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Like {@link EnumSet#copyOf}, but does not explode when given an empty collection.
+   */
+  public static <T extends Enum<T>> EnumSet<T> newEnumSet(Class<T> elementClass, Iterable<T> source) {
+    EnumSet<T> result = EnumSet.noneOf(elementClass);
+    for (T t : source) {
+      result.add(t);
+    }
+    return result;
+  }
+
+  public static <K extends Enum<K>, V> EnumMap<K,V> newEnumMap(Class<K> keyClass, Map<K,V> source) {
+    EnumMap<K,V> result = new EnumMap<>(keyClass);
+    result.putAll(source);
+    return result;
   }
 }

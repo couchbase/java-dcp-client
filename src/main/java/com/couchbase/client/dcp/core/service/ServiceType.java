@@ -48,7 +48,17 @@ public enum ServiceType {
   /**
    * Analytics operations.
    */
-  ANALYTICS(ServiceScope.CLUSTER);
+  ANALYTICS(ServiceScope.CLUSTER),
+
+  /**
+   * The Eventing (function) service.
+   */
+  EVENTING(ServiceScope.CLUSTER),
+
+  /**
+   * The Backup service
+   */
+  BACKUP(ServiceScope.CLUSTER);
 
   private final ServiceScope scope;
 

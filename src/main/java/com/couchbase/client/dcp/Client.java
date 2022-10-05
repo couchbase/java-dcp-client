@@ -21,6 +21,9 @@ import com.couchbase.client.dcp.conductor.Conductor;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.config.NetworkSelector;
+import com.couchbase.client.dcp.core.config.PortSelector;
+import com.couchbase.client.dcp.core.env.SeedNode;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
 import com.couchbase.client.dcp.core.event.EventBus;
 import com.couchbase.client.dcp.core.event.EventType;
@@ -113,6 +116,7 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * This {@link Client} provides the main API to configure and use the DCP client.
@@ -1539,6 +1543,7 @@ public class Client implements Closeable {
     private Disposable systemEventSubscription;
     private final SecurityConfig securityConfig;
     private final Tracer tracer;
+    private final NetworkSelector networkSelector;
 
     /**
      * Creates a new environment based on the builder.
@@ -1588,6 +1593,22 @@ public class Client implements Closeable {
         dataEventHandler = buffer;
         controlEventHandler = buffer;
       }
+
+      NetworkResolution resolution = networkResolution();
+      final Set<SeedNode> seedNodes = clusterAt().stream()
+          .map(it -> SeedNode.create(it.host()).withKvPort(it.port()))
+          .collect(toSet());
+      this.networkSelector = NetworkSelector.create(resolution, seedNodes);
+    }
+
+    public NetworkSelector networkSelector() {
+      return networkSelector;
+    }
+
+    public PortSelector portSelector() {
+      return securityConfig().tlsEnabled()
+          ? PortSelector.TLS
+          : PortSelector.NON_TLS;
     }
 
     /**

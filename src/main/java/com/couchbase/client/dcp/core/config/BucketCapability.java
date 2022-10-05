@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2017 Couchbase, Inc.
+ * Copyright 2022 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,16 +16,11 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonValue;
 
-/**
- * Describes the bucket capabilities in an abstract fashion as provided by
- * the server.
- */
-@JsonIgnoreProperties(ignoreUnknown = true)
-public enum BucketCapabilities {
+import static java.util.Objects.requireNonNull;
 
+public enum BucketCapability {
   CBHELLO("cbhello"),
   TOUCH("touch"),
   COUCHAPI("couchapi"),
@@ -35,17 +30,21 @@ public enum BucketCapabilities {
   DCP("dcp"),
   XATTR("xattr"),
   SNAPPY("snappy"),
+  COLLECTIONS("collections"),
   DURABLE_WRITE("durableWrite"),
-  COLLECTIONS("collections");
+  CREATE_AS_DELETED("tombstonedUserXAttrs"),
+  SUBDOC_REPLACE_BODY_WITH_XATTR("subdoc.ReplaceBodyWithXattr"),
+  SUBDOC_REVIVE_DOCUMENT("subdoc.ReviveDocument"),
+  ;
 
-  private final String raw;
+  private final String wireName;
 
-  BucketCapabilities(String raw) {
-    this.raw = raw;
+  BucketCapability(String wireName) {
+    this.wireName = requireNonNull(wireName);
   }
 
   @JsonValue
-  public String getRaw() {
-    return raw;
+  public String wireName() {
+    return wireName;
   }
 }
