@@ -17,7 +17,12 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import static com.couchbase.client.dcp.message.MessageUtil.SASL_LIST_MECHS_OPCODE;
+import static java.util.Collections.emptyList;
 
 public enum SaslListMechsResponse {
   ;
@@ -35,8 +40,8 @@ public enum SaslListMechsResponse {
    * @param buffer the buffer to extract from.
    * @return the array of supported mechs, or an empty array if none found.
    */
-  public static String[] supportedMechs(final ByteBuf buffer) {
+  public static List<String> supportedMechs(final ByteBuf buffer) {
     String spaceDelimitedMechanisms = MessageUtil.getContentAsString(buffer);
-    return spaceDelimitedMechanisms.isEmpty() ? new String[0] : spaceDelimitedMechanisms.split(" ");
+    return spaceDelimitedMechanisms.isEmpty() ? emptyList() : Arrays.asList(spaceDelimitedMechanisms.split(" "));
   }
 }
