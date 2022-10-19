@@ -15,6 +15,14 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.channel.EventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.channel.epoll.Epoll;
+import com.couchbase.client.core.deps.io.netty.channel.epoll.EpollEventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueue;
+import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueueEventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.channel.nio.NioEventLoopGroup;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
 import com.couchbase.client.dcp.buffer.PersistedSeqnos;
 import com.couchbase.client.dcp.buffer.StreamEventBuffer;
 import com.couchbase.client.dcp.conductor.Conductor;
@@ -66,14 +74,6 @@ import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.core.deps.io.netty.channel.EventLoopGroup;
-import com.couchbase.client.core.deps.io.netty.channel.epoll.Epoll;
-import com.couchbase.client.core.deps.io.netty.channel.epoll.EpollEventLoopGroup;
-import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueue;
-import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueueEventLoopGroup;
-import com.couchbase.client.core.deps.io.netty.channel.nio.NioEventLoopGroup;
-import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
@@ -1259,13 +1259,27 @@ public class Client implements Closeable {
     }
 
     /**
-     * Set all kinds of DCP control params - check their description for more information.
+     * Sets a DCP control parameter.
+     * <p>
+     * See {@link DcpControl.Names} for more information.
      *
      * @param name the name of the param
      * @param value the value of the param
      * @return this {@link Builder} for nice chainability.
      */
     public Builder controlParam(final DcpControl.Names name, Object value) {
+      this.dcpControl.put(name, value.toString());
+      return this;
+    }
+
+    /**
+     * Sets an arbitrary DCP control parameter.
+     *
+     * @param name the name of the param
+     * @param value the value of the param
+     * @return this {@link Builder} for nice chainability.
+     */
+    public Builder controlParam(String name, Object value) {
       this.dcpControl.put(name, value.toString());
       return this;
     }

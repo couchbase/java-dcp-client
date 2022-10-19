@@ -15,6 +15,7 @@
  */
 package com.couchbase.client.dcp.config;
 
+import com.couchbase.client.core.annotation.SinceCouchbase;
 import com.couchbase.client.dcp.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,19 +39,12 @@ public class DcpControl {
   /**
    * Stores the params to negotiate in a map.
    */
-  private Map<String, String> values;
+  private final Map<String, String> values = new HashMap<>();
 
   /**
    * The requested compression mode.
    */
   private CompressionMode compressionMode = CompressionMode.ENABLED;
-
-  /**
-   * Creates a new {@link DcpControl} instance with no params set upfront.
-   */
-  public DcpControl() {
-    this.values = new HashMap<>();
-  }
 
   /**
    * Set the compression mode to use.
@@ -69,20 +63,24 @@ public class DcpControl {
   }
 
   /**
-   * Store/Override a control parameter.
+   * Sets a control parameter.
    *
    * @param name the name of the control parameter.
    * @param value the stringified version what it should be set to.
    * @return the {@link DcpControl} instance for chainability.
    */
   public DcpControl put(final Names name, final String value) {
+    return put(name.value, value);
+  }
+
+  public DcpControl put(final String name, final String value) {
     // Provide a default NOOP interval because the client needs
     // to know the interval in order to detect dead connections.
-    if (name == Names.ENABLE_NOOP && get(Names.SET_NOOP_INTERVAL) == null) {
+    if (name.equals(Names.ENABLE_NOOP.value) && get(Names.SET_NOOP_INTERVAL) == null) {
       put(Names.SET_NOOP_INTERVAL, Integer.toString(DEFAULT_NOOP_INTERVAL_SECONDS));
     }
 
-    values.put(name.value(), value);
+    values.put(name, value);
     return this;
   }
 
@@ -162,14 +160,18 @@ public class DcpControl {
      * be set to either "true" or "false". See the page on dead connections for more
      * details. This parameter is available starting in Couchbase 3.0.
      */
+    @SinceCouchbase("3.0")
     ENABLE_NOOP("enable_noop"),
+
     /**
      * Used to tell the Producer the size of the Consumer side buffer in bytes which
      * the Consumer is using for flow control. The value of this parameter should be
      * an integer in string form between 1 and 2^32. See the page on flow control for
      * more details. This parameter is available starting in Couchbase 3.0.
      */
+    @SinceCouchbase("3.0")
     CONNECTION_BUFFER_SIZE("connection_buffer_size"),
+
     /**
      * Sets the noop interval on the Producer. Values for this parameter should be
      * an integer in string form between 20 and 10800. This allows the noop interval
@@ -177,14 +179,18 @@ public class DcpControl {
      * when enabling noops to prevent the Consumer and Producer having a different
      * noop interval. This parameter is available starting in Couchbase 3.0.1.
      */
+    @SinceCouchbase("3.0.1")
     SET_NOOP_INTERVAL("set_noop_interval"),
+
     /**
      * Sets the priority that the connection should have when sending data.
      * The priority may be set to "high", "medium", or "low". High priority connections
      * will send messages at a higher rate than medium and low priority connections.
      * This parameter is availale starting in Couchbase 4.0.
      */
+    @SinceCouchbase("4.0")
     SET_PRIORITY("set_priority"),
+
     /**
      * Enables sending extended meta data. This meta data is mainly used for internal
      * server processes and will vary between different releases of Couchbase. See
@@ -192,7 +198,9 @@ public class DcpControl {
      * sent. Each version of Couchbase will support a specific version of extended
      * meta data. This parameter is available starting in Couchbase 4.0.
      */
+    @SinceCouchbase("4.0")
     ENABLE_EXT_METADATA("enable_ext_metadata"),
+
     /**
      * Compresses values using snappy compression before sending them. This parameter
      * is available starting in Couchbase 4.5.
@@ -201,7 +209,9 @@ public class DcpControl {
      * {@link #compression(CompressionMode)}. Scheduled for removal in next major version.
      */
     @Deprecated
+    @SinceCouchbase("4.5")
     ENABLE_VALUE_COMPRESSION("enable_value_compression"),
+
     /**
      * Tells the server that the client can tolerate the server dropping the connection.
      * The server will only do this if the client cannot read data from the stream fast
@@ -209,7 +219,22 @@ public class DcpControl {
      * disabling cursor dropping for backwards compatibility. This parameter is available
      * starting in Couchbase 4.5.
      */
-    SUPPORTS_CURSOR_DROPPING("supports_cursor_dropping");
+    @SinceCouchbase("4.5")
+    SUPPORTS_CURSOR_DROPPING("supports_cursor_dropping"),
+
+    /**
+     * Tells the server that the client would like to receive expiry opcodes
+     * when an item is expired. The value of this should be set to 'true'
+     * for this control to occur, and 'false' will turn them off which is
+     * also its default state. Note by setting this to true, the delete time
+     * is required inside the expiration packets so delete times (and therefore delete_v2)
+     * is implicitly enabled. This option is available in versions from Couchbase 6.5.
+     * For a general overview of this feature, see expiry-opcode-output.md.
+     */
+    @SinceCouchbase("6.5")
+    ENABLE_EXPIRY_OPCODE("enable_expiry_opcode"),
+
+    ;
 
     private String value;
 
