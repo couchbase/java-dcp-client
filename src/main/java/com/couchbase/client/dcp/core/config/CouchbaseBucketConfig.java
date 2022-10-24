@@ -48,6 +48,7 @@ public class CouchbaseBucketConfig {
       String name,
       String uuid,
       Set<BucketCapability> capabilities,
+      boolean ephemeral,
       int replicas,
       PartitionMap partitions,
       @Nullable PartitionMap partitionsForward
@@ -59,7 +60,7 @@ public class CouchbaseBucketConfig {
     this.partitions = requireNonNull(partitions);
     this.partitionsForward = Optional.ofNullable(partitionsForward);
     this.capabilities = unmodifiableSet(newEnumSet(BucketCapability.class, capabilities));
-    this.ephemeral = !capabilities.contains(BucketCapability.COUCHAPI);
+    this.ephemeral = ephemeral;
 
     this.primaryPartitionHosts = unmodifiableSet(
         partitions.values().stream()

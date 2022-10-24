@@ -71,15 +71,30 @@ public class CouchbaseBucketConfigParser {
         vBucketServerMap.get("vBucketMapForward")
     );
 
+    Set<BucketCapability> bucketCapabilities = parseBucketCapabilities(configNode);
+    boolean ephemeral = parseEphemeral(configNode, bucketCapabilities);
+
     return new CouchbaseBucketConfig(
         clusterConfig,
         configNode.path("name").asText(),
         configNode.path("uuid").asText(),
-        parseBucketCapabilities(configNode),
+        bucketCapabilities,
+        ephemeral,
         vBucketServerMap.path("numReplicas").asInt(0),
         partitionMap,
         partitionMapForward.orElse(null)
     );
+  }
+
+  private static boolean parseEphemeral(ObjectNode configNode, Set<BucketCapability> bucketCapabilities) {
+    // The "bucketType" field was added in 7.1.0 (along with the Magma storage backend).
+    // If present, this field tells us whether the bucket is ephemeral.
+    // If absent, a bucket without the "couchapi" capability is ephemeral.
+    // Can't just always use the bucket capabilities, because some (all?) versions of Magma do not support couchapi.
+    String bucketType = configNode.path("bucketType").textValue();
+    return bucketType != null
+        ? "ephemeral".equals(bucketType)
+        : !bucketCapabilities.contains(BucketCapability.COUCHAPI);
   }
 
   private static final TypeReference<List<List<Integer>>> LIST_OF_LIST_OF_INTEGER_TYPE =

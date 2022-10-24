@@ -38,6 +38,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class DefaultCouchbaseBucketConfigTest {
     @Test
+    void magmaBucketIsNotEphemeral() {
+        CouchbaseBucketConfig config = read("config_magma_two_nodes.json");
+        assertEquals("foo", config.name());
+        assertFalse(config.ephemeral());
+    }
+
+    @Test
     @Disabled("The input JSON is from a version of Couchbase Server that's too old.")
     void shouldHavePrimaryPartitionsOnNode() {
         CouchbaseBucketConfig config = read("config_with_mixed_partitions.json");
