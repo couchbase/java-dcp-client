@@ -31,12 +31,13 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.NetworkSelector;
 import com.couchbase.client.dcp.core.config.PortSelector;
-import com.couchbase.client.dcp.core.env.SeedNode;
 import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.dcp.core.env.SeedNode;
 import com.couchbase.client.dcp.core.event.EventBus;
 import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.core.utils.ConnectionString;
+import com.couchbase.client.dcp.core.utils.MinimalEventBus;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
@@ -104,9 +105,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.couchbase.client.core.util.CbStrings.isNullOrEmpty;
+import static com.couchbase.client.core.util.ConnectionStringUtil.seedNodesFromConnectionString;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
-import static com.couchbase.client.dcp.core.utils.CbCollections.isNullOrEmpty;
+import static com.couchbase.client.dcp.core.utils.CbCollections.listCopyOf;
+import static com.couchbase.client.dcp.core.utils.CbCollections.listOf;
+import static com.couchbase.client.dcp.core.utils.ConnectionString.Scheme.COUCHBASES;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static com.couchbase.client.dcp.metrics.LogLevel.NONE;
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
@@ -518,7 +523,7 @@ public class Client implements Closeable {
           return null;
         })
         .then()
-        .subscribeOn(Schedulers.elastic());
+        .subscribeOn(Schedulers.boundedElastic());
   }
 
   /**
@@ -921,7 +926,7 @@ public class Client implements Closeable {
    * Builder object to customize the {@link Client} creation.
    */
   public static class Builder {
-    private List<HostAndPort> seedNodes = singletonList(new HostAndPort("127.0.0.1", 0));
+    private ConnectionString connectionString = ConnectionString.fromHostnames(listOf("127.0.0.1"));
     private NetworkResolution networkResolution = NetworkResolution.AUTO;
     private EventLoopGroup eventLoopGroup;
     private String bucket = "default";
@@ -943,7 +948,7 @@ public class Client implements Closeable {
     private int dcpChannelsReconnectMaxAttempts = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_MAX_ATTEMPTS;
     private Retry dcpChannelsReconnectDelay = Environment.DEFAULT_DCP_CHANNELS_RECONNECT_DELAY;
     private EventBus eventBus;
-    private SecurityConfig securityConfig = SecurityConfig.builder().build();
+    private SecurityConfig.Builder securityConfig = SecurityConfig.builder();
     private long persistencePollingIntervalMillis;
     private MeterRegistry meterRegistry = Metrics.globalRegistry;
     private Tracer tracer = Tracer.NOOP;
@@ -1014,9 +1019,7 @@ public class Client implements Closeable {
      * @return this {@link Builder} for nice chainability.
      */
     public Builder seedNodes(final Collection<String> addresses) {
-      List<String> asList = new ArrayList<>(new HashSet<>(addresses));
-      this.seedNodes = getSeedNodes(ConnectionString.fromHostnames(asList));
-      return this;
+      return connectionString(ConnectionString.fromHostnames(listCopyOf(addresses)));
     }
 
     /**
@@ -1062,7 +1065,12 @@ public class Client implements Closeable {
      * @return this {@link Builder} for nice chainability.
      */
     public Builder connectionString(String connectionString) {
-      this.seedNodes = getSeedNodes(ConnectionString.create(connectionString));
+      this.connectionString = ConnectionString.create(connectionString);
+      return this;
+    }
+
+    public Builder connectionString(ConnectionString connectionString) {
+      this.connectionString = requireNonNull(connectionString);
       return this;
     }
 
@@ -1375,18 +1383,42 @@ public class Client implements Closeable {
     }
 
     /**
-     * Sets the TLS configutation options
+     * Sets the TLS configuration options.
+     *
+     * @deprecated Please use {@link #securityConfig(Consumer)} instead.
      */
+    @Deprecated
     public Builder securityConfig(final SecurityConfig securityConfig) {
-      this.securityConfig = requireNonNull(securityConfig);
+      SecurityConfig.Builder builder = new SecurityConfig.Builder()
+          .enableTls(securityConfig.tlsEnabled())
+          .enableNativeTls(securityConfig.nativeTlsEnabled())
+          .enableHostnameVerification(securityConfig.hostnameVerificationEnabled());
+
+      if (securityConfig.trustCertificates() != null) {
+        builder.trustCertificates(securityConfig.trustCertificates());
+      }
+      if (securityConfig.trustManagerFactory() != null) {
+        builder.trustManagerFactory(securityConfig.trustManagerFactory());
+      }
+
+      this.securityConfig = builder;
+      return this;
+    }
+
+    public Builder securityConfig(Consumer<SecurityConfig.Builder> configurator) {
+      configurator.accept(securityConfig);
       return this;
     }
 
     /**
-     * Sets the TLS configutation options (from a builder, for convenience)
+     * Sets the TLS configuration options (from a builder, for convenience)
+     *
+     * @deprecated Please use {@link #securityConfig(Consumer)} instead.
      */
+    @Deprecated
     public Builder securityConfig(final SecurityConfig.Builder securityConfigBuilder) {
-      return securityConfig(securityConfigBuilder.build());
+      this.securityConfig = requireNonNull(securityConfigBuilder);
+      return this;
     }
 
     /**
@@ -1440,11 +1472,21 @@ public class Client implements Closeable {
      * @return the built client instance.
      */
     public Client build() {
+      // Make sure the connection string scheme and the `security.enableTls` settings
+      // match; if either indicates a secure connection, upgrade the other.
+      if (connectionString.scheme() == COUCHBASES) {
+        securityConfig(it -> it.enableTls(true));
+      }
+      SecurityConfig builtSecurityConfig = securityConfig.build();
+      if (builtSecurityConfig.tlsEnabled()) {
+        connectionString(this.connectionString.withScheme(COUCHBASES));
+      }
+
       if (authenticator == null) {
         throw new IllegalStateException("Must provide authenticator. Simplest way is to call credentials(username, password).");
       }
 
-      if (authenticator.requiresTls() && !securityConfig.tlsEnabled()) {
+      if (authenticator.requiresTls() && !builtSecurityConfig.tlsEnabled()) {
         throw new IllegalStateException("The provided authenticator requires TLS, but TLS was not enabled in the SecurityConfig");
       }
 
@@ -1526,7 +1568,7 @@ public class Client implements Closeable {
     private static final int DEFAULT_KV_PORT = 11210;
     private static final int DEFAULT_KV_TLS_PORT = 11207;
 
-    private final List<HostAndPort> seedNodes;
+    private final ConnectionString connectionString;
     private final NetworkResolution networkResolution;
     private final ConnectionNameGenerator connectionNameGenerator;
     private final String bucket;
@@ -1593,8 +1635,8 @@ public class Client implements Closeable {
         this.scheduler = Schedulers.parallel();
         eventBus = new DefaultDcpEventBus(scheduler);
       }
-      securityConfig = builder.securityConfig;
-      seedNodes = makeDefaultPortsExplicit(builder.seedNodes, securityConfig.tlsEnabled());
+      securityConfig = builder.securityConfig.build();
+      connectionString = builder.connectionString;
       networkResolution = builder.networkResolution;
       persistencePollingIntervalMillis = builder.persistencePollingIntervalMillis;
 
@@ -1626,10 +1668,36 @@ public class Client implements Closeable {
     }
 
     /**
-     * Lists the bootstrap nodes.
+     * Returns the node addresses to use for bootstrapping.
+     * <p>
+     * If the connection string is eligible for DNS SRV resolution,
+     * the DSN SRV lookup happens every time this method is called.
      */
     public List<HostAndPort> clusterAt() {
-      return seedNodes;
+      boolean dnsSrvEnabled = true;
+      boolean tlsEnabled = connectionString.scheme() == COUCHBASES;
+
+      Set<com.couchbase.client.core.env.SeedNode> seedNodes = seedNodesFromConnectionString(
+          connectionString.original(),
+          dnsSrvEnabled,
+          tlsEnabled,
+          MinimalEventBus.INSTANCE
+      );
+
+      final int defaultKvPort = tlsEnabled ? DEFAULT_KV_TLS_PORT : DEFAULT_KV_PORT;
+
+      List<HostAndPort> addresses = seedNodes.stream()
+          // Can't bootstrap against Manager port, so ignore addresses that only have custom Manager port
+          .filter(it -> it.kvPort().isPresent() || !it.clusterManagerPort().isPresent())
+          .map(it -> new HostAndPort(it.address(), it.kvPort().orElse(defaultKvPort)))
+          .collect(toList());
+
+      sanityCheckPorts(addresses);
+      return addresses;
+    }
+
+    public ConnectionString connectionString() {
+      return connectionString;
     }
 
     /**
@@ -1854,10 +1922,8 @@ public class Client implements Closeable {
       return tracer;
     }
 
-    private static List<HostAndPort> makeDefaultPortsExplicit(List<HostAndPort> addresses, boolean sslEnabled) {
-      final int defaultKvPort = sslEnabled ? DEFAULT_KV_TLS_PORT : DEFAULT_KV_PORT;
-      final List<HostAndPort> result = new ArrayList<>();
 
+    private static void sanityCheckPorts(List<HostAndPort> addresses) {
       for (HostAndPort node : addresses) {
         if (node.port() == 8091 || node.port() == 18091) {
           log.warn("Seed node '{}' uses port '{}' which is likely incorrect." +
@@ -1865,11 +1931,7 @@ public class Client implements Closeable {
                   " If the connection fails, omit the port so the client can supply the correct default.",
               node.host(), node.port());
         }
-
-        result.add(node.port() == 0 ? node.withPort(defaultKvPort) : node);
       }
-
-      return result;
     }
 
     /**
@@ -1903,7 +1965,7 @@ public class Client implements Closeable {
     @Override
     public String toString() {
       return "ClientEnvironment{" +
-          "seedNodes=" + seedNodes +
+          "connectionString=" + connectionString.original() +
           ", connectionNameGenerator=" + connectionNameGenerator +
           ", bucket='" + bucket + '\'' +
           ", collectionsAware=" + collectionsAware +

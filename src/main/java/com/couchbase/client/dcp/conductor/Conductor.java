@@ -15,12 +15,16 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
+import com.couchbase.client.core.util.NanoTimestamp;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
+import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
@@ -32,28 +36,31 @@ import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
+import static com.couchbase.client.dcp.core.utils.CbCollections.setCopyOf;
+import static com.couchbase.client.dcp.core.utils.CbCollections.transform;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -69,10 +76,30 @@ public class Conductor {
   private final AtomicReference<DcpBucketConfig> currentConfig = new AtomicReference<>();
   private final SessionState sessionState = new SessionState();
   private final DcpClientMetrics metrics;
+  private final Duration dnsSrvRefreshCheckInterval = Duration.ofSeconds(2);
+  private final Duration dnsSrvRefreshThrottle = Duration.ofSeconds(15);
+  private final Duration shutdownTimeout = Duration.ofSeconds(30);
+  private final Disposable configSubscription;
 
   // Serializes config updates so synchronization is not required in reconfigure()
-  private final ExecutorService configUpdateExecutor = Executors.newSingleThreadExecutor(
-      new DefaultThreadFactory("reconfigure", true));
+  private final ScheduledExecutorService configUpdateExecutor = Executors.newSingleThreadScheduledExecutor(
+      new DefaultThreadFactory("couchbase-dcp-reconfigure", true));
+
+  private final Thread configUpdateThread;
+
+  {
+    try {
+      this.configUpdateThread = configUpdateExecutor.submit(Thread::currentThread).get();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void requireConfigUpdateThread() {
+    if (Thread.currentThread() != configUpdateThread) {
+      throw new IllegalStateException("This method may only be called on the config update thread, but was called on: " + Thread.currentThread());
+    }
+  }
 
   // Reaches zero when at least one configuration has been successfully applied.
   private final CountDownLatch configurationApplied = new CountDownLatch(1);
@@ -82,7 +109,7 @@ public class Conductor {
     this.env = env;
     this.bucketConfigArbiter = new BucketConfigArbiter(env);
 
-    bucketConfigArbiter.configs()
+    this.configSubscription = bucketConfigArbiter.configs()
         .publishOn(Schedulers.fromExecutor(configUpdateExecutor))
         .subscribe(config -> {
           // Couchbase sometimes says a newly created bucket has no partitions.
@@ -106,21 +133,77 @@ public class Conductor {
   }
 
   public Mono<Void> connect() {
-    stopped = false;
+    Duration bootstrapTimeout = env.bootstrapTimeout()
+        .plus(env.configRefreshInterval()); // allow time for at least one config refresh
 
-    // Connect to every node listed in the bootstrap list.
-    // As part of the connection process, each node is asked for the
-    // bucket config. The response is used to reconfigure the cluster
-    // which adds any missing nodes.
-    env.clusterAt().forEach(this::add);
-    updateChannelGauges();
+    return Mono.fromRunnable(() -> {
+          stopped = false;
 
-    long bootstrapTimeoutMillis = env.bootstrapTimeout().toMillis()
-        + env.configRefreshInterval().toMillis(); // allow at least one config refresh
+          // Connect to every node in the bootstrap list.
+          // Other nodes might be added later, after receiving the bucket config.
+          Set<HostAndPort> addresses = new HashSet<>(env.clusterAt());
+          configUpdateExecutor.execute(() -> add(addresses));
 
-    // Report completion when at least one configuration has been applied.
-    return await(configurationApplied, bootstrapTimeoutMillis, TimeUnit.MILLISECONDS)
-        .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from cluster within {}ms", bootstrapTimeoutMillis));
+          // Are the hosts in the connection string different from the hosts we're actually connecting to?
+          // If so, then DNS SRV resolution was involved, and we can repeat the DNS SRV lookup later
+          // if we lose contact with all nodes.
+          Set<String> connectionStringHosts = setCopyOf(transform(env.connectionString().hosts(), ConnectionString.UnresolvedSocket::hostname));
+          Set<String> resolvedHosts = setCopyOf(transform(addresses, HostAndPort::host));
+          boolean usedDnsSrvForBootstrap = !resolvedHosts.equals(connectionStringHosts);
+          if (usedDnsSrvForBootstrap) {
+            startDnsSrvRefreshWatchdog();
+          }
+
+        })
+        .then(
+            // Report completion after at least one configuration has been applied.
+            await(configurationApplied, bootstrapTimeout)
+                .doOnError(throwable -> LOGGER.warn("Did not receive initial configuration from cluster within {}", bootstrapTimeout))
+        );
+  }
+
+  private void startDnsSrvRefreshWatchdog() {
+    LOGGER.info("Scheduling DNS SRV re-bootstrap check at interval {}", dnsSrvRefreshCheckInterval);
+
+    long intervalMillis = dnsSrvRefreshCheckInterval.toMillis();
+    long initialDelayMillis = env.bootstrapTimeout().toMillis(); // don't need to refresh *during* initial bootstrap (though it doesn't hurt)
+
+    // Use same executor as "reconfigure" scheduler, so all channel adjustments are done on the same thread.
+    configUpdateExecutor.execute(() -> lastDnsSrvRefresh = NanoTimestamp.never()); // initialize it in the same thread where it's used
+    configUpdateExecutor.scheduleWithFixedDelay(this::maybeBootstrapAgain, initialDelayMillis, intervalMillis, TimeUnit.MILLISECONDS);
+  }
+
+  // Must only be accessed by config update thread
+  private NanoTimestamp lastDnsSrvRefresh;
+
+  private void maybeBootstrapAgain() {
+    requireConfigUpdateThread();
+
+    try {
+      if (stopped
+          || !lastDnsSrvRefresh.hasElapsed(dnsSrvRefreshThrottle)
+          || channels.stream().anyMatch(it -> it.state() == LifecycleState.CONNECTED)
+      ) {
+        return;
+      }
+
+      lastDnsSrvRefresh = NanoTimestamp.now();
+
+      LOGGER.info("Attempting DNS SRV refresh because the client is currently connected to zero nodes.");
+
+      Set<HostAndPort> nodesToAdd = new HashSet<>(env.clusterAt());
+      nodesToAdd.removeAll(channelsByAddress().keySet());
+
+      if (nodesToAdd.isEmpty()) {
+        LOGGER.info("DNS SRV record has no new nodes.");
+      } else {
+        LOGGER.info("Adding new nodes from DNS SRV record: {}", system(nodesToAdd));
+        add(nodesToAdd);
+      }
+    } catch (Throwable t) {
+      // Don't propagate it, otherwise scheduled task would be cancelled.
+      LOGGER.error("Exception in DNS SRV refresh watchdog task.", t);
+    }
   }
 
   /**
@@ -129,16 +212,16 @@ public class Conductor {
    * @throws RuntimeException (async) caused by TimeoutException if count does not reach zero before timeout.
    * @throws RuntimeException (async) caused by InterruptedException if interrupted while waiting.
    */
-  private static Mono<Void> await(CountDownLatch latch, long timeout, TimeUnit timeoutUnit) {
+  private static Mono<Void> await(CountDownLatch latch, Duration timeout) {
     return Mono.fromRunnable(() -> {
       try {
-        if (!latch.await(timeout, timeoutUnit)) {
-          throw new RuntimeException(new TimeoutException("Timed out after waiting " + timeout + " " + timeoutUnit + " for latch."));
+        if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+          throw new RuntimeException(new TimeoutException("Timed out after waiting " + timeout + " for latch."));
         }
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
-    });
+    }).subscribeOn(Schedulers.boundedElastic()).then(); // because CountDownLatch.await() is blocking
   }
 
   BucketConfigArbiter bucketConfigArbiter() {
@@ -154,13 +237,24 @@ public class Conductor {
   }
 
   public Mono<Void> stop() {
-    LOGGER.debug("Instructed to shutdown.");
-    stopped = true;
-    return Flux.fromIterable(channels)
-        .flatMap(DcpChannel::disconnect)
-        .then(Mono.fromRunnable(configUpdateExecutor::shutdown))
-        .then()
-        .doOnSuccess(ignore -> LOGGER.info("Shutdown complete."));
+    return Mono.fromCallable(() -> {
+          LOGGER.debug("Shutting down...");
+          stopped = true;
+
+          // Ensure no reconfiguration or re-bootstrapping happens during shutdown.
+          configSubscription.dispose();
+          configUpdateExecutor.shutdown(); // stops future re-bootstrapping attempts
+          if (!configUpdateExecutor.awaitTermination(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            LOGGER.error("Config updater executor failed to terminate within {}", shutdownTimeout);
+          }
+
+          return null;
+        })
+        .subscribeOn(Schedulers.boundedElastic()) // because awaitTermination is blocking
+        .then(Flux.fromIterable(channels)
+            .flatMap(DcpChannel::disconnect)
+            .then()
+        ).doOnSuccess(ignore -> LOGGER.info("Shutdown complete."));
   }
 
   /**
@@ -242,11 +336,23 @@ public class Conductor {
         return ch;
       }
     }
+    throw new NotConnectedException("No DcpChannel found for partition " + partition);
+  }
 
-    throw new IllegalStateException("No DcpChannel found for partition " + partition);
+  private Map<HostAndPort, DcpChannel> channelsByAddress() {
+    requireConfigUpdateThread();
+
+    return channels.stream()
+        .collect(toMap(DcpChannel::address, c -> c));
   }
 
   private void reconfigure(DcpBucketConfig configHelper) {
+    requireConfigUpdateThread();
+
+    if (stopped) {
+      return;
+    }
+
     metrics.incrementReconfigure();
 
     final List<NodeInfo> nodes = configHelper.getKvNodes();
@@ -254,8 +360,7 @@ public class Conductor {
       throw new IllegalStateException("Bucket config helper returned no data nodes");
     }
 
-    final Map<HostAndPort, DcpChannel> existingChannelsByAddress = channels.stream()
-        .collect(toMap(DcpChannel::address, c -> c));
+    final Map<HostAndPort, DcpChannel> existingChannelsByAddress = channelsByAddress();
 
     final Set<HostAndPort> nodeAddresses = nodes.stream()
         .map(configHelper::getAddress)
@@ -280,7 +385,7 @@ public class Conductor {
     }
 
     // Don't (re)register the gauges unless something changed, because registration
-    // requires first unregistering the old gauges, and that can cause unpleasant
+    // requires first unregistering the old gauges, and that can cause
     // unpleasant user experience when the metrics are exported via JMX
     // (the gauges temporarily vanish from the JMX browser).
     if (nodesChanged) {
@@ -292,7 +397,16 @@ public class Conductor {
     metrics.registerConnectionStatusGauges(channels);
   }
 
+  private void add(Collection<HostAndPort> nodes) {
+    requireConfigUpdateThread();
+
+    nodes.forEach(this::add);
+    updateChannelGauges();
+  }
+
   private void add(final HostAndPort node) {
+    requireConfigUpdateThread();
+
     LOGGER.info("Adding DCP Channel against {}", system(node));
     final DcpChannel channel = new DcpChannel(node, env, this, metrics);
     if (!channels.add(channel)) {
@@ -300,7 +414,7 @@ public class Conductor {
     }
 
     channel.connect()
-        .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+        .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(1))
             .filter(t -> !stopped)
             .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", node))
         )
@@ -315,6 +429,8 @@ public class Conductor {
   }
 
   private void remove(final DcpChannel node) {
+    requireConfigUpdateThread();
+
     if (!channels.remove(node)) {
       throw new IllegalStateException("Tried to remove unknown channel: " + system(node));
     }

@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -67,21 +66,21 @@ public class SecurityConfig {
   private SecurityConfig(final Builder builder) {
     tlsEnabled = builder.tlsEnabled;
     nativeTlsEnabled = builder.nativeTlsEnabled;
-    trustCertificates = builder.trustCertificates;
     trustManagerFactory = builder.trustManagerFactory;
     hostnameVerificationEnabled = builder.hostnameVerificationEnabled;
 
+    List<X509Certificate> trustCerts = builder.trustCertificates;
     if (tlsEnabled) {
-      if (trustCertificates != null && trustManagerFactory != null) {
+      if (builder.trustCertificates != null && trustManagerFactory != null) {
         throw new IllegalArgumentException("Either trust certificates or a trust manager factory" +
             " can be provided, but not both!");
       }
-      if ((trustCertificates == null || trustCertificates.isEmpty()) && trustManagerFactory == null) {
-        throw new IllegalArgumentException("Either a trust certificate or a trust manager factory" +
-            " must be provided when TLS is enabled!");
+      if (trustCerts == null && trustManagerFactory == null) {
+        trustCerts = com.couchbase.client.core.env.SecurityConfig.defaultCaCertificates();
       }
-
     }
+
+    this.trustCertificates = trustCerts;
   }
 
   /**
