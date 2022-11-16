@@ -51,7 +51,7 @@ public abstract class Delay {
 
   /**
    * Calculate a specific delay based on the attempt passed in.
-   *
+   * <p>
    * This method is to be implemented by the child implementations and depending on the params
    * that were set during construction time.
    *

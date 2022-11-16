@@ -15,12 +15,12 @@
  */
 package com.couchbase.client.dcp.state.json;
 
-import com.couchbase.client.dcp.state.PartitionState;
-import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonParser;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonToken;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.DeserializationContext;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonDeserializer;
+import com.couchbase.client.dcp.state.PartitionState;
+import com.couchbase.client.dcp.state.SessionState;
 
 import java.io.IOException;
 

@@ -15,6 +15,20 @@
  */
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.core.deps.io.netty.bootstrap.Bootstrap;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBufAllocator;
+import com.couchbase.client.core.deps.io.netty.buffer.PooledByteBufAllocator;
+import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
+import com.couchbase.client.core.deps.io.netty.buffer.UnpooledByteBufAllocator;
+import com.couchbase.client.core.deps.io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelFuture;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelFutureListener;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelOption;
+import com.couchbase.client.core.deps.io.netty.util.AttributeKey;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.GenericFutureListener;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.ImmediateEventExecutor;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpOps;
 import com.couchbase.client.dcp.config.HostAndPort;
@@ -48,20 +62,6 @@ import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.dcp.transport.netty.DcpResponseListener;
 import com.couchbase.client.dcp.util.AdaptiveDelay;
 import com.couchbase.client.dcp.util.AtomicBooleanArray;
-import com.couchbase.client.core.deps.io.netty.bootstrap.Bootstrap;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBufAllocator;
-import com.couchbase.client.core.deps.io.netty.buffer.PooledByteBufAllocator;
-import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.core.deps.io.netty.buffer.UnpooledByteBufAllocator;
-import com.couchbase.client.core.deps.io.netty.channel.Channel;
-import com.couchbase.client.core.deps.io.netty.channel.ChannelFuture;
-import com.couchbase.client.core.deps.io.netty.channel.ChannelFutureListener;
-import com.couchbase.client.core.deps.io.netty.channel.ChannelOption;
-import com.couchbase.client.core.deps.io.netty.util.AttributeKey;
-import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
-import com.couchbase.client.core.deps.io.netty.util.concurrent.GenericFutureListener;
-import com.couchbase.client.core.deps.io.netty.util.concurrent.ImmediateEventExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
@@ -79,6 +79,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.couchbase.client.core.deps.io.netty.util.ReferenceCountUtil.safeRelease;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.user;
 import static com.couchbase.client.dcp.message.HelloFeature.COLLECTIONS;
@@ -86,7 +87,6 @@ import static com.couchbase.client.dcp.message.MessageUtil.GET_COLLECTIONS_MANIF
 import static com.couchbase.client.dcp.message.ResponseStatus.KEY_EXISTS;
 import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
-import static com.couchbase.client.core.deps.io.netty.util.ReferenceCountUtil.safeRelease;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
@@ -265,10 +265,10 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     // Always start with timer even if delay is zero; that way the scheduler executing the rest of the flow is the same
     // regardless of whether the reconnect attempt was delayed. One less thing to think about when debugging.
     Mono.delay(delay).then(
-        connect()
-            .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofMillis(32))
-                .maxBackoff(Duration.ofSeconds(4))
-                .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", address))))
+            connect()
+                .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofMillis(32))
+                    .maxBackoff(Duration.ofSeconds(4))
+                    .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Node reconnect for DCP channel {}", address))))
         .doOnError(e -> LOGGER.warn("Got error during connect (maybe retried) for node {}", system(address), e))
         .doOnSuccess(ignored -> {
           LOGGER.debug("Completed Node connect for DCP channel {}", address);

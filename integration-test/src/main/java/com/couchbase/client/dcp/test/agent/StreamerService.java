@@ -62,7 +62,7 @@ public interface StreamerService {
    * Waits for the stream to reach the "stream to" value, then returns the streamer status
    * and stops the streamer.
    *
-   * @throws TimeoutException      if stream end is not reached before deadline
+   * @throws TimeoutException if stream end is not reached before deadline
    * @throws IllegalStateException if "stream to" condition is "infinity"
    */
   DcpStreamer.Status awaitStreamEnd(String streamerId, long timeout, TimeUnit unit) throws TimeoutException;

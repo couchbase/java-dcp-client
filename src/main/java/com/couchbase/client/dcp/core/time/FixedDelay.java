@@ -36,6 +36,6 @@ public class FixedDelay extends Delay {
 
   @Override
   public String toString() {
-    return "FixedDelay{" + delay + " " + unit()+ "}";
+    return "FixedDelay{" + delay + " " + unit() + "}";
   }
 }

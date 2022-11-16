@@ -18,7 +18,6 @@ package com.couchbase.client.dcp.core.logging;
 
 /**
  * Represents a logging argument which is subject to redaction.
-
  */
 public class RedactableArgument {
 
@@ -63,7 +62,7 @@ public class RedactableArgument {
   }
 
   /**
-   * @deprecated  Please use {@link #redactUser(Object)} instead.
+   * @deprecated Please use {@link #redactUser(Object)} instead.
    */
   @Deprecated
   public static RedactableArgument user(final Object message) {
@@ -92,7 +91,7 @@ public class RedactableArgument {
   }
 
   /**
-   * @deprecated  Please use {@link #redactMeta(Object)} instead.
+   * @deprecated Please use {@link #redactMeta(Object)} instead.
    */
   @Deprecated
   public static RedactableArgument meta(final Object message) {
@@ -118,7 +117,7 @@ public class RedactableArgument {
   }
 
   /**
-   * @deprecated  Please use {@link #redactSystem(Object)} instead.
+   * @deprecated Please use {@link #redactSystem(Object)} instead.
    */
   @Deprecated
   public static RedactableArgument system(final Object message) {

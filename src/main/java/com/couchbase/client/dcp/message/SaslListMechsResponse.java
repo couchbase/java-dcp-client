@@ -18,7 +18,6 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static com.couchbase.client.dcp.message.MessageUtil.SASL_LIST_MECHS_OPCODE;

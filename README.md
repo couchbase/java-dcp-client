@@ -1,29 +1,33 @@
 # Couchbase Java DCP Client
+
 This repository contains a pure Java implementation of a Couchbase Database Change Protocol (DCP) client.
 
-**Important:** The `java-dcp-client` is **not officially supported** by Couchbase directly. It is used as a fundamental building block for higher-level (supported) libraries like our Kafka and Elasticsearch connectors. **Use at your own risk!**
+**Important:** The `java-dcp-client` is **not officially supported** by Couchbase directly. It is used as a fundamental building block for higher-level (supported) libraries like our Kafka and
+Elasticsearch connectors. **Use at your own risk!**
 
 ## Compatibility Notes
+
 Versions 0.27.0 through 0.35.0 inclusive are incompatible with Couchbase Server 7.0.2 and later (the client may fail to bootstrap or respond to server cluster topology changes).
 We recommend all users upgrade to 0.36.0 or later.
 
-
 ## Features
- - [x] Low overhead streaming
- - [x] Async from top to bottom
- - [x] Stream specific vbuckets
- - [x] Manual start/stop of streams
- - [x] Noop acknowledgements and dead connection detection
- - [x] Flow control
- - [x] Session management for restartability
- - [x] Rebalance support
- - [x] Export current session state for durability (ships with JSON)
- - [x] Start and restart from specific session state (import durable state)
- - [x] Pausing and restarts
- - [x] Stream up to a specific point in time for a vbucket and then stop
- - [x] Proper shutdown/disconnect and cleanup
+
+- [x] Low overhead streaming
+- [x] Async from top to bottom
+- [x] Stream specific vbuckets
+- [x] Manual start/stop of streams
+- [x] Noop acknowledgements and dead connection detection
+- [x] Flow control
+- [x] Session management for restartability
+- [x] Rebalance support
+- [x] Export current session state for durability (ships with JSON)
+- [x] Start and restart from specific session state (import durable state)
+- [x] Pausing and restarts
+- [x] Stream up to a specific point in time for a vbucket and then stop
+- [x] Proper shutdown/disconnect and cleanup
 
 ## Installation
+
 We publish the releases (including pre-releases to maven central):
 
 ```xml
@@ -51,6 +55,7 @@ with the next `SNAPSHOT` version. You can then depend on it in your
 project.
 
 ## Basic Usage
+
 The simplest way is to initiate a stream against `localhost` and open
 all streams available. You always need to attach a callback for both the
 config and the data events - in the simplest case all the messages are
@@ -109,6 +114,7 @@ client.disconnect().await();
 ```
 
 ### Dealing with Messages and ByteBufs
+
 To save allocations the actual data you are interacting with are raw
 netty `ByteBuf`s that may be pooled, depending on the configuration. So
 it is always important to `release()` them when not needed anymore.
@@ -127,10 +133,10 @@ if (DcpMutationMessage.is(event)) {
 }
 ```
 
-
 ## Advanced Usage
 
 ### Flow Control
+
 To handle slow clients better and to make it possible that the client signals
 backpressure to the server (that it should stop sending new data when the
 client is busy processing the previous ones) flow control tuneables are
@@ -141,6 +147,7 @@ it during bootstrap and then acknowledge specific message types as soon
 as you are done processing them.
 
 #### Configuring Flow Control
+
 To activate flow control, the `DcpControl.Names.CONNECTION_BUFFER_SIZE`
 control param needs to be set to a value greater than zero. A reasonable
 start value to test would be "10240" (10K).
@@ -153,16 +160,17 @@ cutting down on network traffic and to reduce the workload on the server
 side for accounting.
 
 #### Acknowledging Messages
+
 If you do not acknowledge the bytes read for specific messages, the server
 will stop streaming new messages when the `CONNECTION_BUFFER_SIZE` is
 reached.
 
 The following messages need to be acknowledged by the user:
 
- - `DcpSnapshotMarkerRequest` (on the `ControlEventHandler`)
- - `DcpMutationMessage` (on the `DataEventHandler`)
- - `DcpDeletionMessage` (on the `DataEventHandler`)
- - `DcpExpirationMessage` (on the `DataEventHandler`)
+- `DcpSnapshotMarkerRequest` (on the `ControlEventHandler`)
+- `DcpMutationMessage` (on the `DataEventHandler`)
+- `DcpDeletionMessage` (on the `DataEventHandler`)
+- `DcpExpirationMessage` (on the `DataEventHandler`)
 
 Acknowledging works by calling the `ChannelFlowController#ack` method.
 
@@ -209,7 +217,7 @@ Here we will just post quick start steps:
 ### System Events
 
 Since the 0.7.0 release, the client implements a notification service, which allows you to react on events, which are
-not tied directly to protocol and data transmission.  For example, connection errors, or notifications about stream
+not tied directly to protocol and data transmission. For example, connection errors, or notifications about stream
 completion when the end sequence number wasn't set to infinity. The following example subscribes a handler to system
 events to find out when partition 42 is done with data transmission:
 

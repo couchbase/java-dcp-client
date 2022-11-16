@@ -114,10 +114,9 @@ public class Version implements Comparable<Version> {
    * @param versionString the string to parse into a Version.
    * @return the major.minor.patch Version corresponding to the string.
    * @throws IllegalArgumentException if the string cannot be correctly parsed into a Version.
-   *                                  This happens if the input is empty,
-   *                                  the first character is not a decimal digit,
-   *                                  or if any version component is greater than Integer.MAX_VALUE.
-   * @throws NullPointerException     if the string is null.
+   * This happens if the input is empty, the first character is not a decimal digit,
+   * or if any version component is greater than Integer.MAX_VALUE.
+   * @throws NullPointerException if the string is null.
    */
   public static Version parseVersion(String versionString) {
     requireNonNull(versionString, "versionString");

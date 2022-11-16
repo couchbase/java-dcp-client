@@ -17,7 +17,7 @@ package com.couchbase.client.dcp.core.lang;
 
 /**
  * Static factory class for various Tuples.
- *
+ * <p>
  * A tuple should be used if more than one argument needs to be passed through a observable. Note that there are
  * intentionally only tuples with a maximum of five elements, because if more are needed it hurts readability and
  * value objects should be used instead. Also keep in mind that if a tuple is used instead of a value object semantics

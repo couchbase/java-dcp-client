@@ -15,7 +15,6 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
-import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBufHolder;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelHandler;
@@ -23,6 +22,7 @@ import com.couchbase.client.core.deps.io.netty.channel.ChannelHandler.Sharable;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.core.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.core.deps.io.netty.handler.logging.LoggingHandler;
+import com.couchbase.client.dcp.message.MessageUtil;
 
 /**
  * A {@link ChannelHandler} that logs all events using a logging framework.

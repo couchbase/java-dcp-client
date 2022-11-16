@@ -21,7 +21,7 @@ public class Resources {
 
   /**
    * Reads a file from the resources folder (in the same path as the requesting test class).
-   *
+   * <p>
    * The class will be automatically loaded relative to the namespace and converted to a string.
    *
    * @param filename the filename of the resource.

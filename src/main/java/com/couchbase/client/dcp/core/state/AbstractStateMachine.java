@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Abstract {@link Stateful} implementation which acts like a simple state machine.
- *
+ * <p>
  * This class is thread safe, so state transitions can be issued from any thread without any further synchronization.
  */
 public class AbstractStateMachine<S extends Enum> implements Stateful<S> {
@@ -56,7 +56,7 @@ public class AbstractStateMachine<S extends Enum> implements Stateful<S> {
 
   /**
    * Transition into a new state.
-   *
+   * <p>
    * This method is intentionally not public, because the subclass should only be responsible for the actual
    * transitions, the other components only react on those transitions eventually.
    *

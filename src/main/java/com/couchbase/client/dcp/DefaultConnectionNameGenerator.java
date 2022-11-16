@@ -15,9 +15,9 @@
  */
 package com.couchbase.client.dcp;
 
+import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonProcessingException;
 import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
 import com.couchbase.client.dcp.util.UserAgentBuilder;
-import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

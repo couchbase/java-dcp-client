@@ -15,6 +15,10 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.core.deps.io.netty.util.AttributeKey;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.buffer.DcpOps;
@@ -28,10 +32,6 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.VersionRequest;
 import com.couchbase.client.dcp.util.Version;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.core.deps.io.netty.channel.Channel;
-import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
-import com.couchbase.client.core.deps.io.netty.util.AttributeKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -215,7 +215,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
    * Returns the Couchbase Server version associated with the given channel.
    *
    * @throws IllegalStateException if {@link DcpConnectHandler} has not yet issued
-   *                               a Version request and processed the result.
+   * a Version request and processed the result.
    */
   public static Version getServerVersion(Channel channel) {
     Version version = channel.attr(SERVER_VERSION).get();
@@ -231,7 +231,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
    * we advertised and the features supported by the server).
    *
    * @throws IllegalStateException if {@link DcpConnectHandler} has not yet issued
-   *                               a HELO request and processed the result.
+   * a HELO request and processed the result.
    */
   public static Set<HelloFeature> getFeatures(Channel channel) {
     Set<HelloFeature> features = channel.attr(NEGOTIATED_FEATURES).get();

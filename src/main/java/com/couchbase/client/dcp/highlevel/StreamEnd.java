@@ -45,6 +45,6 @@ public class StreamEnd implements DatabaseChangeEvent {
   }
 
   public String toString() {
-   return "Stream " + vbucket + " ended: " + reason;
+    return "Stream " + vbucket + " ended: " + reason;
   }
 }

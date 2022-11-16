@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.highlevel.internal;
 
-import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.couchbase.client.dcp.core.utils.DefaultObjectMapper;
 
 import java.io.IOException;
 import java.util.HashMap;

@@ -23,6 +23,7 @@ It takes a lot of work to get from a potential new bug fix or feature idea to we
 Our engineers want to help you get there.
 
 === One-time setup
+
 The first step is to sign our Contributor License Agreement.
 
 NOTE: Contributor License Agreements (CLAs) are common for projects under the Apache license, and typically serve to grant control of the code to a central entity.

@@ -20,7 +20,6 @@ import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.core.deps.io.netty.util.concurrent.GenericFutureListener;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

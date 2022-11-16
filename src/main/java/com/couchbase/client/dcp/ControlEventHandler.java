@@ -15,8 +15,8 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 
 /**
  * This interface acts as a callback on the {@link Client#controlEventHandler(ControlEventHandler)} API

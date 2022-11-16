@@ -15,6 +15,13 @@
  */
 package com.couchbase.client.dcp.transport.netty;
 
+import com.couchbase.client.core.deps.io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelInitializer;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelPipeline;
+import com.couchbase.client.core.deps.io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import com.couchbase.client.core.deps.io.netty.handler.logging.LogLevel;
+import com.couchbase.client.core.deps.io.netty.handler.logging.LoggingHandler;
+import com.couchbase.client.core.deps.io.netty.handler.timeout.IdleStateHandler;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
 import com.couchbase.client.dcp.conductor.BucketConfigArbiter;
@@ -24,13 +31,6 @@ import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
-import com.couchbase.client.core.deps.io.netty.channel.Channel;
-import com.couchbase.client.core.deps.io.netty.channel.ChannelInitializer;
-import com.couchbase.client.core.deps.io.netty.channel.ChannelPipeline;
-import com.couchbase.client.core.deps.io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import com.couchbase.client.core.deps.io.netty.handler.logging.LogLevel;
-import com.couchbase.client.core.deps.io.netty.handler.logging.LoggingHandler;
-import com.couchbase.client.core.deps.io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -41,5 +41,7 @@ public interface Authenticator {
   /**
    * If this authenticator only works with encrypted connections.
    */
-  default boolean requiresTls() { return false; }
+  default boolean requiresTls() {
+    return false;
+  }
 }

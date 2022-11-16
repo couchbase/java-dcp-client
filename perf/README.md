@@ -12,15 +12,15 @@ To run the test client:
                 <config-properties-file> [process-tracer]
 
 * `connection-string` - A Couchbase connection string with username, password, host(s), and bucket.
-                        Example: `couchbase://alice:password@127.0.0.1/my-bucket`
+  Example: `couchbase://alice:password@127.0.0.1/my-bucket`
 * `dcp-message-count` - Total number of DCP mutation, expiration, and deletion messages
-                        the client should receive before terminating.
+  the client should receive before terminating.
 * `config-properties-file` - Path to a Java properties file containing the settings
-                             for this run. Pre-defined configurations are available
-                             in the `perf/config` directory.
+  for this run. Pre-defined configurations are available
+  in the `perf/config` directory.
 * `process-tracer` - An arbitrary, opaque string that will be passed to the spawned
-                     client Java process as a command line argument. It may be used
-                     to distinguish the client process from other Java processes.
+  client Java process as a command line argument. It may be used
+  to distinguish the client process from other Java processes.
 
 Reports are generated in the `target/perf` directory.
 

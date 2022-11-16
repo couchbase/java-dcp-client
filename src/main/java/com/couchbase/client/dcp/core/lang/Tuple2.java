@@ -17,7 +17,7 @@ package com.couchbase.client.dcp.core.lang;
 
 /**
  * A container for two values.
- *
+ * <p>
  * Use the corresponding {@link Tuple#create(Object, Object)} method to instantiate this tuple.
  *
  * @param <T1> the type of the first value.

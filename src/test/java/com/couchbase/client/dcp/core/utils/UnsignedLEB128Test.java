@@ -70,7 +70,7 @@ public class UnsignedLEB128Test {
   void throwsOnIncompleteInput() {
     // incomplete because the last byte has high order bit set,
     // indicating there should be more bytes to follow.
-    byte[] incomplete = new byte[] {(byte) 0x80};
+    byte[] incomplete = new byte[]{(byte) 0x80};
     assertThrows(IndexOutOfBoundsException.class, () -> UnsignedLEB128.decode(incomplete));
     assertThrows(IndexOutOfBoundsException.class, () -> UnsignedLEB128.read(Unpooled.wrappedBuffer(incomplete)));
   }

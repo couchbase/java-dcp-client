@@ -19,27 +19,28 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Delay which increases exponentially on every attempt.
- *
+ * <p>
  * Considering retry attempts start at 1, attempt 0 would be the initial call and will always yield 0 (or the lower bound).
  * Then each retry step will by default yield <code>1 * 2 ^ (attemptNumber-1)</code>. Actually each step can be based on a
  * different number than 1 unit of time using the <code>growBy</code> parameter: <code>growBy * 2 ^ (attemptNumber-1)</code>.
- *
+ * <p>
  * By default with growBy = 1 this gives us 0 (initial attempt), 1, 2, 4, 8, 16, 32...
- *
+ * <p>
  * Each of the resulting values that is below the <code>lowerBound</code> will be replaced by the lower bound, and
  * each value over the <code>upperBound</code> will be replaced by the upper bound.
- *
- * For example, given the following <code>Delay.exponential(TimeUnit.MILLISECONDS, 4000, 0, 500)</code>
- *
- *  * the upper of 4000 means the delay will be capped at 4s
- *  * the lower of 0 is useful to allow for immediate execution of original attempt, attempt 0 (if we ever call the
- *  delay with a parameter of 0)
- *  * the growBy of 500 means that we take steps based on 500ms
- *
+ * <p>
+ * For example, given the following:
+ * <pre>Delay.exponential(TimeUnit.MILLISECONDS, 4000, 0, 500)</pre>
+ * <ul>
+ * <li> the upper of 4000 means the delay will be capped at 4s
+ * <li> the lower of 0 is useful to allow for immediate execution of original attempt, attempt 0 (if we ever call the
+ * delay with a parameter of 0)
+ * <li> the growBy of 500 means that we take steps based on 500ms
+ * </ul>>
  * This yields the following delays: <code>0ms, 500ms, 1s, 2s, 4s, 4s, 4s,...</code>
- *
+ * <p>
  * In detail : <code>0, 500 * 2^0, 500 * 2^1, 500 * 2^2, 500 * 2^3, max(4000, 500 * 2^4), max(4000, 500 * 2^5),...</code>.
- *
+ * <p>
  * Finally, the powers used in the computation can be changed from powers of two by default to another base using the
  * powersOf parameter.
  */

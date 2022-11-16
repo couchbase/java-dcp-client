@@ -29,7 +29,7 @@ public class NetworkResolution {
   /**
    * Based on heuristics discovers if internal or
    * external resolution will be used.
-   *
+   * <p>
    * This is the default setting (not to be confused with
    * the default mode)!
    */

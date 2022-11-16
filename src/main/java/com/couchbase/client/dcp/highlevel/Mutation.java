@@ -16,10 +16,10 @@
 
 package com.couchbase.client.dcp.highlevel;
 
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.highlevel.internal.FlowControlReceipt;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
 public class Mutation extends DocumentChange {
   private final int flags;

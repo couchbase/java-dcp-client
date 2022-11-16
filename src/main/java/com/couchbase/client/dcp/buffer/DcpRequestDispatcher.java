@@ -16,11 +16,11 @@
 
 package com.couchbase.client.dcp.buffer;
 
+import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
+import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.transport.netty.DcpResponse;
 import com.couchbase.client.dcp.transport.netty.DcpResponseListener;
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
-import com.couchbase.client.core.deps.io.netty.util.concurrent.Future;
 
 /**
  * Sends DCP requests to the server.

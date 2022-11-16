@@ -121,7 +121,7 @@ public abstract class DcpIntegrationTestBase {
   protected static void assertStatus(DcpStreamer.Status status, long expectedMutations,
                                      long expectedDeletions, long expectedExpirations,
                                      long expectedScopeCreations, long expectedScopeDrops,
-                                     long expectedCollectionCreations, long expectedCollectionDrops, long expectedCollectionsFlushed){
+                                     long expectedCollectionCreations, long expectedCollectionDrops, long expectedCollectionsFlushed) {
     assertEquals(expectedDeletions, status.getDeletions());
     assertEquals(expectedExpirations, status.getExpirations());
     assertEquals(expectedMutations, status.getMutations());
@@ -224,27 +224,27 @@ public abstract class DcpIntegrationTestBase {
       couchbase().startPersistence(name);
     }
 
-    protected List<String> createScopes(int scopes, String scopeIdPrefix){
+    protected List<String> createScopes(int scopes, String scopeIdPrefix) {
       log.info("Creating {} scopes, on bucket {}", scopes, name);
       return agent().collection().createScopesWithPrefix(name, scopeIdPrefix, scopes);
     }
 
-    protected List<String> createCollections(int collections, String collectionsIdPrefix, String scope){
-      log.info("Creating {} collections, on scope {}, and bucket {}", collections, scope,  name);
+    protected List<String> createCollections(int collections, String collectionsIdPrefix, String scope) {
+      log.info("Creating {} collections, on scope {}, and bucket {}", collections, scope, name);
       return agent().collection().createCollectionsWithPrefix(name, scope, collectionsIdPrefix, collections);
     }
 
-    protected void deleteScope(List<String> scopes){
+    protected void deleteScope(List<String> scopes) {
       log.info("Dropping scopes");
       agent().collection().deleteScopes(scopes, name);
     }
 
-    protected void deleteCollections(List<String> collections, String scope){
+    protected void deleteCollections(List<String> collections, String scope) {
       log.info("Removing collections from scope {}", scope);
       agent().collection().deleteCollections(collections, scope, name);
     }
 
-    protected Map<String, String> upsertOneDocumentToEachCollection(List<String> collections, String documentPrefix, String scope){
+    protected Map<String, String> upsertOneDocumentToEachCollection(List<String> collections, String documentPrefix, String scope) {
       log.info("Creating one document in each collection, on scope {}, and bucket {}", scope, name);
       return agent().document().upsertOneDocumentToEachCollection(name, scope, collections, documentPrefix);
     }

@@ -84,9 +84,9 @@ public class CbCollections {
    *
    * @throws NullPointerException if original is null or contains any null keys or values.
    */
-  public static <K,V> Map<K,V> mapCopyOf(Map<? extends K, ? extends V> original) {
+  public static <K, V> Map<K, V> mapCopyOf(Map<? extends K, ? extends V> original) {
     Map<K, V> result = new HashMap<>();
-    original.forEach((k,v) -> putUniqueKey(result, k, v));
+    original.forEach((k, v) -> putUniqueKey(result, k, v));
     return unmodifiableMap(result);
   }
 
@@ -125,7 +125,7 @@ public class CbCollections {
   /**
    * Returns an unmodifiable set containing the given items.
    *
-   * @throws NullPointerException     if any item is null
+   * @throws NullPointerException if any item is null
    * @throws IllegalArgumentException if there are duplicate items
    */
   @SafeVarargs
@@ -163,7 +163,7 @@ public class CbCollections {
   /**
    * Returns an unmodifiable map containing the given key/value pairs.
    *
-   * @throws NullPointerException     if any key or value is null
+   * @throws NullPointerException if any key or value is null
    * @throws IllegalArgumentException if there are duplicate keys
    */
   public static <K, V> Map<K, V> mapOf(K key1, V value1) {
@@ -175,7 +175,7 @@ public class CbCollections {
   /**
    * Returns an unmodifiable map containing the given key/value pairs.
    *
-   * @throws NullPointerException     if any key or value is null
+   * @throws NullPointerException if any key or value is null
    * @throws IllegalArgumentException if there are duplicate keys
    */
   public static <K, V> Map<K, V> mapOf(K key1, V value1,
@@ -189,7 +189,7 @@ public class CbCollections {
   /**
    * Returns an unmodifiable map containing the given key/value pairs.
    *
-   * @throws NullPointerException     if any key or value is null
+   * @throws NullPointerException if any key or value is null
    * @throws IllegalArgumentException if there are duplicate keys
    */
   public static <K, V> Map<K, V> mapOf(K key1, V value1,
@@ -205,7 +205,7 @@ public class CbCollections {
   /**
    * Returns an unmodifiable map containing the given key/value pairs.
    *
-   * @throws NullPointerException     if any key or value is null
+   * @throws NullPointerException if any key or value is null
    * @throws IllegalArgumentException if there are duplicate keys
    */
   @SuppressWarnings("Duplicates")
@@ -224,7 +224,7 @@ public class CbCollections {
   /**
    * Returns an unmodifiable map containing the given key/value pairs.
    *
-   * @throws NullPointerException     if any key or value is null
+   * @throws NullPointerException if any key or value is null
    * @throws IllegalArgumentException if there are duplicate keys
    */
   @SuppressWarnings("Duplicates")
@@ -320,6 +320,7 @@ public class CbCollections {
         .stream()
         .collect(toMap(Map.Entry::getKey, entry -> transformer.apply(entry.getValue())));
   }
+
   /**
    * Like {@link EnumSet#copyOf}, but does not explode when given an empty collection.
    */
@@ -331,8 +332,8 @@ public class CbCollections {
     return result;
   }
 
-  public static <K extends Enum<K>, V> EnumMap<K,V> newEnumMap(Class<K> keyClass, Map<K,V> source) {
-    EnumMap<K,V> result = new EnumMap<>(keyClass);
+  public static <K extends Enum<K>, V> EnumMap<K, V> newEnumMap(Class<K> keyClass, Map<K, V> source) {
+    EnumMap<K, V> result = new EnumMap<>(keyClass);
     result.putAll(source);
     return result;
   }

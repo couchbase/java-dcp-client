@@ -76,7 +76,7 @@ public class LinearDelayTest {
 
   @Test
   void shouldFailIfLowerLargerThanUpper() {
-    assertThrows(IllegalArgumentException.class, () ->new LinearDelay(TimeUnit.SECONDS, 5, 10, 1));
+    assertThrows(IllegalArgumentException.class, () -> new LinearDelay(TimeUnit.SECONDS, 5, 10, 1));
   }
 
 }

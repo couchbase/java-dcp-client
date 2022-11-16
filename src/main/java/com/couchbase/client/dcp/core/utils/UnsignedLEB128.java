@@ -37,7 +37,7 @@ public class UnsignedLEB128 {
    * the reader index remains unchanged, otherwise the index advances past the value.
    *
    * @return the decoded value
-   * @throws ArithmeticException       if the decoded value is longer than 64 bits.
+   * @throws ArithmeticException if the decoded value is longer than 64 bits.
    * @throws IndexOutOfBoundsException if the buffer's readable bytes do not contain a complete value.
    */
   public static long read(ByteBuf buf) {
@@ -90,7 +90,7 @@ public class UnsignedLEB128 {
    * Given a byte array starting with an unsigned LEB128 value, returns the decoded form
    * of that value.
    *
-   * @throws ArithmeticException       if the decoded value is larger than 64 bits.
+   * @throws ArithmeticException if the decoded value is larger than 64 bits.
    * @throws IndexOutOfBoundsException if the input does not contain a complete LEB128 value
    */
   public static long decode(byte[] bytes) {

@@ -15,12 +15,12 @@
  */
 package com.couchbase.client.dcp.state;
 
-import com.couchbase.client.dcp.highlevel.SnapshotMarker;
-import com.couchbase.client.dcp.state.json.SessionStateDeserializer;
-import com.couchbase.client.dcp.state.json.SessionStateSerializer;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectMapper;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.couchbase.client.dcp.highlevel.SnapshotMarker;
+import com.couchbase.client.dcp.state.json.SessionStateDeserializer;
+import com.couchbase.client.dcp.state.json.SessionStateSerializer;
 
 import java.util.ArrayList;
 import java.util.Iterator;

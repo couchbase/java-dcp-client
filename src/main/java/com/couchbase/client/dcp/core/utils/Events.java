@@ -15,9 +15,7 @@
  */
 package com.couchbase.client.dcp.core.utils;
 
-import com.couchbase.client.dcp.core.CouchbaseException;
 import com.couchbase.client.dcp.core.event.CouchbaseEvent;
-
 
 import java.util.HashMap;
 import java.util.Map;

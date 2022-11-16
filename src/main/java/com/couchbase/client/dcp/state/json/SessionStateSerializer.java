@@ -15,11 +15,11 @@
  */
 package com.couchbase.client.dcp.state.json;
 
-import com.couchbase.client.dcp.state.PartitionState;
-import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonGenerator;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonSerializer;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.SerializerProvider;
+import com.couchbase.client.dcp.state.PartitionState;
+import com.couchbase.client.dcp.state.SessionState;
 
 import java.io.IOException;
 

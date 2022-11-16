@@ -105,7 +105,7 @@ public class CollectionServiceImpl implements CollectionService {
    * Helper to check if scope exists
    *
    * @param scopeName Name of scope
-   * @param cm        CollectionManager on which the scope is supposed to be
+   * @param cm CollectionManager on which the scope is supposed to be
    * @return True if the scope exists
    */
   private static boolean scopeExists(String scopeName, CollectionManager cm) {
@@ -121,7 +121,7 @@ public class CollectionServiceImpl implements CollectionService {
    * Helper to check if a collection exists
    *
    * @param spec Collection spec to check
-   * @param cm   CollectionManager where the collection is supposed to be
+   * @param cm CollectionManager where the collection is supposed to be
    * @return True if the collection exists
    */
   private static boolean collectionExists(CollectionSpec spec, CollectionManager cm) {

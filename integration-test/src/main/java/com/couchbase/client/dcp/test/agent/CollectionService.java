@@ -35,8 +35,8 @@ public interface CollectionService {
    * Blocks until collections exist on the server, or fails
    *
    * @param collections List of collection names to create
-   * @param scope       The scope to create the collections on
-   * @param bucket      Name of the bucket to create the collections on
+   * @param scope The scope to create the collections on
+   * @param bucket Name of the bucket to create the collections on
    */
   void createCollections(List<String> collections, String scope, String bucket);
 
@@ -52,24 +52,24 @@ public interface CollectionService {
    * Delete collections off scope if they exist, otherwise does nothing
    *
    * @param collections List of collection names to delete
-   * @param scope       The scope to delete the collections off
-   * @param bucket      Name of the bucket to delete the collections off
+   * @param scope The scope to delete the collections off
+   * @param bucket Name of the bucket to delete the collections off
    */
   void deleteCollections(List<String> collections, String scope, String bucket);
 
   /**
-   * @param bucket        Name of bucket to create scopes on
+   * @param bucket Name of bucket to create scopes on
    * @param scopeIdPrefix Prefix for each scope id
-   * @param scopes        Number of scopes to create
+   * @param scopes Number of scopes to create
    * @return List of scope names that were created
    */
   List<String> createScopesWithPrefix(String bucket, String scopeIdPrefix, int scopes);
 
   /**
-   * @param bucket             Name of bucket to use
-   * @param scope              Name of scope to create collections on
+   * @param bucket Name of bucket to use
+   * @param scope Name of scope to create collections on
    * @param collectionIdPrefix Prefix for each collection id
-   * @param collections        Number of collections to create
+   * @param collections Number of collections to create
    * @return List of collection names that were created
    */
   List<String> createCollectionsWithPrefix(String bucket, String scope, String collectionIdPrefix, int collections);
