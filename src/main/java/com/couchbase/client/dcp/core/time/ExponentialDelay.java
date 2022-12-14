@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * <li> the lower of 0 is useful to allow for immediate execution of original attempt, attempt 0 (if we ever call the
  * delay with a parameter of 0)
  * <li> the growBy of 500 means that we take steps based on 500ms
- * </ul>>
+ * </ul>
  * This yields the following delays: <code>0ms, 500ms, 1s, 2s, 4s, 4s, 4s,...</code>
  * <p>
  * In detail : <code>0, 500 * 2^0, 500 * 2^1, 500 * 2^2, 500 * 2^3, max(4000, 500 * 2^4), max(4000, 500 * 2^5),...</code>.

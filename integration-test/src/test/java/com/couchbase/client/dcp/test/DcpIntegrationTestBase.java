@@ -67,7 +67,7 @@ public abstract class DcpIntegrationTestBase {
         throw new RuntimeException("Environment variable " + couchbaseVersionEnvar + " must be set when running in Jenkins." +
             " Value should be the version of the 'couchbase/server' docker image to test against.");
       } else {
-        couchbaseVersion = "6.6.1";
+        couchbaseVersion = "7.1.3";
       }
     }
     //Use private docker repo for build-numbered images

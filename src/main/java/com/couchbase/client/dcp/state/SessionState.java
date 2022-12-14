@@ -140,7 +140,7 @@ public class SessionState {
   }
 
   /**
-   * Check if the current sequence numbers for all partitions are >= the ones set as end.
+   * Check if the current sequence numbers for all partitions are &gt;= the ones set as end.
    *
    * @return true if all are at the end, false otherwise.
    */

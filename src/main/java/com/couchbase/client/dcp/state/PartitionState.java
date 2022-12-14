@@ -236,7 +236,7 @@ public class PartitionState {
   }
 
   /**
-   * Check if the current partition is at the end (start >= end seqno).
+   * Check if the current partition is at the end (start &gt;= end seqno).
    */
   @JsonIgnore
   public boolean isAtEnd() {

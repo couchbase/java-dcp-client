@@ -995,7 +995,7 @@ public class Client implements Closeable {
     /**
      * The buffer acknowledge watermark in percent.
      *
-     * @param watermark between 0 and 100, needs to be > 0 if flow control is enabled.
+     * @param watermark between 0 and 100, needs to be &gt; 0 if flow control is enabled.
      * @return this {@link Builder} for nice chainability.
      */
     public Builder bufferAckWatermark(int watermark) {
