@@ -73,6 +73,7 @@ import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
+import com.couchbase.client.dcp.util.PartitionSet;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
@@ -576,7 +577,8 @@ public class Client implements Closeable {
    */
   public Mono<Void> startStreaming(Collection<Integer> vbids) {
     int numPartitions = numPartitions();
-    final List<Integer> partitions = partitionsForVbids(numPartitions, vbids);
+    final PartitionSet partitionSet = partitionsForVbids(numPartitions, vbids);
+    final List<Integer> partitions = partitionSet.toList();
 
     List<Integer> initializedPartitions = selectInitializedPartitions(numPartitions, partitions);
 
@@ -587,8 +589,10 @@ public class Client implements Closeable {
       }
     }
     if (!noopPartitions.isEmpty()) {
-      LOGGER.info("Immediately sending stream end events for {} partitions already at desired end.", noopPartitions.size());
-      LOGGER.debug("Immediately sending stream end events for partitions already at desired end: {}", noopPartitions);
+      LOGGER.info("Immediately sending stream end events for {} partitions already at desired end: {}",
+          noopPartitions.size(),
+          PartitionSet.from(noopPartitions)
+      );
       noopPartitions.forEach(p ->
           env.eventBus().publish(
               new StreamEndEvent(p, StreamEndReason.OK)));
@@ -599,8 +603,10 @@ public class Client implements Closeable {
       return Mono.empty();
     }
 
-    LOGGER.info("Starting to Stream for " + initializedPartitions.size() + " partitions");
-    LOGGER.debug("Stream start against partitions: {}", initializedPartitions);
+    LOGGER.info("Starting to Stream for {} partitions: {}",
+        initializedPartitions.size(),
+        PartitionSet.from(initializedPartitions)
+    );
 
     return Flux
         .fromIterable(initializedPartitions)
@@ -666,12 +672,12 @@ public class Client implements Closeable {
    * @return a {@link Mono} indicating that streaming has stopped or failed.
    */
   public Mono<Void> stopStreaming(Collection<Integer> vbids) {
-    List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
+    PartitionSet partitionSet = partitionsForVbids(numPartitions(), vbids);
+    List<Integer> partitions = partitionSet.toList();
 
     return Flux.fromIterable(partitions)
         .doOnSubscribe(subscription -> {
-          LOGGER.info("Stopping stream for {} partitions", partitions.size());
-          LOGGER.debug("Stream stop against partitions: {}", partitions);
+          LOGGER.info("Stopping stream for {} partitions: {} ", partitions.size(), partitionSet);
         })
         .flatMap(conductor::stopStreamForPartition)
         .then();
@@ -684,18 +690,10 @@ public class Client implements Closeable {
    * @param vbids the potentially empty array of selected vbids.
    * @return a sorted list of partitions to use.
    */
-  private static List<Integer> partitionsForVbids(int numPartitions, Collection<Integer> vbids) {
-    if (!vbids.isEmpty()) {
-      List<Integer> result = new ArrayList<>(vbids);
-      Collections.sort(result);
-      return result;
-    }
-
-    List<Integer> partitions = new ArrayList<>();
-    for (int i = 0; i < numPartitions; i++) {
-      partitions.add(i);
-    }
-    return partitions;
+  private static PartitionSet partitionsForVbids(int numPartitions, Collection<Integer> vbids) {
+    return vbids.isEmpty()
+        ? PartitionSet.allPartitions(numPartitions)
+        : PartitionSet.from(vbids);
   }
 
   /**
@@ -716,11 +714,11 @@ public class Client implements Closeable {
    * @return an {@link Flux} containing all failover logs.
    */
   public Flux<ByteBuf> failoverLogs(Collection<Integer> vbids) {
-    List<Integer> partitions = partitionsForVbids(numPartitions(), vbids);
+    PartitionSet partitionSet = partitionsForVbids(numPartitions(), vbids);
 
-    LOGGER.debug("Asking for failover logs on partitions {}", partitions);
+    LOGGER.debug("Asking for failover logs on partitions {}", partitionSet);
 
-    return Flux.fromIterable(partitions)
+    return Flux.fromIterable(partitionSet.toList())
         .flatMap(conductor::getFailoverLog);
   }
 
