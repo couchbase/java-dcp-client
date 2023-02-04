@@ -18,6 +18,8 @@ package com.couchbase.client.dcp.message;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
 
+import java.util.Set;
+
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_ADD_STREAM_OPCODE;
 
 /**
@@ -30,50 +32,12 @@ public enum DcpAddStreamRequest {
     return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_ADD_STREAM_OPCODE;
   }
 
-  public static int flags(final ByteBuf buffer) {
+  public static int flagsAsInt(final ByteBuf buffer) {
     return MessageUtil.getExtras(buffer).getInt(0);
   }
 
-  /**
-   * Check if {@link StreamFlags#TAKEOVER} flag requested for the stream.
-   */
-  public static boolean takeover(final ByteBuf buffer) {
-    return StreamFlags.TAKEOVER.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link StreamFlags#DISK_ONLY} flag requested for the stream.
-   */
-  public static boolean diskOnly(final ByteBuf buffer) {
-    return StreamFlags.DISK_ONLY.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link StreamFlags#LATEST} flag requested for the stream.
-   */
-  public static boolean latest(final ByteBuf buffer) {
-    return StreamFlags.LATEST.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link StreamFlags#NO_VALUE} flag requested for the stream.
-   */
-  public static boolean noValue(final ByteBuf buffer) {
-    return StreamFlags.NO_VALUE.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link StreamFlags#ACTIVE_VB_ONLY} flag requested for the stream.
-   */
-  public static boolean activeVbucketOnly(final ByteBuf buffer) {
-    return StreamFlags.ACTIVE_VB_ONLY.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link StreamFlags#STRICT_VB_UUID} flag requested for the stream.
-   */
-  public static boolean strictVbucketUuid(final ByteBuf buffer) {
-    return StreamFlags.STRICT_VB_UUID.isSet(flags(buffer));
+  public static Set<StreamFlags> flags(final ByteBuf buffer) {
+    return StreamFlags.decode(flagsAsInt(buffer));
   }
 
   public static void init(final ByteBuf buffer) {
