@@ -51,6 +51,7 @@ import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.message.ResponseStatus;
 import com.couchbase.client.dcp.message.RollbackMessage;
+import com.couchbase.client.dcp.message.StreamFlag;
 import com.couchbase.client.dcp.message.VbucketState;
 import com.couchbase.client.dcp.metrics.DcpChannelMetrics;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
@@ -395,7 +396,13 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
     });
   }
 
-  public Mono<Void> openStream(final int vbid, final StreamOffset startOffset, final long endSeqno, CollectionsManifest manifest) {
+  public Mono<Void> openStream(
+      final int vbid,
+      final StreamOffset startOffset,
+      final long endSeqno,
+      final CollectionsManifest manifest,
+      final Set<StreamFlag> flags
+  ) {
     return Mono.create(sink -> {
       if (state() != LifecycleState.CONNECTED) {
         sink.error(new NotConnectedException());
@@ -430,7 +437,7 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
           address, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, manifest);
 
       ByteBuf buffer = Unpooled.buffer();
-      DcpOpenStreamRequest.init(buffer, emptySet(), vbid);
+      DcpOpenStreamRequest.init(buffer, flags, vbid);
       DcpOpenStreamRequest.vbuuid(buffer, vbuuid);
       DcpOpenStreamRequest.startSeqno(buffer, startSeqno);
       DcpOpenStreamRequest.endSeqno(buffer, endSeqno);

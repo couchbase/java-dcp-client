@@ -299,7 +299,7 @@ public class Conductor {
               ps.setCollectionsManifest(m);
               ps.setKeyExtractor(manifest.isPresent() ? KeyExtractor.COLLECTIONS : KeyExtractor.NO_COLLECTIONS);
               ps.setMostRecentOpenStreamOffset(startOffset);
-              return channel.openStream(partition, startOffset, endSeqno, m);
+              return channel.openStream(partition, startOffset, endSeqno, m, env.streamFlags());
             })
         )
         .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))

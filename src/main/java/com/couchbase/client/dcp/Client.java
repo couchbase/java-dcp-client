@@ -66,6 +66,7 @@ import com.couchbase.client.dcp.message.OpenConnectionFlag;
 import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.message.RollbackMessage;
 import com.couchbase.client.dcp.message.StreamEndReason;
+import com.couchbase.client.dcp.message.StreamFlag;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.metrics.LogLevel;
 import com.couchbase.client.dcp.metrics.MetricsContext;
@@ -112,11 +113,14 @@ import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.core.utils.CbCollections.listCopyOf;
 import static com.couchbase.client.dcp.core.utils.CbCollections.listOf;
+import static com.couchbase.client.dcp.core.utils.CbCollections.newEnumSet;
+import static com.couchbase.client.dcp.core.utils.CbCollections.setCopyOf;
 import static com.couchbase.client.dcp.core.utils.ConnectionString.Scheme.COUCHBASES;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static com.couchbase.client.dcp.metrics.LogLevel.NONE;
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -938,6 +942,7 @@ public class Client implements Closeable {
     private final DcpControl dcpControl = new DcpControl()
         .put(DcpControl.Names.ENABLE_NOOP, "true"); // required for collections, and a good idea anyway
     private final EnumSet<OpenConnectionFlag> connectionFlags = EnumSet.noneOf(OpenConnectionFlag.class);
+    private Set<StreamFlag> streamFlags = emptySet();
     private int bufferAckWatermark;
     private boolean poolBuffers = true;
     private Duration bootstrapTimeout = Environment.DEFAULT_BOOTSTRAP_TIMEOUT;
@@ -987,6 +992,14 @@ public class Client implements Closeable {
       } else {
         connectionFlags.remove(flag);
       }
+      return this;
+    }
+
+    /**
+     * Sets the flags to use for all "open stream" and "add stream" requests.
+     */
+    public Builder streamFlags(Set<StreamFlag> flags) {
+      this.streamFlags = setCopyOf(flags);
       return this;
     }
 
@@ -1591,6 +1604,7 @@ public class Client implements Closeable {
     private final PersistedSeqnos persistedSeqnos = PersistedSeqnos.uninitialized();
     private final Retry dcpChannelsReconnectDelay;
     private final int dcpChannelsReconnectMaxAttempts;
+    private final Set<StreamFlag> streamFlags;
 
     private final EventBus eventBus;
     private final Scheduler scheduler;
@@ -1612,6 +1626,7 @@ public class Client implements Closeable {
       configRefreshInterval = builder.configRefreshInterval;
       dcpControl = builder.dcpControl;
       connectionFlags = unmodifiableSet(EnumSet.copyOf(builder.connectionFlags));
+      streamFlags = unmodifiableSet(newEnumSet(StreamFlag.class, builder.streamFlags));
       eventLoopGroup = Optional.ofNullable(builder.eventLoopGroup)
           .orElseGet(Client::newEventLoopGroup);
       eventLoopGroupIsPrivate = builder.eventLoopGroup == null;
@@ -1822,6 +1837,13 @@ public class Client implements Closeable {
      */
     public Set<OpenConnectionFlag> connectionFlags() {
       return connectionFlags;
+    }
+
+    /**
+     * Returns the flags to use when opening or adding a DCP stream.
+     */
+    public Set<StreamFlag> streamFlags() {
+      return streamFlags;
     }
 
     /**
