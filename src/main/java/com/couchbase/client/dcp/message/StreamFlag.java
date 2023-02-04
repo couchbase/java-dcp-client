@@ -20,9 +20,9 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Flags, that could be used when initiating new vBucket stream.
+ * Flags for "open stream" and "add stream" requests.
  */
-public enum StreamFlags {
+public enum StreamFlag {
   /**
    * Specifies that the stream should send over all remaining data to the remote node and
    * then set the remote nodes VBucket to active state and the source nodes VBucket to dead.
@@ -64,7 +64,7 @@ public enum StreamFlags {
 
   private final int value;
 
-  StreamFlags(int value) {
+  StreamFlag(int value) {
     this.value = value;
   }
 
@@ -76,17 +76,17 @@ public enum StreamFlags {
     return (flags & value) == value;
   }
 
-  public static int encode(Set<StreamFlags> flags) {
+  public static int encode(Set<StreamFlag> flags) {
     int result = 0;
-    for (StreamFlags f : flags) {
+    for (StreamFlag f : flags) {
       result |= f.value();
     }
     return result;
   }
 
-  public static Set<StreamFlags> decode(int flags) {
-    final Set<StreamFlags> result = EnumSet.noneOf(StreamFlags.class);
-    for (StreamFlags f : StreamFlags.values()) {
+  public static Set<StreamFlag> decode(int flags) {
+    final Set<StreamFlag> result = EnumSet.noneOf(StreamFlag.class);
+    for (StreamFlag f : StreamFlag.values()) {
       if (f.isSet(flags)) {
         result.add(f);
       }

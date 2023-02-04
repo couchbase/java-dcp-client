@@ -36,8 +36,8 @@ public enum DcpAddStreamRequest {
     return MessageUtil.getExtras(buffer).getInt(0);
   }
 
-  public static Set<StreamFlags> flags(final ByteBuf buffer) {
-    return StreamFlags.decode(flagsAsInt(buffer));
+  public static Set<StreamFlag> flags(final ByteBuf buffer) {
+    return StreamFlag.decode(flagsAsInt(buffer));
   }
 
   public static void init(final ByteBuf buffer) {

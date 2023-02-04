@@ -38,13 +38,13 @@ public enum DcpOpenStreamRequest {
    * Initializes the complete extras needed with 0 and can be overridden through the setters available.
    * If no setters are used this message is effectively a backfill for the given vbucket.
    */
-  public static void init(final ByteBuf buffer, Set<StreamFlags> flags, int vbucket) {
+  public static void init(final ByteBuf buffer, Set<StreamFlag> flags, int vbucket) {
     MessageUtil.initRequest(DCP_STREAM_REQUEST_OPCODE, buffer);
 
     MessageUtil.setVbucket(vbucket, buffer);
     MessageUtil.setExtras(Unpooled
             .buffer(48)
-            .writeInt(StreamFlags.encode(flags)) // flags
+            .writeInt(StreamFlag.encode(flags)) // flags
             .writeInt(0) // reserved
             .writeLong(0) // start sequence number
             .writeLong(0) // end sequence number
@@ -83,8 +83,8 @@ public enum DcpOpenStreamRequest {
     return MessageUtil.getExtras(buffer).getInt(0);
   }
 
-  public static Set<StreamFlags> flags(final ByteBuf buffer) {
-    return StreamFlags.decode(flagsAsInt(buffer));
+  public static Set<StreamFlag> flags(final ByteBuf buffer) {
+    return StreamFlag.decode(flagsAsInt(buffer));
   }
 
   public static void flags(final ByteBuf buffer, int flags) {
