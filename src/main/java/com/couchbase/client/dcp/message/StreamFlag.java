@@ -16,6 +16,8 @@
 
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.core.annotation.SinceCouchbase;
+
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -60,7 +62,20 @@ public enum StreamFlag {
    * If the flag is set and there is a vb_uuid mismatch at start_seqno 0, then
    * the server returns ENGINE_ROLLBACK error.
    */
-  STRICT_VB_UUID(0x20);
+  STRICT_VB_UUID(0x20),
+
+  /**
+   * Specifies that the server should skip rollback if the client is behind
+   * the purge seqno, but the request is otherwise satisfiable (i.e. no other
+   * rollback checks such as UUID mismatch fail). The client could end up
+   * missing purged tombstones (and hence could end up never being told about
+   * a document deletion). The intent of this flag is to allow clients
+   * who ignore deletes to avoid rollbacks to zero which are solely due to them
+   * being behind the purge seqno. This flag was added in Couchbase Server 7.2.
+   */
+  @SinceCouchbase("7.2")
+  IGNORE_PURGED_TOMBSTONES(0x80),
+  ;
 
   private final int value;
 
