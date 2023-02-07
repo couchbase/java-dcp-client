@@ -47,7 +47,12 @@ public enum SnapshotMarkerFlag {
    * <p>
    * To acknowledge {@link DcpSnapshotMarkerResponse} have to be sent back with the same opaque value.
    */
-  ACK(0x08);
+  ACK(0x08),
+
+  HISTORY(0x10),
+
+  MAY_CONTAIN_DUPLICATE_KEYS(0x20),
+  ;
 
   private final int value;
 
