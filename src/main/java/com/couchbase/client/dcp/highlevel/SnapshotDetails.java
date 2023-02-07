@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.highlevel;
 
 import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
-import com.couchbase.client.dcp.message.SnapshotMarkerFlags;
+import com.couchbase.client.dcp.message.SnapshotMarkerFlag;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -28,8 +28,8 @@ import static java.util.Collections.unmodifiableList;
 
 public class SnapshotDetails implements DatabaseChangeEvent {
   // Cache the values since Enum.values() returns a new array on every call.
-  private static final List<SnapshotMarkerFlags> flagValues = unmodifiableList(
-      Arrays.asList(SnapshotMarkerFlags.values()));
+  private static final List<SnapshotMarkerFlag> flagValues = unmodifiableList(
+      Arrays.asList(SnapshotMarkerFlag.values()));
 
   private final int vbucket;
   private final int flags;
@@ -51,10 +51,10 @@ public class SnapshotDetails implements DatabaseChangeEvent {
     return vbucket;
   }
 
-  public Set<SnapshotMarkerFlags> getFlags() {
+  public Set<SnapshotMarkerFlag> getFlags() {
     // lazy creation, since most users don't care about flags.
-    final Set<SnapshotMarkerFlags> result = EnumSet.noneOf(SnapshotMarkerFlags.class);
-    for (SnapshotMarkerFlags f : flagValues) {
+    final Set<SnapshotMarkerFlag> result = EnumSet.noneOf(SnapshotMarkerFlag.class);
+    for (SnapshotMarkerFlag f : flagValues) {
       if (f.isSet(flags)) {
         result.add(f);
       }

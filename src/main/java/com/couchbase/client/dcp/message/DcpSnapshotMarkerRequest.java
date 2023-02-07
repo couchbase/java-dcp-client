@@ -31,31 +31,31 @@ public enum DcpSnapshotMarkerRequest {
   }
 
   /**
-   * Check if {@link SnapshotMarkerFlags#MEMORY} flag set for snapshot marker.
+   * Check if {@link SnapshotMarkerFlag#MEMORY} flag set for snapshot marker.
    */
   public static boolean memory(final ByteBuf buffer) {
-    return SnapshotMarkerFlags.MEMORY.isSet(flags(buffer));
+    return SnapshotMarkerFlag.MEMORY.isSet(flags(buffer));
   }
 
   /**
-   * Check if {@link SnapshotMarkerFlags#DISK} flag set for snapshot marker.
+   * Check if {@link SnapshotMarkerFlag#DISK} flag set for snapshot marker.
    */
   public static boolean disk(final ByteBuf buffer) {
-    return SnapshotMarkerFlags.DISK.isSet(flags(buffer));
+    return SnapshotMarkerFlag.DISK.isSet(flags(buffer));
   }
 
   /**
-   * Check if {@link SnapshotMarkerFlags#CHECKPOINT} flag set for snapshot marker.
+   * Check if {@link SnapshotMarkerFlag#CHECKPOINT} flag set for snapshot marker.
    */
   public static boolean checkpoint(final ByteBuf buffer) {
-    return SnapshotMarkerFlags.CHECKPOINT.isSet(flags(buffer));
+    return SnapshotMarkerFlag.CHECKPOINT.isSet(flags(buffer));
   }
 
   /**
-   * Check if {@link SnapshotMarkerFlags#ACK} flag set for snapshot marker.
+   * Check if {@link SnapshotMarkerFlag#ACK} flag set for snapshot marker.
    */
   public static boolean ack(final ByteBuf buffer) {
-    return SnapshotMarkerFlags.ACK.isSet(flags(buffer));
+    return SnapshotMarkerFlag.ACK.isSet(flags(buffer));
   }
 
   public static long startSeqno(final ByteBuf buffer) {

@@ -19,7 +19,7 @@ package com.couchbase.client.dcp.message;
 /**
  * Flags, used in snapshot messages.
  */
-public enum SnapshotMarkerFlags {
+public enum SnapshotMarkerFlag {
   /**
    * Specifies that the snapshot contains in-memory items only.
    */
@@ -44,7 +44,7 @@ public enum SnapshotMarkerFlags {
 
   private final int value;
 
-  SnapshotMarkerFlags(int value) {
+  SnapshotMarkerFlag(int value) {
     this.value = value;
   }
 
