@@ -20,7 +20,6 @@ import com.couchbase.client.dcp.highlevel.internal.DatabaseChangeEvent;
 import com.couchbase.client.dcp.message.SnapshotMarkerFlag;
 
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -53,13 +52,7 @@ public class SnapshotDetails implements DatabaseChangeEvent {
 
   public Set<SnapshotMarkerFlag> getFlags() {
     // lazy creation, since most users don't care about flags.
-    final Set<SnapshotMarkerFlag> result = EnumSet.noneOf(SnapshotMarkerFlag.class);
-    for (SnapshotMarkerFlag f : flagValues) {
-      if (f.isSet(flags)) {
-        result.add(f);
-      }
-    }
-    return result;
+    return SnapshotMarkerFlag.decode(flags);
   }
 
   public int getFlagsAsInt() {

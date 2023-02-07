@@ -130,7 +130,7 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
           final SnapshotMarker marker = new SnapshotMarker(
               DcpSnapshotMarkerRequest.startSeqno(event),
               DcpSnapshotMarkerRequest.endSeqno(event));
-          final int flags = DcpSnapshotMarkerRequest.flags(event);
+          final int flags = DcpSnapshotMarkerRequest.flagsAsInt(event);
           final int vbucket = MessageUtil.getVbucket(event);
           vbucketToCurrentSnapshot.set(vbucket, marker);
           dispatch(new SnapshotDetails(vbucket, flags, marker));

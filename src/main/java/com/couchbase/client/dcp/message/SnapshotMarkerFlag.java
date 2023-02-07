@@ -16,6 +16,13 @@
 
 package com.couchbase.client.dcp.message;
 
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+
+import static java.util.Collections.unmodifiableList;
+
 /**
  * Flags, used in snapshot messages.
  */
@@ -54,5 +61,17 @@ public enum SnapshotMarkerFlag {
 
   public boolean isSet(int flags) {
     return (flags & value) == value;
+  }
+
+  private static final List<SnapshotMarkerFlag> valueList = unmodifiableList(Arrays.asList(values()));
+
+  public static Set<SnapshotMarkerFlag> decode(int flags) {
+    final Set<SnapshotMarkerFlag> result = EnumSet.noneOf(SnapshotMarkerFlag.class);
+    for (SnapshotMarkerFlag f : valueList) {
+      if (f.isSet(flags)) {
+        result.add(f);
+      }
+    }
+    return result;
   }
 }

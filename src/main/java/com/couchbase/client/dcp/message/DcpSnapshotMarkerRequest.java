@@ -17,6 +17,8 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 
+import java.util.Set;
+
 import static com.couchbase.client.dcp.message.MessageUtil.DCP_SNAPSHOT_MARKER_OPCODE;
 
 public enum DcpSnapshotMarkerRequest {
@@ -26,41 +28,16 @@ public enum DcpSnapshotMarkerRequest {
     return buffer.getByte(0) == MessageUtil.MAGIC_REQ && buffer.getByte(1) == DCP_SNAPSHOT_MARKER_OPCODE;
   }
 
-  public static int flags(final ByteBuf buffer) {
+  public static Set<SnapshotMarkerFlag> flags(final ByteBuf buffer) {
+    return SnapshotMarkerFlag.decode(flagsAsInt(buffer));
+  }
+
+  public static int flagsAsInt(final ByteBuf buffer) {
     return MessageUtil.getExtras(buffer).getInt(16);
-  }
-
-  /**
-   * Check if {@link SnapshotMarkerFlag#MEMORY} flag set for snapshot marker.
-   */
-  public static boolean memory(final ByteBuf buffer) {
-    return SnapshotMarkerFlag.MEMORY.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link SnapshotMarkerFlag#DISK} flag set for snapshot marker.
-   */
-  public static boolean disk(final ByteBuf buffer) {
-    return SnapshotMarkerFlag.DISK.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link SnapshotMarkerFlag#CHECKPOINT} flag set for snapshot marker.
-   */
-  public static boolean checkpoint(final ByteBuf buffer) {
-    return SnapshotMarkerFlag.CHECKPOINT.isSet(flags(buffer));
-  }
-
-  /**
-   * Check if {@link SnapshotMarkerFlag#ACK} flag set for snapshot marker.
-   */
-  public static boolean ack(final ByteBuf buffer) {
-    return SnapshotMarkerFlag.ACK.isSet(flags(buffer));
   }
 
   public static long startSeqno(final ByteBuf buffer) {
     return MessageUtil.getExtras(buffer).getLong(0);
-
   }
 
   public static long endSeqno(final ByteBuf buffer) {
@@ -69,7 +46,7 @@ public enum DcpSnapshotMarkerRequest {
 
   public static String toString(final ByteBuf buffer) {
     return "SnapshotMarker [vbid: " + partition(buffer)
-        + ", flags: " + String.format("0x%02x", flags(buffer))
+        + ", flags: " + String.format("0x%02x", flagsAsInt(buffer))
         + ", start: " + startSeqno(buffer)
         + ", end: " + endSeqno(buffer)
         + "]";
