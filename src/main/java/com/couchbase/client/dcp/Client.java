@@ -1304,6 +1304,17 @@ public class Client implements Closeable {
     }
 
     /**
+     * Sets an arbitrary DCP control parameter.
+     * <p>
+     * Because the control is optional, the connection will not fail
+     * if the server does not recognize the control name or value.
+     */
+    public Builder optionalControlParam(String name, Object value) {
+      this.dcpControl.putOptional(name, value.toString());
+      return this;
+    }
+
+    /**
      * Sets the compression mode for message values sent by Couchbase Server.
      * If not specified, defaults to {@link CompressionMode#ENABLED}.
      */

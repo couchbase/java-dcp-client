@@ -20,8 +20,12 @@ import com.couchbase.client.dcp.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -40,6 +44,11 @@ public class DcpControl {
    * Stores the params to negotiate in a map.
    */
   private final Map<String, String> values = new HashMap<>();
+
+  /**
+   * It's okay if the server rejects controls with these names.
+   */
+  private final Set<String> optionalNames = new HashSet<>();
 
   /**
    * The requested compression mode.
@@ -82,6 +91,11 @@ public class DcpControl {
 
     values.put(name, value);
     return this;
+  }
+
+  public DcpControl putOptional(final String name, final String value) {
+    optionalNames.add(name);
+    return put(name, value);
   }
 
   /**
@@ -132,7 +146,7 @@ public class DcpControl {
   /**
    * Returns the control settings, adjusted for the actual Couchbase Server version.
    */
-  public Map<String, String> getControls(Version serverVersion) {
+  public List<Control> getControls(Version serverVersion) {
     final CompressionMode effectiveMode = compression(serverVersion);
 
     if (compressionMode != effectiveMode) {
@@ -142,8 +156,13 @@ public class DcpControl {
       LOGGER.debug("Compression mode: {}", compressionMode);
     }
 
-    final Map<String, String> result = new HashMap<>(values);
-    result.putAll(effectiveMode.getDcpControls(serverVersion));
+    final Map<String, String> resultMap = new HashMap<>(values);
+    resultMap.putAll(effectiveMode.getDcpControls(serverVersion));
+
+    List<Control> result = new ArrayList<>();
+    resultMap.forEach((name, value) ->
+        result.add(new Control(name, value, optionalNames.contains(name)))
+    );
     return result;
   }
 

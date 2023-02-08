@@ -18,6 +18,7 @@ package com.couchbase.client.dcp.transport.netty;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.dcp.config.Control;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.DcpControlRequest;
 import com.couchbase.client.dcp.message.MessageUtil;
@@ -25,33 +26,40 @@ import com.couchbase.client.dcp.message.ResponseStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.List;
 
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSystem;
+import static com.couchbase.client.dcp.message.ResponseStatus.INVALID_ARGUMENTS;
 import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServerVersion;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
- * Negotiates DCP control flags once connected and removes itself afterwards.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
+ * Negotiates DCP controls once connected and removes itself afterwards.
  */
 public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
 
-  /**
-   * The logger used.
-   */
-  private static final Logger LOGGER = LoggerFactory.getLogger(DcpControlHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(DcpControlHandler.class);
 
   /**
-   * Stores an iterator over the control settings that need to be negotiated.
+   * Remaining controls to negotiate.
    */
-  private Iterator<Map.Entry<String, String>> controlSettings;
+  private Iterator<Control> remainingControls;
+
+  /**
+   * Control currently being negotiated.
+   */
+  private Control currentControl;
+
+  /**
+   * Successfully negotiated controls.
+   */
+  private final List<Control> negotiatedControls = new ArrayList<>();
 
   /**
    * The control settings provider. Will tell us the appropriate control settings
-   * once we discover the the Couchbase Server version.
+   * once we discover the Couchbase Server version.
    */
   private final DcpControl dcpControl;
 
@@ -69,21 +77,23 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
    * should be negotiated right now.
    */
   private void negotiate(final ChannelHandlerContext ctx) {
-    if (controlSettings.hasNext()) {
-      Map.Entry<String, String> setting = controlSettings.next();
+    if (remainingControls.hasNext()) {
+      currentControl = remainingControls.next();
 
-      LOGGER.debug("Negotiating DCP Control {}: {}", setting.getKey(), setting.getValue());
+      log.debug("Negotiating DCP Control {}", currentControl);
       ByteBuf request = ctx.alloc().buffer();
       DcpControlRequest.init(request);
-      DcpControlRequest.key(setting.getKey(), request);
-      DcpControlRequest.value(Unpooled.copiedBuffer(setting.getValue(), UTF_8), request);
+      DcpControlRequest.key(currentControl.name(), request);
+      DcpControlRequest.value(Unpooled.copiedBuffer(currentControl.value(), UTF_8), request);
 
       ctx.writeAndFlush(request);
     } else {
+      log.info("DCP control negotiation complete for node {} ; {}",
+          redactSystem(ctx.channel().remoteAddress()), negotiatedControls);
+
       originalPromise().setSuccess();
       ctx.pipeline().remove(this);
       ctx.fireChannelActive();
-      LOGGER.debug("Negotiated all DCP Control settings against Node {}", ctx.channel().remoteAddress());
     }
   }
 
@@ -92,7 +102,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
    */
   @Override
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-    controlSettings = dcpControl.getControls(getServerVersion(ctx.channel())).entrySet().iterator();
+    remainingControls = dcpControl.getControls(getServerVersion(ctx.channel())).iterator();
     negotiate(ctx);
   }
 
@@ -103,11 +113,21 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
   @Override
   protected void channelRead0(final ChannelHandlerContext ctx, final ByteBuf msg) throws Exception {
     ResponseStatus status = MessageUtil.getResponseStatus(msg);
-    if (status.isSuccess()) {
-      negotiate(ctx);
-    } else {
-      originalPromise().setFailure(new IllegalStateException("Could not configure DCP Controls: " + status));
-    }
-  }
 
+    if (status.isSuccess()) {
+      negotiatedControls.add(currentControl);
+      log.debug("Successfully negotiated DCP control: {}", currentControl);
+
+    } else if (status == INVALID_ARGUMENTS && currentControl.isOptional()) {
+      log.debug("Server rejected optional DCP control: {} ; status = {}", currentControl, status);
+
+    } else {
+      originalPromise().setFailure(
+          new RuntimeException("Failed to negotiate DCP control: " + currentControl + " ; status = " + status)
+      );
+      return;
+    }
+
+    negotiate(ctx);
+  }
 }
