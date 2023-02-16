@@ -32,6 +32,7 @@ import java.util.List;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSystem;
 import static com.couchbase.client.dcp.message.ResponseStatus.INVALID_ARGUMENTS;
+import static com.couchbase.client.dcp.message.ResponseStatus.NOT_SUPPORTED;
 import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServerVersion;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -118,7 +119,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
       negotiatedControls.add(currentControl);
       log.debug("Successfully negotiated DCP control: {}", currentControl);
 
-    } else if (status == INVALID_ARGUMENTS && currentControl.isOptional()) {
+    } else if ((status == INVALID_ARGUMENTS || status == NOT_SUPPORTED) && currentControl.isOptional()) {
       log.debug("Server rejected optional DCP control: {} ; status = {}", currentControl, status);
 
     } else {
