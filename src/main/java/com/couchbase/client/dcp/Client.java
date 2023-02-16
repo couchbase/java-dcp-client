@@ -23,6 +23,7 @@ import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueue;
 import com.couchbase.client.core.deps.io.netty.channel.kqueue.KQueueEventLoopGroup;
 import com.couchbase.client.core.deps.io.netty.channel.nio.NioEventLoopGroup;
 import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
+import com.couchbase.client.core.util.ConnectionString;
 import com.couchbase.client.dcp.buffer.PersistedSeqnos;
 import com.couchbase.client.dcp.buffer.StreamEventBuffer;
 import com.couchbase.client.dcp.conductor.Conductor;
@@ -36,7 +37,6 @@ import com.couchbase.client.dcp.core.env.SeedNode;
 import com.couchbase.client.dcp.core.event.EventBus;
 import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.time.Delay;
-import com.couchbase.client.dcp.core.utils.ConnectionString;
 import com.couchbase.client.dcp.core.utils.MinimalEventBus;
 import com.couchbase.client.dcp.error.BootstrapException;
 import com.couchbase.client.dcp.error.RollbackException;
@@ -108,6 +108,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.couchbase.client.core.util.CbStrings.isNullOrEmpty;
+import static com.couchbase.client.core.util.ConnectionString.Scheme.COUCHBASES;
 import static com.couchbase.client.core.util.ConnectionStringUtil.seedNodesFromConnectionString;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.meta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
@@ -115,7 +116,6 @@ import static com.couchbase.client.dcp.core.utils.CbCollections.listCopyOf;
 import static com.couchbase.client.dcp.core.utils.CbCollections.listOf;
 import static com.couchbase.client.dcp.core.utils.CbCollections.newEnumSet;
 import static com.couchbase.client.dcp.core.utils.CbCollections.setCopyOf;
-import static com.couchbase.client.dcp.core.utils.ConnectionString.Scheme.COUCHBASES;
 import static com.couchbase.client.dcp.highlevel.FlowControlMode.AUTOMATIC;
 import static com.couchbase.client.dcp.metrics.LogLevel.NONE;
 import static com.couchbase.client.dcp.util.MathUtils.lessThanUnsigned;
@@ -1702,7 +1702,7 @@ public class Client implements Closeable {
       boolean tlsEnabled = connectionString.scheme() == COUCHBASES;
 
       Set<com.couchbase.client.core.env.SeedNode> seedNodes = seedNodesFromConnectionString(
-          connectionString.original(),
+          connectionString,
           dnsSrvEnabled,
           tlsEnabled,
           MinimalEventBus.INSTANCE

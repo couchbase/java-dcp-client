@@ -24,7 +24,7 @@ import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
-import com.couchbase.client.dcp.core.utils.ConnectionString;
+import com.couchbase.client.core.util.ConnectionString;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
