@@ -24,7 +24,6 @@ import com.couchbase.client.dcp.highlevel.FlowControlMode;
 import com.couchbase.client.dcp.highlevel.Mutation;
 import com.couchbase.client.dcp.highlevel.StreamFailure;
 import com.couchbase.client.dcp.highlevel.StreamOffset;
-import com.couchbase.client.dcp.message.StreamFlag;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
@@ -36,7 +35,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -65,7 +63,6 @@ public class HighLevelApi {
         .seedNodes("localhost")
         .bucket(bucketName)
         .flowControl(64 * BYTES_PER_MEGABYTE)
-        .streamFlags(EnumSet.of(StreamFlag.IGNORE_PURGED_TOMBSTONES))
         .userAgent("HighLevelApiExample", "0.1", "bucket:" + bucketName)
         .build()) {
 
