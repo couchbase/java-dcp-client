@@ -89,9 +89,9 @@ import static com.couchbase.client.dcp.message.ResponseStatus.KEY_EXISTS;
 import static com.couchbase.client.dcp.message.ResponseStatus.NOT_MY_VBUCKET;
 import static com.couchbase.client.dcp.message.ResponseStatus.ROLLBACK_REQUIRED;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * Logical representation of a DCP cluster connection.
@@ -432,12 +432,22 @@ public class DcpChannel extends AbstractStateMachine<LifecycleState> {
         snapshotStartSeqno = origSnapshotStartSeqno;
       }
 
+      Set<StreamFlag> effectiveFlags = flags.stream()
+          .filter(flag -> conductor.hasCapabilities(flag.requiredCapabilities()))
+          .collect(toSet());
+
+      Set<StreamFlag> unsupportedFlags = new HashSet<>(flags);
+      unsupportedFlags.removeAll(effectiveFlags);
+      if (!unsupportedFlags.isEmpty()) {
+        LOGGER.debug("Ignoring unsupported optional stream flags: {}", unsupportedFlags);
+      }
+
       LOGGER.debug("Opening Stream against {} with vbid: {}, vbuuid: {}, startSeqno: {}, " +
-              "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}, manifest: {}",
-          address, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, manifest);
+              "endSeqno: {},  snapshotStartSeqno: {}, snapshotEndSeqno: {}, manifest: {}, flags: {}",
+          address, vbid, vbuuid, startSeqno, endSeqno, snapshotStartSeqno, snapshotEndSeqno, manifest, effectiveFlags);
 
       ByteBuf buffer = Unpooled.buffer();
-      DcpOpenStreamRequest.init(buffer, flags, vbid);
+      DcpOpenStreamRequest.init(buffer, effectiveFlags, vbid);
       DcpOpenStreamRequest.vbuuid(buffer, vbuuid);
       DcpOpenStreamRequest.startSeqno(buffer, startSeqno);
       DcpOpenStreamRequest.endSeqno(buffer, endSeqno);

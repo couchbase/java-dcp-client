@@ -17,9 +17,14 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.core.annotation.SinceCouchbase;
+import com.couchbase.client.dcp.core.config.BucketCapability;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
+
+import static com.couchbase.client.dcp.core.utils.CbCollections.newEnumSet;
+import static java.util.Collections.unmodifiableSet;
 
 /**
  * Flags for "open stream" and "add stream" requests.
@@ -74,17 +79,23 @@ public enum StreamFlag {
    * being behind the purge seqno. This flag was added in Couchbase Server 7.2.
    */
   @SinceCouchbase("7.2")
-  IGNORE_PURGED_TOMBSTONES(0x80),
+  IGNORE_PURGED_TOMBSTONES(0x80, BucketCapability.DCP_IGNORE_PURGED_TOMBSTONES),
   ;
 
   private final int value;
+  private final Set<BucketCapability> requiredCapabilities;
 
-  StreamFlag(int value) {
+  StreamFlag(int value, BucketCapability... requiredCapabilities) {
     this.value = value;
+    this.requiredCapabilities = unmodifiableSet(newEnumSet(BucketCapability.class, Arrays.asList(requiredCapabilities)));
   }
 
   public int value() {
     return value;
+  }
+
+  public Set<BucketCapability> requiredCapabilities() {
+    return requiredCapabilities;
   }
 
   public boolean isSet(int flags) {

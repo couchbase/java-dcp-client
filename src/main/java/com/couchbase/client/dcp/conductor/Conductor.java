@@ -17,14 +17,15 @@ package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
+import com.couchbase.client.core.util.ConnectionString;
 import com.couchbase.client.core.util.NanoTimestamp;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.config.BucketCapability;
 import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
-import com.couchbase.client.core.util.ConnectionString;
 import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.FailedToAddNodeEvent;
 import com.couchbase.client.dcp.events.FailedToMovePartitionEvent;
@@ -337,6 +338,15 @@ public class Conductor {
       }
     }
     throw new NotConnectedException("No DcpChannel found for partition " + partition);
+  }
+
+  public boolean hasCapability(BucketCapability capability) {
+    DcpBucketConfig config = currentConfig.get();
+    return config != null && config.hasCapability(capability);
+  }
+
+  public boolean hasCapabilities(Collection<BucketCapability> capabilities) {
+    return capabilities.stream().allMatch(this::hasCapability);
   }
 
   private Map<HostAndPort, DcpChannel> channelsByAddress() {

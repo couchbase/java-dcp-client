@@ -997,8 +997,10 @@ public class Client implements Closeable {
 
     /**
      * Sets the flags to use for all "open stream" and "add stream" requests.
+     * <p>
+     * Silently ignores any flags not supported by the server.
      */
-    public Builder streamFlags(Set<StreamFlag> flags) {
+    public Builder optionalStreamFlags(Set<StreamFlag> flags) {
       this.streamFlags = setCopyOf(flags);
       return this;
     }

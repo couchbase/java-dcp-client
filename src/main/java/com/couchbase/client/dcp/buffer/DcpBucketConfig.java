@@ -17,6 +17,7 @@
 package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.dcp.core.config.BucketCapability;
 import com.couchbase.client.dcp.core.config.ConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.NodeInfo;
@@ -104,5 +105,9 @@ public class DcpBucketConfig {
 
   public int numberOfReplicas() {
     return config.numberOfReplicas();
+  }
+
+  public boolean hasCapability(BucketCapability capability) {
+    return config.hasCapability(capability);
   }
 }
