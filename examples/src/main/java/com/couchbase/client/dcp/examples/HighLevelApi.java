@@ -64,7 +64,7 @@ public class HighLevelApi {
         .credentials("Administrator", "password")
         .seedNodes("localhost")
         .bucket(bucketName)
-        .flowControl(64 * BYTES_PER_MEGABYTE)
+        .flowControl(10 * BYTES_PER_MEGABYTE)
         .optionalStreamFlags(EnumSet.of(StreamFlag.IGNORE_PURGED_TOMBSTONES))
         .userAgent("HighLevelApiExample", "0.1", "bucket:" + bucketName)
         .build()) {
