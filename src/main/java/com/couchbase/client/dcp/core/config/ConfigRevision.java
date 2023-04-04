@@ -24,6 +24,16 @@ import java.util.Objects;
 
 
 public class ConfigRevision implements Comparable<ConfigRevision> {
+
+  /**
+   * A synthetic revision, older than anything the server could send.
+   * <p>
+   * (Actually, the server could send a revision with a negative epoch
+   * to indicate the epoch is not yet initialized, but we want
+   * to ignore those undercooked configs.)
+   */
+  public static final ConfigRevision ZERO = new ConfigRevision(0, 0);
+
   private static final Comparator<ConfigRevision> comparator =
       Comparator.comparing(ConfigRevision::epoch)
           .thenComparing(ConfigRevision::rev);
@@ -32,15 +42,27 @@ public class ConfigRevision implements Comparable<ConfigRevision> {
   private final long rev;
 
   public static ConfigRevision parse(ObjectNode json) {
-    int epoch = json.path("epoch").intValue(); // zero if not present (server is too old to know about epochs)
+    long epoch = json.path("epoch").longValue(); // zero if not present (server is too old to know about epochs)
     JsonNode revNode = json.path("rev");
-    if (!revNode.isInt()) {
+    if (!revNode.isIntegralNumber()) {
       throw new IllegalArgumentException("Missing or non-integer 'rev' field.");
     }
-    return new ConfigRevision(epoch, revNode.intValue());
+    return new ConfigRevision(epoch, revNode.longValue());
   }
 
+  /**
+   * @param epoch May be negative to indicate the epoch is not yet initialized.
+   * @param rev Never negative.
+   */
   public ConfigRevision(long epoch, long rev) {
+    // 'rev' is positive for all configs returned by the server.
+    // Accept rev = 0 as well, so we can have our synthetic ZERO revision.
+    if (rev < 0) {
+      // The binary protocol docs describe the range of legal values.
+      // Presumably, the same goes for the JSON representation.
+      // https://github.com/couchbase/kv_engine/blob/master/docs/BinaryProtocol.md#0x01-clustermap-change-notification
+      throw new IllegalArgumentException("Config revision must be non-negative, but got " + rev);
+    }
     this.epoch = epoch;
     this.rev = rev;
   }

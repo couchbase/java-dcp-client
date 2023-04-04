@@ -51,7 +51,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   private final Object revLock = new Object();
 
   // @GuardedBy("revLock")
-  private ConfigRevision currentRev = new ConfigRevision(0, 0);
+  private ConfigRevision currentRev = ConfigRevision.ZERO;
 
   private final Client.Environment environment;
 
@@ -63,7 +63,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   public void accept(HostAndPort origin, String rawConfig, ConfigRevision rev) {
     synchronized (revLock) {
       if (!rev.newerThan(currentRev)) {
-        log.debug("Ignoring config revision {} from {}; not newer than current revision {}", origin, rev, currentRev);
+        log.debug("Ignoring config revision {} from {}; not newer than current revision {}", rev, origin, currentRev);
         return;
       }
 
