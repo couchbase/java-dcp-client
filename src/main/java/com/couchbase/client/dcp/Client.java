@@ -1085,12 +1085,6 @@ public class Client implements Closeable {
       return this;
     }
 
-    private static List<HostAndPort> getSeedNodes(ConnectionString cs) {
-      return cs.hosts().stream()
-          .map(s -> new HostAndPort(s.hostname(), s.port()))
-          .collect(toList());
-    }
-
     /**
      * Network selection strategy for connecting to clusters whose nodes have alternate hostnames.
      * This usually only matters if Couchbase is running in a containerized environment

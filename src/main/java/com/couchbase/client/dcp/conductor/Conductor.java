@@ -147,7 +147,7 @@ public class Conductor {
           // Are the hosts in the connection string different from the hosts we're actually connecting to?
           // If so, then DNS SRV resolution was involved, and we can repeat the DNS SRV lookup later
           // if we lose contact with all nodes.
-          Set<String> connectionStringHosts = setCopyOf(transform(env.connectionString().hosts(), ConnectionString.UnresolvedSocket::hostname));
+          Set<String> connectionStringHosts = setCopyOf(transform(env.connectionString().hosts(), ConnectionString.UnresolvedSocket::host));
           Set<String> resolvedHosts = setCopyOf(transform(addresses, HostAndPort::host));
           boolean usedDnsSrvForBootstrap = !resolvedHosts.equals(connectionStringHosts);
           if (usedDnsSrvForBootstrap) {
