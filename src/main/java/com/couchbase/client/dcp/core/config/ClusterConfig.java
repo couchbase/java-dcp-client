@@ -16,8 +16,7 @@
 
 package com.couchbase.client.dcp.core.config;
 
-
-import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.core.env.NetworkResolution;
 
 import java.util.List;
 import java.util.Set;

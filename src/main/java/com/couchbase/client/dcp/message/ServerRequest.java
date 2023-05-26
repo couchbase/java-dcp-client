@@ -18,9 +18,9 @@ package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.conductor.BucketConfigSink;
 import com.couchbase.client.dcp.conductor.DcpChannel;
-import com.couchbase.client.dcp.config.HostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

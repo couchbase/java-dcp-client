@@ -16,9 +16,9 @@
 
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.config.ConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfigParser;

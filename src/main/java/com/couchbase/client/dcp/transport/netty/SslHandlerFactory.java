@@ -22,9 +22,9 @@ import com.couchbase.client.core.deps.io.netty.handler.ssl.OpenSsl;
 import com.couchbase.client.core.deps.io.netty.handler.ssl.SslContextBuilder;
 import com.couchbase.client.core.deps.io.netty.handler.ssl.SslHandler;
 import com.couchbase.client.core.deps.io.netty.handler.ssl.SslProvider;
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.Authenticator;
 import com.couchbase.client.dcp.SecurityConfig;
-import com.couchbase.client.dcp.config.HostAndPort;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;

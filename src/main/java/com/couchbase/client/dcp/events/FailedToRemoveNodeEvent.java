@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.events;
 
-import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.core.event.CouchbaseEvent;
 import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.utils.Events;

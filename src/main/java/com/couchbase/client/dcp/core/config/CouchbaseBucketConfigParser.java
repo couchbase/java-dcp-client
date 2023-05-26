@@ -21,6 +21,7 @@ import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.Deserializa
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectReader;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
+import com.couchbase.client.core.error.CouchbaseException;
 import com.couchbase.client.dcp.core.utils.JacksonHelper;
 import reactor.util.annotation.Nullable;
 
@@ -132,7 +133,7 @@ public class CouchbaseBucketConfigParser {
           .filter(Objects::nonNull)
           .collect(Collectors.toSet());
     } catch (IOException e) {
-      throw new ConfigException("Failed to parse bucketCapabilities node: " + capabilitiesNode);
+      throw new CouchbaseException("Failed to parse bucketCapabilities node: " + capabilitiesNode);
     }
   }
 

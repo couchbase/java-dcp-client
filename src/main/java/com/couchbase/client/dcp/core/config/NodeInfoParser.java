@@ -18,8 +18,9 @@ package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
-import com.couchbase.client.dcp.core.env.NetworkResolution;
-import com.couchbase.client.dcp.core.service.ServiceType;
+import com.couchbase.client.core.env.NetworkResolution;
+import com.couchbase.client.core.error.CouchbaseException;
+import com.couchbase.client.core.service.ServiceType;
 import reactor.util.annotation.Nullable;
 
 import java.util.HashMap;
@@ -75,7 +76,7 @@ public class NodeInfoParser {
     // and the client would have to get it from the `nodes` list.
     // With Couchbase 5.0, that doesn't happen anymore. Sanity check, just in case:
     if (host == null) {
-      throw new ConfigException("Couchbase server version is too old for this SDK; nodesExt entry is missing 'hostname' field.");
+      throw new CouchbaseException("Couchbase server version is too old for this SDK; nodesExt entry is missing 'hostname' field.");
     }
 
     return new NodeInfo(

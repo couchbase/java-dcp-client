@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.metrics;
 
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.conductor.DcpChannel;
-import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import io.micrometer.core.instrument.MultiGauge;
 import io.micrometer.core.instrument.Tags;

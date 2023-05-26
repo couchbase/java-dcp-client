@@ -21,7 +21,8 @@ import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ArrayNode;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.TextNode;
-import com.couchbase.client.dcp.core.env.NetworkResolution;
+import com.couchbase.client.core.env.NetworkResolution;
+import com.couchbase.client.core.error.CouchbaseException;
 import com.couchbase.client.dcp.core.utils.JacksonHelper;
 
 import java.util.EnumSet;
@@ -46,7 +47,7 @@ public class ClusterConfigParser {
 
     ArrayNode nodesExt = (ArrayNode) clusterConfig.get("nodesExt");
     if (nodesExt == null) {
-      throw new ConfigException("Couchbase Server version is too old for this SDK; missing 'nodesExt' field.");
+      throw new CouchbaseException("Couchbase Server version is too old for this SDK; missing 'nodesExt' field.");
     }
     List<Map<NetworkResolution, NodeInfo>> nodes = JacksonHelper.transform(nodesExt, node ->
         NodeInfoParser.parse(addHostnameIfMissing(node, originHost), portSelector)

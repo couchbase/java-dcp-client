@@ -16,9 +16,9 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.couchbase.client.dcp.config.HostAndPort;
-import com.couchbase.client.dcp.core.env.NetworkResolution;
-import com.couchbase.client.dcp.core.service.ServiceType;
+import com.couchbase.client.core.env.NetworkResolution;
+import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.core.util.Resources;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

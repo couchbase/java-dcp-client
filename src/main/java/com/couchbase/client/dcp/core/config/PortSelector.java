@@ -16,7 +16,7 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.couchbase.client.dcp.core.service.ServiceType;
+import com.couchbase.client.core.service.ServiceType;
 
 import java.util.Arrays;
 import java.util.HashMap;

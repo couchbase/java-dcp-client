@@ -15,7 +15,7 @@
  */
 package com.couchbase.client.dcp;
 
-import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.core.util.HostAndPort;
 
 public class StaticCredentialsProvider implements CredentialsProvider {
   private final Credentials credentials;

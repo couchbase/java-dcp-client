@@ -16,8 +16,8 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.couchbase.client.dcp.core.env.SeedNode;
-import com.couchbase.client.dcp.core.service.ServiceType;
+import com.couchbase.client.core.env.SeedNode;
+import com.couchbase.client.core.service.ServiceType;
 
 import java.util.HashMap;
 import java.util.Map;

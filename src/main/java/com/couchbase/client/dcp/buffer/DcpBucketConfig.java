@@ -16,12 +16,12 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.dcp.config.HostAndPort;
+import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.core.config.BucketCapability;
 import com.couchbase.client.dcp.core.config.ConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.NodeInfo;
-import com.couchbase.client.dcp.core.service.ServiceType;
 
 import java.util.List;
 import java.util.NoSuchElementException;

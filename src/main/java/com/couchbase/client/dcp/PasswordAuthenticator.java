@@ -17,8 +17,8 @@
 package com.couchbase.client.dcp;
 
 import com.couchbase.client.core.deps.io.netty.channel.ChannelPipeline;
+import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.conductor.DcpChannel;
-import com.couchbase.client.dcp.config.HostAndPort;
 import com.couchbase.client.dcp.transport.netty.AuthHandler;
 
 import static java.util.Objects.requireNonNull;
