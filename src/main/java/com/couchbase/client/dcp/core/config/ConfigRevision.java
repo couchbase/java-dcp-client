@@ -42,7 +42,7 @@ public class ConfigRevision implements Comparable<ConfigRevision> {
   private final long rev;
 
   public static ConfigRevision parse(ObjectNode json) {
-    long epoch = json.path("epoch").longValue(); // zero if not present (server is too old to know about epochs)
+    long epoch = json.path("revEpoch").longValue(); // zero if not present (server is too old to know about epochs)
     JsonNode revNode = json.path("rev");
     if (!revNode.isIntegralNumber()) {
       throw new IllegalArgumentException("Missing or non-integer 'rev' field.");

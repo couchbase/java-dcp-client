@@ -45,6 +45,12 @@ public class DefaultCouchbaseBucketConfigTest {
   }
 
   @Test
+  void parsesRevEpoch() {
+    CouchbaseBucketConfig config = read("config_magma_two_nodes.json");
+    assertEquals(new ConfigRevision(1, 1017), config.revision());
+  }
+
+  @Test
   @Disabled("The input JSON is from a version of Couchbase Server that's too old.")
   void shouldHavePrimaryPartitionsOnNode() {
     CouchbaseBucketConfig config = read("config_with_mixed_partitions.json");
