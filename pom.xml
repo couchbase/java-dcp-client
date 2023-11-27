@@ -11,7 +11,6 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java-compat.version>1.8</java-compat.version>
         <junit.version>5.9.2</junit.version>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
@@ -152,17 +151,6 @@
             <version>2.11.0</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- Compilation dependency to mark exception to enforced JDK API -->
-        <dependency>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>animal-sniffer-annotations</artifactId>
-            <version>1.22</version>
-            <optional>true</optional>
-            <!-- if you are using badly written Maven plugins then blame them and add
-            <scope>provided</scope>
-            -->
-        </dependency>
     </dependencies>
 
     <build>
@@ -170,10 +158,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.10.1</version>
+                <version>3.11.0</version>
                 <configuration>
-                    <source>${java-compat.version}</source>
-                    <target>${java-compat.version}</target>
+                    <release>8</release>
                     <!-- Enable JSON data binding for immutable classes like StreamOffset -->
                     <compilerArgument>-parameters</compilerArgument>
                 </configuration>
@@ -186,27 +173,6 @@
                     <useSystemClassLoader>false</useSystemClassLoader>
                     <argLine>-Djava.awt.headless=true</argLine>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>animal-sniffer-maven-plugin</artifactId>
-                <version>1.16</version>
-                <configuration>
-                    <signature>
-                        <groupId>org.codehaus.mojo.signature</groupId>
-                        <artifactId>java18</artifactId>
-                        <version>1.0</version>
-                    </signature>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>ensure-java-1.8-class-library</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
