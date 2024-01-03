@@ -112,8 +112,8 @@ abstract class ConnectInterceptingHandler<T>
     ctx.fireExceptionCaught(cause);
   }
 
-  private static final String customPortAdvice = "If your seed nodes include a custom port," +
-      " make sure it's the port of the KV service which defaults to 11210 (or 11207 for TLS).";
+  private static final String customPortAdvice = "If your connection string includes a custom port," +
+      " make sure it's the port of the KV service, which defaults to 11210 (or 11207 for TLS).";
 
   @Override
   public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
