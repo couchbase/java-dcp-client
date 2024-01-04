@@ -16,6 +16,7 @@
 
 package com.couchbase.client.dcp.test.agent;
 
+import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.java.Cluster;
 
 import java.io.Closeable;
@@ -58,6 +59,7 @@ public class ClusterSupplier implements Supplier<Cluster>, Closeable {
         cluster = Cluster.connect(connectionString,
             clusterOptions(username, password)
                 .environment(env -> env
+                    .ioConfig(it -> it.networkResolution(NetworkResolution.EXTERNAL))
                     // Accommodate slow CI docker environment
                     .timeoutConfig(it -> it.kvTimeout(Duration.ofSeconds(30)))
                 )

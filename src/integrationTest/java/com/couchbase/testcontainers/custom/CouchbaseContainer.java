@@ -451,8 +451,8 @@ public class CouchbaseContainer extends GenericContainer<CouchbaseContainer> {
     try {
       this.version = VersionUtils.getVersion(this);
       Version serverVersion = getVersion().orElse(null);
-      log.info("Couchbase Server (version {}) {} running at http://localhost:{}",
-          serverVersion, hostname, getMappedPort(CONTAINTER_WEB_UI_PORT));
+      log.info("Couchbase Server (version {}) {} running at http://{}:{}",
+          serverVersion, hostname, getHost(), getMappedPort(CONTAINTER_WEB_UI_PORT));
     } catch (Exception e) {
       stop();
       throw new RuntimeException(e);
