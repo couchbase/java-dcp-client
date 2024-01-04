@@ -11,7 +11,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <junit.version>5.9.2</junit.version>
+        <junit.version>5.10.1</junit.version>
+        <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -110,6 +111,42 @@
 
         <!-- Test Dependencies -->
         <dependency>
+            <groupId>com.couchbase.client</groupId>
+            <artifactId>java-client</artifactId>
+            <version>3.4.7</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>1.19.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.16.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.0.0-jre</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.jayway.jsonpath</groupId>
+            <artifactId>json-path</artifactId>
+            <version>2.8.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>5.2.0</version>
@@ -134,9 +171,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.4.1</version>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>2.22.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -232,6 +269,40 @@
                     <autoReleaseAfterClose>${autoReleaseAfterClose}</autoReleaseAfterClose>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>${build-helper-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>add-integration-test-source-as-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <!-- add the following sources in addition to the unit tests -->
+                                <source>${test-source-directory}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-integration-test-resource-as-test-resource</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>add-test-resource</goal>
+                        </goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${test-resource-directory}</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
 
         <resources>
@@ -312,6 +383,32 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <!-- by default, add also the int tests -->
+                <test-source-directory>src/integrationTest/java</test-source-directory>
+                <test-resource-directory>src/integrationTest/resources</test-resource-directory>
+            </properties>
+        </profile>
+        <profile>
+            <id>unit</id>
+            <activation>
+                <property>
+                    <name>unit</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <!-- just adding the unit tests again, noop. -->
+                <test-source-directory>src/test/java</test-source-directory>
+                <test-resource-directory>src/test/resources</test-resource-directory>
+            </properties>
         </profile>
     </profiles>
 </project>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{ISO8601_OFFSET_DATE_TIME_HHCMM} %-5p [%c:%L] %m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="com.couchbase.client.core.deps.io.netty" level="warn"/>
+
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>
