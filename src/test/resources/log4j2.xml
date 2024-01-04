@@ -8,6 +8,8 @@
     <Loggers>
         <Logger name="com.couchbase.client.core.deps.io.netty" level="warn"/>
 
+        <Logger name="com.couchbase.core.WaitUntilReady" level="debug"/>
+
         <Root level="info">
             <AppenderRef ref="Console"/>
         </Root>
