@@ -40,7 +40,7 @@ public class ResponseStatus {
   public static final ResponseStatus AUTH_CONTINUE = new ResponseStatus(0x0021, "AUTH_CONTINUE", "Authentication continue");
   public static final ResponseStatus ILLEGAL_RANGE = new ResponseStatus(0x0022, "ILLEGAL_RANGE", "The requested value is outside the legal ranges");
   public static final ResponseStatus ROLLBACK_REQUIRED = new ResponseStatus(0x0023, "ROLLBACK_REQUIRED", "Rollback required");
-  public static final ResponseStatus NO_ACCESS = new ResponseStatus(0x0024, "NO_ACCESS", "No access / insufficient permissions");
+  public static final ResponseStatus NO_ACCESS = new ResponseStatus(0x0024, "NO_ACCESS", "No access / insufficient permissions (or does not exist)");
   public static final ResponseStatus INITIALIZING_NODE = new ResponseStatus(0x0025, "INITIALIZING_NODE", "The node is being initialized");
   public static final ResponseStatus UNKNOWN_COMMAND = new ResponseStatus(0x0081, "UNKNOWN_COMMAND", "Unknown command");
   public static final ResponseStatus OUT_OF_MEMORY = new ResponseStatus(0x0082, "OUT_OF_MEMORY", "Out of memory");
