@@ -12,7 +12,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <junit.version>5.10.1</junit.version>
+
         <build-helper-maven-plugin.version>3.2.0</build-helper-maven-plugin.version>
+        <test-source-directory>src/test/java</test-source-directory>
+        <test-resource-directory>src/test/resources</test-resource-directory>
 
         <!-- Don't sign artifacts unless the 'stage' or 'release' profile is active -->
         <gpg.skip>true</gpg.skip>
@@ -391,12 +394,14 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <properties>
-                <!-- by default, add also the int tests -->
+                <!-- When this profile is active, include integration tests. -->
                 <test-source-directory>src/integrationTest/java</test-source-directory>
                 <test-resource-directory>src/integrationTest/resources</test-resource-directory>
             </properties>
         </profile>
         <profile>
+            <!-- The only purpose of this profile is to disable the "default" profile.
+                 This prevents the integration tests from running. -->
             <id>unit</id>
             <activation>
                 <property>
@@ -404,11 +409,6 @@
                     <value>true</value>
                 </property>
             </activation>
-            <properties>
-                <!-- just adding the unit tests again, noop. -->
-                <test-source-directory>src/test/java</test-source-directory>
-                <test-resource-directory>src/test/resources</test-resource-directory>
-            </properties>
         </profile>
     </profiles>
 </project>
