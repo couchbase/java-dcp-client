@@ -37,6 +37,7 @@ import com.couchbase.client.dcp.message.PartitionAndSeqno;
 import com.couchbase.client.dcp.metrics.DcpClientMetrics;
 import com.couchbase.client.dcp.state.PartitionState;
 import com.couchbase.client.dcp.state.SessionState;
+import com.couchbase.client.dcp.util.PartitionSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
@@ -46,12 +47,14 @@ import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -265,10 +268,45 @@ public class Conductor {
     return currentConfig.get().numberOfPartitions();
   }
 
+  private static final class MissingActivePartitionsException extends RuntimeException {
+    public MissingActivePartitionsException(PartitionSet missingPartitions) {
+      super("The following partitions are not active on any node: " + missingPartitions);
+    }
+  }
+
   public Flux<PartitionAndSeqno> getSeqnos() {
-    return Flux.fromIterable(channels)
-        .flatMap(this::getSeqnosForChannel)
-        .flatMap(Flux::fromIterable);
+    return Flux.defer(() -> {
+      // Collects results, maybe across multiple retries. We're going to ask every
+      // node for info about every active partition, and will retry until seeing a response
+      // for every partition. Remembering partial results across retries should let us succeed
+      // without having to wait for an in-progress rebalance to complete.
+      ConcurrentMap<Integer, PartitionAndSeqno> partitionToResult = new ConcurrentHashMap<>();
+
+      return Flux.fromIterable(channels)
+          .flatMap(this::getSeqnosForChannel)
+          .flatMap(Flux::fromIterable)
+          .collectList()
+          .map(resultsForActivePartitions -> {
+            // Record new info from this attempt.
+            resultsForActivePartitions.forEach(it -> partitionToResult.put(it.partition(), it));
+
+            // If any partitions are still missing, it means they weren't active on any node.
+            Set<Integer> missingPartitions = PartitionSet.allPartitions(numberOfPartitions()).toSet();
+            missingPartitions.removeAll(partitionToResult.keySet());
+            if (!missingPartitions.isEmpty()) {
+              // Trigger a retry.
+              throw new MissingActivePartitionsException(PartitionSet.from(missingPartitions));
+            }
+
+            return new ArrayList<>(partitionToResult.values());
+          })
+          .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofMillis(10))
+              .maxBackoff(Duration.ofSeconds(5))
+              .filter(t -> t instanceof MissingActivePartitionsException)
+              .doAfterRetry(retrySignal -> LOGGER.info("Retrying getSeqnos() because: {}", retrySignal.failure().getMessage()))
+          )
+          .flatMapIterable(it -> it);
+    });
   }
 
   private Mono<List<PartitionAndSeqno>> getSeqnosForChannel(final DcpChannel channel) {
