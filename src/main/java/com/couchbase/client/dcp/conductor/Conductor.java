@@ -304,8 +304,21 @@ public class Conductor {
             })
         )
         .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
-            .filter(e -> e instanceof NotConnectedException)
-            .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Stream Start for vbid {}, not connected (yet).", partition))
+            .filter(e -> e instanceof NotConnectedException || e instanceof NotMyVbucketException)
+            .doAfterRetry(retrySignal -> LOGGER.debug("Rescheduling Stream Start for vbid {} due to {}.", partition, retrySignal.failure().toString()))
+        )
+        .onErrorResume(throwable ->
+            // Rollback is handled out-of-band by the Control Event Handler,
+            // which receives a synthetic RollbackMessage. In the low-level API,
+            // the user's Control Event handler typically reacts to that message
+            // by calling `Client.rollbackAndRestartStream()`.
+            //
+            // For the corresponding behavior in the High-Level API, see
+            // `DatabaseChangeListener.onRollback(Rollback)`, whose default behavior
+            // is to resume streaming from the rollback seqno.
+            (throwable instanceof RollbackException)
+                ? Mono.empty()
+                : Mono.error(throwable)
         );
   }
 
@@ -488,25 +501,15 @@ public class Conductor {
               partition,
               ps.getOffset(),
               ps.getEndSeqno()
-          ).retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
-              .filter(e -> e instanceof NotMyVbucketException));
+          );
         })
 
         .doOnSubscribe(subscription -> LOGGER.debug("Subscribing for Partition Move for partition {}", partition))
         .doOnSuccess(ignored -> LOGGER.trace("Completed Partition Move for partition {}", partition))
         .onErrorResume(e -> {
-          if (e instanceof RollbackException) {
-            // A synthetic "rollback" message has already been passed to the to the Control Event Handler,
-            // which may react by calling Client.rollbackAndRestartStream().
-            //
-            // Don't log a scary stack trace, and don't publish an event that would cause
-            // EventHandlerAdapter to signal a stream failure.
-            LOGGER.warn("Rollback during Partition Move for partition {}", partition);
-          } else {
-            LOGGER.warn("Error during Partition Move for partition {}", partition, e);
-            if (env.eventBus() != null) {
-              env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
-            }
+          LOGGER.warn("Error during Partition Move for partition {}", partition, e);
+          if (env.eventBus() != null) {
+            env.eventBus().publish(new FailedToMovePartitionEvent(partition, e));
           }
           return Mono.empty();
         })

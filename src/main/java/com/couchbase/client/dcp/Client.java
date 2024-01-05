@@ -620,10 +620,7 @@ public class Client implements Closeable {
               partition,
               partitionState.getOffset(),
               partitionState.getEndSeqno()
-          ).onErrorResume(throwable ->
-              (throwable instanceof RollbackException)
-                  ? Mono.empty() // Ignore rollbacks since they are handled out of band.
-                  : Mono.error(throwable));
+          );
         })
         .then();
   }
