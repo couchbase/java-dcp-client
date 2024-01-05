@@ -23,6 +23,7 @@ import com.couchbase.client.dcp.state.SessionState;
 import com.couchbase.client.dcp.state.StateFormat;
 import com.couchbase.client.dcp.test.agent.DcpStreamer.Status;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -56,11 +57,8 @@ public class StreamerServiceImpl implements StreamerService {
   public String start(String bucket, List<Integer> vbuckets, StreamFrom from, StreamTo to, boolean mitigateRollbacks, boolean collectionAware) {
     String streamerId = "dcp-test-streamer-" + nextStreamerId.getAndIncrement();
 
-    Client client = Client.builder()
+    Client client = commonClientConfig(Client.builder(), bucket)
         .userAgent("dcp-integration-test", "0", streamerId)
-        .connectionString(connectionString)
-        .credentials(username, password)
-        .bucket(bucket)
         .mitigateRollbacks(mitigateRollbacks ? 100 : 0, TimeUnit.MILLISECONDS)
         .flowControl(1024 * 128)
         .collectionsAware(collectionAware)
@@ -68,6 +66,14 @@ public class StreamerServiceImpl implements StreamerService {
 
     idToStreamer.put(streamerId, new DcpStreamer(client, vbuckets, from, to));
     return streamerId;
+  }
+
+  private Client.Builder commonClientConfig(Client.Builder builder, String bucket) {
+    return builder
+        .connectionString(connectionString)
+        .credentials(username, password)
+        .bucket(bucket)
+        .bootstrapTimeout(Duration.ofSeconds(60));
   }
 
   @Override
@@ -113,11 +119,7 @@ public class StreamerServiceImpl implements StreamerService {
 
   @Override
   public int getNumberOfPartitions(String bucket) {
-    final Client client = Client.builder()
-        .connectionString(connectionString)
-        .credentials(username, password)
-        .bucket(bucket)
-        .build();
+    final Client client = commonClientConfig(Client.builder(), bucket).build();
 
     client.connect().block();
     try {
