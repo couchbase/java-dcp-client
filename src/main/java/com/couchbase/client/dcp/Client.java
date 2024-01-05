@@ -39,7 +39,6 @@ import com.couchbase.client.dcp.core.event.EventType;
 import com.couchbase.client.dcp.core.time.Delay;
 import com.couchbase.client.dcp.core.utils.MinimalEventBus;
 import com.couchbase.client.dcp.error.BootstrapException;
-import com.couchbase.client.dcp.error.RollbackException;
 import com.couchbase.client.dcp.events.DefaultDcpEventBus;
 import com.couchbase.client.dcp.events.LoggingTracer;
 import com.couchbase.client.dcp.events.StreamEndEvent;
@@ -916,19 +915,21 @@ public class Client implements Closeable {
    * grabs the failover logs and populates the session state with the failover log information.
    */
   private Mono<Void> initWithCallback(Consumer<PartitionAndSeqno> callback) {
-    sessionState().setToBeginningWithNoEnd(numPartitions());
-
-    return getSeqnos()
-        .doOnNext(callback)
-        .map(PartitionAndSeqno::partition)
-        .flatMap(this::failoverLog)
-        .map(buf -> {
-          int partition = DcpFailoverLogResponse.vbucket(buf);
-          handleFailoverLogResponse(buf);
-          buf.release();
-          return partition;
-        })
-        .then();
+    return Mono.fromRunnable(() -> sessionState().setToBeginningWithNoEnd(numPartitions()))
+        .then(
+            getSeqnos()
+                .doOnNext(callback)
+                .map(PartitionAndSeqno::partition)
+                .flatMap(this::failoverLog)
+                .map(buf -> {
+                  int partition = DcpFailoverLogResponse.vbucket(buf);
+                  handleFailoverLogResponse(buf);
+                  buf.release();
+                  return partition;
+                })
+                .then()
+        )
+        .timeout(env.bootstrapTimeout);
   }
 
   /**
