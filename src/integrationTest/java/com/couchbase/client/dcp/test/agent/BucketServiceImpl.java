@@ -58,10 +58,6 @@ public class BucketServiceImpl implements BucketService {
             .ramQuotaMB(quotaMb)
             .numReplicas(replicas);
         bucketManager().createBucket(settings);
-
-        // TODO Sleeping here masks some interesting DCP edge cases; consider removing it.
-        TimeUnit.SECONDS.sleep(3);
-
         ConsistencyUtil.waitUntilBucketPresent(clusterSupplier.get().core(), bucket);
         break;
 
