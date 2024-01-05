@@ -17,16 +17,13 @@
 package com.couchbase.client.dcp.test.agent;
 
 import com.couchbase.client.core.error.BucketNotFoundException;
-import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.util.ConsistencyUtil;
 import com.couchbase.client.java.manager.bucket.BucketManager;
 import com.couchbase.client.java.manager.bucket.BucketSettings;
-import reactor.util.annotation.Nullable;
 
-import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.couchbase.client.java.diagnostics.WaitUntilReadyOptions.waitUntilReadyOptions;
 import static java.util.Objects.requireNonNull;
 
 public class BucketServiceImpl implements BucketService {
@@ -61,15 +58,11 @@ public class BucketServiceImpl implements BucketService {
             .ramQuotaMB(quotaMb)
             .numReplicas(replicas);
         bucketManager().createBucket(settings);
+
+        // TODO Sleeping here masks some interesting DCP edge cases; consider removing it.
         TimeUnit.SECONDS.sleep(3);
 
-        // instead of sleeping?
-        clusterSupplier.get().bucket(bucket)
-            .waitUntilReady(
-                Duration.ofSeconds(10),
-                waitUntilReadyOptions()
-                    .serviceTypes(ServiceType.KV)
-            );
+        ConsistencyUtil.waitUntilBucketPresent(clusterSupplier.get().core(), bucket);
         break;
 
       } catch (Exception e) {
@@ -88,25 +81,11 @@ public class BucketServiceImpl implements BucketService {
 
   @Override
   public void delete(String bucket) {
-    if (!bucketManager().getAllBuckets().containsKey(bucket)) {
-      return;
-    }
-
     try {
       bucketManager().dropBucket(bucket);
+      ConsistencyUtil.waitUntilBucketDropped(clusterSupplier.get().core(), bucket);
     } catch (BucketNotFoundException ignore) {
       // that's fine
-    }
-
-    /*
-     * TODO(amoudi): per DCP team this hasBucket call is insufficient to determine complete removal
-     * For now, we will always wait 3 seconds. later, we can do something more involved.
-     * Basically, we need to attempt to open the bucket and get an authentication failure
-     */
-    try {
-      TimeUnit.SECONDS.sleep(3);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 }

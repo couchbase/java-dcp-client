@@ -16,21 +16,18 @@
 
 package com.couchbase.client.dcp.test.agent;
 
-import com.couchbase.client.core.error.ScopeNotFoundException;
+import com.couchbase.client.core.util.ConsistencyUtil;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.manager.collection.CollectionManager;
 import com.couchbase.client.java.manager.collection.CollectionSpec;
-import com.couchbase.client.java.manager.collection.ScopeSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.couchbase.client.dcp.test.util.Poller.poll;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class CollectionServiceImpl implements CollectionService {
   private static final Logger log = LoggerFactory.getLogger(CollectionServiceImpl.class);
@@ -69,66 +66,46 @@ public class CollectionServiceImpl implements CollectionService {
   public void createScopes(List<String> scopes, String bucket) {
     CollectionManager collectionManager = collectionManager(bucket);
     scopes.forEach(collectionManager::createScope);
-    scopes.forEach(scopeId ->
-        poll().withTimeout(10, TimeUnit.SECONDS).until(() -> scopeExists(scopeId, collectionManager))
+    scopes.forEach(scopeName ->
+        ConsistencyUtil.waitUntilScopePresent(clusterSupplier.get().core(), bucket, scopeName)
     );
   }
 
   @Override
   public void createCollections(List<String> collections, String scope, String bucket) {
     CollectionManager collectionManager = collectionManager(bucket);
-    collections.forEach(collectionID -> {
-      CollectionSpec collectionSpec = CollectionSpec.create(collectionID, scope);
+    collections.forEach(collectionName -> {
+      CollectionSpec collectionSpec = CollectionSpec.create(collectionName, scope);
       collectionManager.createCollection(collectionSpec);
-      poll().withTimeout(10, TimeUnit.SECONDS).until(() -> collectionExists(collectionSpec, collectionManager));
     });
+
+    collections.forEach(collectionName ->
+        ConsistencyUtil.waitUntilCollectionPresent(clusterSupplier.get().core(), bucket, scope, collectionName)
+    );
   }
 
   @Override
   public void deleteScopes(List<String> scopes, String bucket) {
     CollectionManager collectionManager = collectionManager(bucket);
     scopes.forEach(collectionManager::dropScope);
+    scopes.forEach(scopeName ->
+        ConsistencyUtil.waitUntilScopeDropped(clusterSupplier.get().core(), bucket, scopeName)
+    );
+
   }
 
   @Override
   public void deleteCollections(List<String> collections, String scope, String bucket) {
     CollectionManager collectionManager = collectionManager(bucket);
     collections.forEach(collectionID -> collectionManager.dropCollection(CollectionSpec.create(collectionID, scope)));
+    collections.forEach(collectionName ->
+        ConsistencyUtil.waitUntilCollectionDropped(clusterSupplier.get().core(), bucket, scope, collectionName)
+    );
   }
 
-  /**
-   * Helper to check if scope exists
-   *
-   * @param scopeName Name of scope
-   * @param cm CollectionManager on which the scope is supposed to be
-   * @return True if the scope exists
-   */
-  private static boolean scopeExists(String scopeName, CollectionManager cm) {
-    try {
-      cm.getScope(scopeName);
-      return true;
-    } catch (ScopeNotFoundException e) {
-      return false;
-    }
-  }
-
-  /**
-   * Helper to check if a collection exists
-   *
-   * @param spec Collection spec to check
-   * @param cm CollectionManager where the collection is supposed to be
-   * @return True if the collection exists
-   */
-  private static boolean collectionExists(CollectionSpec spec, CollectionManager cm) {
-    try {
-      ScopeSpec scope = cm.getScope(spec.scopeName());
-      return scope.collections().contains(spec);
-    } catch (ScopeNotFoundException e) {
-      return false;
-    }
-  }
-
-  private List<String> generateIds(String prefix, int numberToGenerate) {
-    return IntStream.rangeClosed(0, numberToGenerate - 1).mapToObj(i -> prefix + i).collect(Collectors.toList());
+  private static List<String> generateIds(String prefix, int numberToGenerate) {
+    return IntStream.range(0, numberToGenerate)
+        .mapToObj(i -> prefix + i)
+        .collect(toList());
   }
 }
