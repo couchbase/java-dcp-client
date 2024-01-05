@@ -18,9 +18,9 @@ package com.couchbase.client.dcp.state;
 /**
  * Defines the support import/export formats for a {@link SessionState}.
  *
- * @author Michael Nitschinger
- * @since 1.0.0
+ * @deprecated See {@link com.couchbase.client.dcp.Client#recoverState} for details.
  */
+@Deprecated
 public enum StateFormat {
   JSON
 }

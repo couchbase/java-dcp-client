@@ -815,7 +815,12 @@ public class Client implements Closeable {
    * @param format the format used when persisting.
    * @param persistedState the opaque byte array representing the persisted state.
    * @return A {@link Mono} indicating the success or failure of the state recovery.
+   * @deprecated This method of recovering state does not account for whether
+   * an event received by the DCP client was actually processed by the user's application.
+   * This can cause the application to resume from the wrong point, and silently ignore some events.
+   * Instead, an application should track its own state, and resume using {@link #resumeStreaming(Map)}.
    */
+  @Deprecated
   public Mono<Void> recoverState(final StateFormat format, final byte[] persistedState) {
     return Mono.create(sink -> {
       LOGGER.info("Recovering state from format {}", format);
@@ -837,7 +842,7 @@ public class Client implements Closeable {
   /**
    * Recovers or initializes the {@link SessionState}.
    * <p>
-   * This method is a convience wrapper around initialization and recovery. It combines both methods and
+   * This method is a convenience wrapper around initialization and recovery. It combines both methods and
    * checks if the persisted state byte array is null or empty and if so it starts with the params given. If
    * it is not empty it recovers from there. This acknowledges the fact that ideally the state is persisted
    * somewhere but if its not there you want to start at a specific point in time.
@@ -847,7 +852,12 @@ public class Client implements Closeable {
    * @param from from where to start streaming if persisted state is null or empty.
    * @param to to where to stream if persisted state is null or empty.
    * @return A {@link Mono} indicating the success or failure of the state recovery or init.
+   * @deprecated This method of recovering state does not account for whether
+   * an event received by the DCP client was actually processed by the user's application.
+   * This can cause the application to resume from the wrong point, silently skipping some events.
+   * Instead, an application should track its own state, and resume using {@link #resumeStreaming(Map)}.
    */
+  @Deprecated
   public Mono<Void> recoverOrInitializeState(final StateFormat format, final byte[] persistedState,
                                              final StreamFrom from, final StreamTo to) {
     if (persistedState == null || persistedState.length == 0) {

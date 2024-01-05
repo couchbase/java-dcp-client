@@ -25,6 +25,7 @@ import com.couchbase.client.dcp.state.json.SessionStateSerializer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BiConsumer;
@@ -212,7 +213,12 @@ public class SessionState {
    *
    * @param format the format in which the state should be exposed, always uses the current version.
    * @return the exported format, depending on the type can be converted into a string by the user.
+   * @deprecated This method of recovering state does not account for whether
+   * an event received by the DCP client was actually processed by the user's application.
+   * This can cause the application to resume from the wrong point, silently skipping some events.
+   * Instead, an application should track its own state, and resume using {@link com.couchbase.client.dcp.Client#resumeStreaming(Map)}.
    */
+  @Deprecated
   public byte[] export(final StateFormat format) {
     try {
       if (format == StateFormat.JSON) {
