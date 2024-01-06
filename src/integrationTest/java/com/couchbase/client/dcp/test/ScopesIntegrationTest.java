@@ -108,7 +108,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
     }
   }
 
-  @Disabled("Invalid -- rollback mitigation has no effect on scope creation notifications")
+  @Disabled("The interaction between rollback mitigation and scope creation notifications is not so straightforward")
   @Test
   void scopesRollbackMitigationWillBufferUnpersistedEvents() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
@@ -133,7 +133,7 @@ public class ScopesIntegrationTest extends DcpIntegrationTestBase {
     }
   }
 
-  @Disabled("Invalid -- rollback mitigation has no effect on scope creation notifications")
+  @Disabled("The interaction between rollback mitigation and scope creation notifications is not so straightforward")
   @Test
   void scopesRollbackMitigationClearsEventBufferOnReconnect() throws Exception {
     try (TestBucket bucket = newBucket().create()) {
