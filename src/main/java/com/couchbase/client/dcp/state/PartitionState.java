@@ -42,7 +42,10 @@ public class PartitionState {
   private volatile List<FailoverLogEntry> failoverLog = new CopyOnWriteArrayList<>();
 
   /**
-   * Stores the starting sequence number for this partition.
+   * Stores the "starting" sequence number for this partition.
+   * <p>
+   * Updated whenever the client receives a data event,
+   * and used to automatically resume streaming if necessary.
    */
   @JsonProperty("ss")
   private volatile long startSeqno = 0;
@@ -54,9 +57,25 @@ public class PartitionState {
   private volatile long endSeqno = 0;
 
   /**
-   * Stores the snapshot start and end sequence numbers for this partition.
+   * Snapshot boundaries associated with the current {@link #startSeqno}.
    */
   private volatile SnapshotMarker snapshot = SnapshotMarker.NONE;
+
+  /**
+   * A snapshot marker received from the server, for which no data event
+   * has yet been received.
+   * <p>
+   * Will be associated with <i>future</i> data events.
+   * <p>
+   * Tracked separately, because the server might drop the connection
+   * after sending the snapshot marker and before sending the first
+   * data event in the snapshot.
+   * <p>
+   * Null if a data event has been received after the most recent
+   * snapshot marker event.
+   */
+  @Nullable
+  private volatile SnapshotMarker pendingSnapshot = null;
 
   /**
    * Stores the collections manifest UID for this partition so that the client
@@ -90,9 +109,8 @@ public class PartitionState {
 
   public static PartitionState fromOffset(StreamOffset offset) {
     PartitionState ps = new PartitionState();
-    ps.setStartSeqno(offset.getSeqno());
+    ps.setStartSeqno(offset.getSeqno(), offset.getSnapshot());
     ps.setEndSeqno(-1L);
-    ps.setSnapshot(offset.getSnapshot());
     ps.setCollectionsManifestUid(offset.getCollectionsManifestUid());
 
     // Use seqno -1 (max unsigned) so this synthetic failover log entry will always be pruned
@@ -150,10 +168,30 @@ public class PartitionState {
   }
 
   /**
-   * Allows to set the current start sequence number.
+   * Use this when initializing or resetting the partition's sequence number.
+   */
+  public void setStartSeqno(long startSeqno, SnapshotMarker snapshot) {
+    this.startSeqno = startSeqno;
+    this.snapshot = requireNonNull(snapshot);
+    this.pendingSnapshot = null;
+  }
+
+  /**
+   * Use this when advancing the partition's sequence number in response
+   * to a data event.
+   * <p>
+   * If there is a pending snapshot marker, it is promoted to "current"
+   * and associated with the given seqno (and with all future seqnos
+   * until the server sends another snapshot marker).
    */
   public void setStartSeqno(long startSeqno) {
     this.startSeqno = startSeqno;
+
+    SnapshotMarker nonVolatilePending = pendingSnapshot;
+    if (nonVolatilePending != null) {
+      snapshot = nonVolatilePending;
+      pendingSnapshot = null;
+    }
   }
 
   /**
@@ -204,12 +242,17 @@ public class PartitionState {
    */
   @Deprecated
   public void setSnapshotStartSeqno(long snapshotStartSeqno) {
-    this.snapshot = new SnapshotMarker(snapshotStartSeqno, this.snapshot.getEndSeqno());
+    setSnapshot(new SnapshotMarker(snapshotStartSeqno, this.snapshot.getEndSeqno()));
   }
 
   @JsonIgnore
-  public void setSnapshot(SnapshotMarker snapshot) {
+  private void setSnapshot(SnapshotMarker snapshot) {
     this.snapshot = requireNonNull(snapshot);
+  }
+
+  @JsonIgnore
+  public void setPendingSnapshot(SnapshotMarker snapshot) {
+    this.pendingSnapshot = requireNonNull(snapshot);
   }
 
   @JsonIgnore
@@ -232,7 +275,7 @@ public class PartitionState {
    */
   @Deprecated
   public void setSnapshotEndSeqno(long snapshotEndSeqno) {
-    this.snapshot = new SnapshotMarker(this.snapshot.getStartSeqno(), snapshotEndSeqno);
+    setSnapshot(new SnapshotMarker(this.snapshot.getStartSeqno(), snapshotEndSeqno));
   }
 
   /**

@@ -35,9 +35,8 @@ public class SessionStateRollbackToPositionTest {
         new FailoverLogEntry(1, 345),
         new FailoverLogEntry(5, 12345),
         new FailoverLogEntry(-1L, 4567))); // seqnos are unsigned, so -1 is max value
-    partitionState.setStartSeqno(1);
+    partitionState.setStartSeqno(1, new SnapshotMarker(2, 3));
     partitionState.setEndSeqno(1000);
-    partitionState.setSnapshot(new SnapshotMarker(2, 3));
     sessionState.set(0, partitionState);
 
     sessionState.rollbackToPosition(0, 1L);

@@ -319,7 +319,7 @@ public class Client implements Closeable {
           // Keep snapshot information in the session state, but also forward event to user
           int partition = DcpSnapshotMarkerRequest.partition(event);
           sessionState().get(partition)
-              .setSnapshot(new SnapshotMarker(
+              .setPendingSnapshot(new SnapshotMarker(
                   DcpSnapshotMarkerRequest.startSeqno(event),
                   DcpSnapshotMarkerRequest.endSeqno(event)));
         } else if (DcpFailoverLogResponse.is(event)) {
@@ -359,8 +359,7 @@ public class Client implements Closeable {
         LOGGER.debug("Seqno for vbucket {} advanced to {}", vbucket, seqno);
 
         PartitionState ps = sessionState().get(vbucket);
-        ps.setStartSeqno(seqno);
-        ps.setSnapshot(new SnapshotMarker(seqno, seqno));
+        ps.setStartSeqno(seqno, new SnapshotMarker(seqno, seqno));
       }
 
       private void handleDcpSystemEvent(ByteBuf event) {
@@ -888,10 +887,9 @@ public class Client implements Closeable {
     return initWithCallback(partitionAndSeqno -> {
       int partition = partitionAndSeqno.partition();
       long seqno = partitionAndSeqno.seqno();
-      PartitionState partitionState = sessionState().get(partition);
-      partitionState.setStartSeqno(seqno);
-      partitionState.setSnapshot(new SnapshotMarker(seqno, seqno));
-      sessionState().set(partition, partitionState);
+      sessionState()
+          .get(partition)
+          .setStartSeqno(seqno, new SnapshotMarker(seqno, seqno));
     });
   }
 

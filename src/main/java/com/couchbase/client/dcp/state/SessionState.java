@@ -91,8 +91,7 @@ public class SessionState {
     for (int i = 0; i < numPartitions; i++) {
       PartitionState partitionState = new PartitionState();
       partitionState.setEndSeqno(NO_END_SEQNO);
-      partitionState.setStartSeqno(0);
-      partitionState.setSnapshot(SnapshotMarker.NONE);
+      partitionState.setStartSeqno(0, SnapshotMarker.NONE);
       partitionStates.set(i, partitionState);
     }
   }
@@ -166,8 +165,7 @@ public class SessionState {
    */
   public void rollbackToPosition(int partition, long seqno) {
     PartitionState ps = partitionStates.get(partition);
-    ps.setStartSeqno(seqno);
-    ps.setSnapshot(new SnapshotMarker(seqno, seqno));
+    ps.setStartSeqno(seqno, new SnapshotMarker(seqno, seqno));
     List<FailoverLogEntry> failoverLog = ps.getFailoverLog();
     Iterator<FailoverLogEntry> flogIterator = failoverLog.iterator();
     List<FailoverLogEntry> entriesToRemove = new ArrayList<>();

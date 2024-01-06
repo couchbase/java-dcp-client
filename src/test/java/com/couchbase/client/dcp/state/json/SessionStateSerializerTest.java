@@ -39,9 +39,8 @@ public class SessionStateSerializerTest {
     PartitionState partitionState = new PartitionState();
     partitionState.setFailoverLog(singletonList(
         new FailoverLogEntry(5, 12345)));
-    partitionState.setStartSeqno(1);
+    partitionState.setStartSeqno(1, new SnapshotMarker(2, 3));
     partitionState.setEndSeqno(1000);
-    partitionState.setSnapshot(new SnapshotMarker(2, 3));
     sessionState.set(0, partitionState);
 
     byte[] actualJson = sessionState.export(StateFormat.JSON);
