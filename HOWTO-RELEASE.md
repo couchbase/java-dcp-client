@@ -48,9 +48,8 @@ When you're satisfied with the test results, it's time to...
 ## Bump the project version number
 
 1. Edit `pom.xml` and remove the `-SNAPSHOT` suffix from the version string.
-2. Edit `integration-test/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
-3. Edit `examples/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
-4. Commit these changes, with message "Prepare x.y.z release"
+2. Edit `examples/pom.xml` and update the `dcp.client.version` property to match the version string in Step 1.
+3. Commit these changes, with message "Prepare x.y.z release"
    (where x.y.z is the version you're releasing).
 
 ## Tag the release
@@ -87,7 +86,7 @@ If the release succeeded, now's the time to publish the tag:
 ## Prepare for next dev cycle
 
 Increment the version number in `pom.xml` and restore the `-SNAPSHOT` suffix.
-Update the `dcp.client.version` property in `integration-test/pom.xml` and `examples/pom.xml` to refer to the
+Update the `dcp.client.version` property in `examples/pom.xml` to refer to the
 new snapshot version.
 Commit and push to Gerrit. Breathe in. Breathe out.
 
