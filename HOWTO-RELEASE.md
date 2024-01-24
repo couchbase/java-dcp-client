@@ -41,8 +41,8 @@ All set? In that case...
 ## Let's do this!
 
 Start by running `mvn clean verify -Prelease` to make sure the project builds successfully,
-artifact signing works, and the unit tests pass. To run the integration tests, go to the
-`integration-test/aggregator` directory and run `mvn clean verify`.
+artifact signing works, and the unit tests pass. To run the integration tests, run `mvn clean verify`
+without specifying a profile.
 When you're satisfied with the test results, it's time to...
 
 ## Bump the project version number
@@ -73,8 +73,6 @@ Alternatively, if you prefer to inspect the staging repository and
 set this additional property:
 
     mvn clean deploy -Prelease -DautoReleaseAfterClose=false
-
-Remember, you can add `-DskipITs` to either command to skip integration tests if appropriate.
 
 Whew, you did it! Or the build failed and you're looking at a cryptic error message, in which
 case you might want to check out the Troubleshooting section below.
