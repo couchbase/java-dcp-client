@@ -37,7 +37,7 @@ public class MinimalEventBus implements EventBus {
   private final LoggingEventConsumer loggingEventConsumer = LoggingEventConsumer.create();
 
   @Override
-  public PublishResult publish(Event event) {
+  public synchronized PublishResult publish(Event event) {
     loggingEventConsumer.accept(event);
     return PublishResult.SUCCESS;
   }
