@@ -16,6 +16,7 @@
 
 package com.couchbase.client.dcp.core.config;
 
+import com.couchbase.client.core.annotation.Stability;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
 import reactor.util.annotation.Nullable;
 
@@ -43,14 +44,19 @@ public interface BucketConfig {
     return capabilities().contains(capability);
   }
 
-  static @Nullable BucketConfig parse(ObjectNode json, List<NodeInfo> nodes) {
+  @Stability.Internal
+  static @Nullable BucketConfig parse(
+      ObjectNode json,
+      List<NodeInfo> nodes,
+      MemcachedHashingStrategy memcachedHashingStrategy
+  ) {
     switch (json.path("nodeLocator").asText()) {
       case "vbucket":
         return CouchbaseBucketConfigParser.parse(json, nodes);
       case "ketama":
-        return MemcachedBucketConfigParser.parse(json, nodes);
+        return MemcachedBucketConfigParser.parse(json, nodes, memcachedHashingStrategy);
       default:
-        // this was a "global" config with no bucket information
+        // this was a "global" config with no bucket information (or an exotic new bucket type!)
         return null;
     }
   }

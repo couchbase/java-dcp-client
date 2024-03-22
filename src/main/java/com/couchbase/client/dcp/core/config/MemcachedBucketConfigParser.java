@@ -17,11 +17,30 @@
 package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
+import com.couchbase.client.core.service.ServiceType;
 
 import java.util.List;
+import java.util.Set;
+
+import static com.couchbase.client.core.util.CbCollections.filter;
+import static com.couchbase.client.dcp.core.config.AbstractBucketConfig.parseBucketCapabilities;
 
 public class MemcachedBucketConfigParser {
-  public static CouchbaseBucketConfig parse(ObjectNode configNode, List<NodeInfo> nodes) {
-    throw new UnsupportedOperationException("todo");
+  public static MemcachedBucketConfig parse(
+      ObjectNode configNode,
+      List<NodeInfo> nodes,
+      MemcachedHashingStrategy hashingStrategy
+  ) {
+    Set<BucketCapability> bucketCapabilities = parseBucketCapabilities(configNode);
+
+    List<NodeInfo> kvNodes = filter(nodes, (it) -> it.has(ServiceType.KV));
+    KetamaRing<NodeInfo> ketamaRing = KetamaRing.create(kvNodes, hashingStrategy);
+
+    return new MemcachedBucketConfig(
+        configNode.path("name").asText(),
+        configNode.path("uuid").asText(),
+        bucketCapabilities,
+        ketamaRing
+    );
   }
 }

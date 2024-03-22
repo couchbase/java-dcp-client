@@ -17,23 +17,17 @@
 package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.core.deps.com.fasterxml.jackson.core.type.TypeReference;
-import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.DeserializationFeature;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
-import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectReader;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
-import com.couchbase.client.core.error.CouchbaseException;
 import com.couchbase.client.dcp.core.utils.JacksonHelper;
 import reactor.util.annotation.Nullable;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.couchbase.client.dcp.core.config.AbstractBucketConfig.parseBucketCapabilities;
 import static com.couchbase.client.dcp.core.utils.CbCollections.transform;
-import static java.util.Collections.emptySet;
 
 
 public class CouchbaseBucketConfigParser {
@@ -93,26 +87,6 @@ public class CouchbaseBucketConfigParser {
         PartitionInfo.parse(allNodes, activeAndReplicaNodeIndexes)
     );
     return Optional.of(new PartitionMap(entries));
-  }
-
-  private static final ObjectReader bucketCapabilitiesReader = JacksonHelper.reader()
-      .withFeatures(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
-      .forType(new TypeReference<Set<BucketCapability>>() {
-      });
-
-  private static Set<BucketCapability> parseBucketCapabilities(ObjectNode configNode) {
-    JsonNode capabilitiesNode = configNode.get("bucketCapabilities");
-    if (capabilitiesNode == null) {
-      return emptySet();
-    }
-    try {
-      Set<BucketCapability> result = bucketCapabilitiesReader.readValue(capabilitiesNode);
-      return result.stream()
-          .filter(Objects::nonNull)
-          .collect(Collectors.toSet());
-    } catch (IOException e) {
-      throw new CouchbaseException("Failed to parse bucketCapabilities node: " + capabilitiesNode);
-    }
   }
 
 }

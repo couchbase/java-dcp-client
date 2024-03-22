@@ -42,7 +42,8 @@ public class ClusterConfigParser {
       ObjectNode clusterConfig,
       String originHost,
       PortSelector portSelector,
-      NetworkSelector networkSelector
+      NetworkSelector networkSelector,
+      MemcachedHashingStrategy memcachedHashingStrategy
   ) {
 
     ArrayNode nodesExt = (ArrayNode) clusterConfig.get("nodesExt");
@@ -64,7 +65,7 @@ public class ClusterConfigParser {
     // the node indexes required by the KV partition map.
     List<NodeInfo> resolvedNodes = transform(nodes, it -> it.getOrDefault(resolvedNetwork, NodeInfo.INACCESSIBLE));
 
-    BucketConfig bucket = CouchbaseBucketConfigParser.parse(clusterConfig, resolvedNodes);
+    BucketConfig bucket = BucketConfig.parse(clusterConfig, resolvedNodes, memcachedHashingStrategy);
 
     return new ClusterConfig(
         ConfigRevision.parse(clusterConfig),

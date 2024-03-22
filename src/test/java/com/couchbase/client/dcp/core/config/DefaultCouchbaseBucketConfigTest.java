@@ -21,7 +21,7 @@ import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.json.Mapper;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.util.HostAndPort;
-import com.couchbase.client.dcp.core.util.Resources;
+import com.couchbase.client.dcp.Resources;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -29,10 +29,15 @@ import java.util.NoSuchElementException;
 import java.util.OptionalInt;
 
 import static com.couchbase.client.core.util.CbCollections.listOf;
+import static com.couchbase.client.dcp.core.config.BucketCapability.CBHELLO;
+import static com.couchbase.client.dcp.core.config.BucketCapability.NODES_EXT;
+import static com.couchbase.client.dcp.core.utils.CbCollections.setOf;
 import static com.couchbase.client.dcp.core.utils.CbCollections.transform;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -40,6 +45,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link CouchbaseBucketConfigParser}.
  */
 public class DefaultCouchbaseBucketConfigTest {
+
+  @Test
+  void canParseMemcached() {
+    String origin = "origin.example.com";
+    ClusterConfig config = read("config-memcached-7.6.0.json", origin);
+    MemcachedBucketConfig bucket = requireMemcachedBucket(config);
+    assertEquals("mc", bucket.name());
+    assertEquals("995747a3b1cc309a5cf421e1de927124", bucket.uuid());
+    assertEquals(setOf(CBHELLO, NODES_EXT), bucket.capabilities());
+    assertEquals(listOf(origin), transform(config.nodes(), NodeInfo::host));
+    assertSame(config.nodes().get(0), bucket.nodeForKey("xyzzy".getBytes(UTF_8)));
+  }
+
+  @Test
+  void canParseMemcachedExternal() {
+    String origin = "origin.example.com";
+    String externalHostname = "booper";
+    ClusterConfig config = read("config-memcached-7.6.0.json", origin, PortSelector.NON_TLS, NetworkSelector.EXTERNAL);
+    MemcachedBucketConfig bucket = requireMemcachedBucket(config);
+    assertEquals(listOf(externalHostname), transform(config.nodes(), NodeInfo::host));
+    assertSame(config.nodes().get(0), bucket.nodeForKey("xyzzy".getBytes(UTF_8)));
+  }
+
   @Test
   void magmaBucketIsNotEphemeral() {
     ClusterConfig config = read("config_magma_two_nodes.json");
@@ -179,21 +207,35 @@ public class DefaultCouchbaseBucketConfigTest {
     return read(resourceName, originHost, PortSelector.NON_TLS, NetworkSelector.DEFAULT);
   }
 
-  private static ClusterConfig read(String resourceName, String originHost, PortSelector portSelector, NetworkSelector networkSelector) {
-    String json = Resources.read(resourceName, DefaultCouchbaseBucketConfigTest.class);
+  private static ClusterConfig read(
+      String resourceName,
+      String originHost,
+      PortSelector portSelector,
+      NetworkSelector networkSelector
+  ) {
+    String json = Resources.from(DefaultCouchbaseBucketConfigTest.class).getString(resourceName);
     return ClusterConfigParser.parse(
         (ObjectNode) Mapper.decodeIntoTree(json),
         originHost,
         portSelector,
-        networkSelector
+        networkSelector,
+        StandardMemcachedHashingStrategy.INSTANCE
     );
   }
-  
+
   public CouchbaseBucketConfig requireCouchbaseBucket(ClusterConfig config) {
     try {
       return (CouchbaseBucketConfig) requireNonNull(config.bucket());
     } catch (Exception e) {
       throw new NoSuchElementException("config has no couchbase bucket");
+    }
+  }
+
+  public MemcachedBucketConfig requireMemcachedBucket(ClusterConfig config) {
+    try {
+      return (MemcachedBucketConfig) requireNonNull(config.bucket());
+    } catch (Exception e) {
+      throw new NoSuchElementException("config has no memcached bucket");
     }
   }
 }

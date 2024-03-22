@@ -24,6 +24,7 @@ import com.couchbase.client.dcp.buffer.DcpBucketConfig;
 import com.couchbase.client.dcp.core.config.ClusterConfig;
 import com.couchbase.client.dcp.core.config.ClusterConfigParser;
 import com.couchbase.client.dcp.core.config.ConfigRevision;
+import com.couchbase.client.dcp.core.config.StandardMemcachedHashingStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -85,7 +86,8 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
             (ObjectNode) Mapper.decodeIntoTree(rawConfig),
             origin.host(),
             environment.portSelector(),
-            environment.networkSelector()
+            environment.networkSelector(),
+            StandardMemcachedHashingStrategy.INSTANCE // doesn't matter for DCP, which doesn't support Memcached buckets
         );
 
         configSink.next(new DcpBucketConfig(config));
