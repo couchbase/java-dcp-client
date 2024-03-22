@@ -19,12 +19,14 @@ package com.couchbase.client.dcp.core.config;
 import com.couchbase.client.core.service.ServiceType;
 
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,12 +49,23 @@ public enum PortSelector {
   }
 
   /**
+   * @param serviceNameToPort key is service name as it appears in the cluster map JSON, value is associated port
+   */
+  public Map<ServiceType, Integer> selectPorts(Map<String, Integer> serviceNameToPort) {
+    Map<ServiceType, Integer> result = new EnumMap<>(ServiceType.class);
+    serviceNameToPort.forEach((serviceName, port) ->
+        getServiceForName(serviceName).ifPresent(it -> result.put(it, port))
+    );
+    return unmodifiableMap(result);
+  }
+
+  /**
    * Given the name of a Couchbase service as it appears in the global/bucket config JSON,
    * return the associated ServiceType, or empty if the name is unrecognized or refers to
    * an irrelevant transport. For example, {@link PortSelector#TLS} only recognizes service names
    * that use a secure transport.
    */
-  public Optional<ServiceType> getServiceForName(String serviceName) {
+  private Optional<ServiceType> getServiceForName(String serviceName) {
     return Optional.ofNullable(serviceIndex.get(serviceName));
   }
 

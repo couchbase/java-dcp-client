@@ -16,17 +16,22 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.core.type.TypeReference;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
 import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.error.CouchbaseException;
+import com.couchbase.client.core.json.Mapper;
 import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.util.CbCollections;
+import com.couchbase.client.core.util.HostAndPort;
 import reactor.util.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.couchbase.client.core.util.CbCollections.transformValues;
 import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 
 public class NodeInfoParser {
@@ -41,20 +46,51 @@ public class NodeInfoParser {
    *
    * @param portSelector Determines whether the returned node info has TLS ports or non-TLS ports.
    */
-  public static Map<NetworkResolution, NodeInfo> parse(ObjectNode json, PortSelector portSelector) {
-    Map<NetworkResolution, NodeInfo> result = new HashMap<>();
+  public static Map<NetworkResolution, NodeInfo> parse(
+      ObjectNode json,
+      PortSelector portSelector
+  ) {
+    Map<NetworkResolution, HostAndRawServicePorts> raw = parseIntermediate(json);
+    HostAndPort ketamaAuthority = getKetamaAuthority(raw);
 
-    NodeInfo defaultConfig = parseOne(json, "services", portSelector);
-    result.put(NetworkResolution.DEFAULT, defaultConfig);
+    return transformValues(raw, value ->
+        new NodeInfo(
+            value.host,
+            portSelector.selectPorts(value.rawServicePorts),
+            ketamaAuthority
+        )
+    );
+  }
 
-    ObjectNode alternatesNode = (ObjectNode) json.get("alternateAddresses");
-    if (alternatesNode == null) {
-      return result;
+  /**
+   * Returns the host and non-TLS port for the KV service on the default network,
+   * or null if there's no such port.
+   */
+  @Nullable
+  private static HostAndPort getKetamaAuthority(Map<NetworkResolution, HostAndRawServicePorts> networkToNodeInfo) {
+    HostAndRawServicePorts defaultNodeMap = networkToNodeInfo.get(NetworkResolution.DEFAULT);
+    if (defaultNodeMap == null) {
+      return null;
     }
 
-    alternatesNode.fields().forEachRemaining(it -> {
+    Map<ServiceType, Integer> nonTlsPorts = PortSelector.NON_TLS.selectPorts(defaultNodeMap.rawServicePorts);
+    Integer nonTlsKvPort = nonTlsPorts.get(ServiceType.KV);
+    if (nonTlsKvPort == null) {
+      return null;
+    }
+
+    return new HostAndPort(defaultNodeMap.host, nonTlsKvPort);
+  }
+
+  private static Map<NetworkResolution, HostAndRawServicePorts> parseIntermediate(ObjectNode json) {
+    Map<NetworkResolution, HostAndRawServicePorts> result = new HashMap<>();
+
+    HostAndRawServicePorts defaultInfo = parseOne(json, "services");
+    result.put(NetworkResolution.DEFAULT, defaultInfo);
+
+    json.path("alternateAddresses").fields().forEachRemaining(it -> {
       NetworkResolution network = NetworkResolution.valueOf(it.getKey());
-      NodeInfo alternate = parseOne((ObjectNode) it.getValue(), "ports", portSelector);
+      HostAndRawServicePorts alternate = parseOne((ObjectNode) it.getValue(), "ports");
 
       // If the alternate has at least one port, then no other services
       // are available on that interface, and the SDK MUST NOT
@@ -64,8 +100,8 @@ public class NodeInfoParser {
       // if all ports are the same as on the default network.
       // However, as of March 2024 no server version uses this optimization.
       // Nevertheless:
-      if (alternate.ports().isEmpty()) {
-        alternate = new NodeInfo(alternate.host(), defaultConfig.ports());
+      if (alternate.rawServicePorts.isEmpty()) {
+        alternate = new HostAndRawServicePorts(alternate.host, defaultInfo.rawServicePorts);
       }
 
       result.put(network, alternate);
@@ -77,7 +113,12 @@ public class NodeInfoParser {
   /**
    * @param portsFieldName because of course it's different when parsing alternate addresses :-/
    */
-  private static NodeInfo parseOne(ObjectNode json, String portsFieldName, PortSelector portSelector) {
+  private static HostAndRawServicePorts parseOne(
+      ObjectNode json,
+      String portsFieldName
+  ) {
+    // Nodes where "thisNode" is true don't have a "hostname" in the original config,
+    // but we patched in a synthetic "hostname" field earlier.
     String host = json.path("hostname").textValue();
 
     // Apparently, ancient versions of Couchbase (like, 3.x) could omit the hostname field,
@@ -87,26 +128,30 @@ public class NodeInfoParser {
       throw new CouchbaseException("Couchbase server version is too old for this SDK; nodesExt entry is missing 'hostname' field.");
     }
 
-    return new NodeInfo(
+    return new HostAndRawServicePorts(
         host,
-        parseServices((ObjectNode) json.get(portsFieldName), portSelector)
+        parseServices((ObjectNode) json.get(portsFieldName))
     );
   }
 
-  private static Map<ServiceType, Integer> parseServices(@Nullable ObjectNode servicesNode, PortSelector portSelector) {
-    if (servicesNode == null) {
-      return emptyMap();
-    }
+  private static final TypeReference<Map<String, Integer>> MAP_STRING_TO_INT = new TypeReference<Map<String, Integer>>() {};
 
-    Map<ServiceType, Integer> serviceToPort = new HashMap<>();
-    servicesNode.fields().forEachRemaining(serviceField -> {
-      String serviceName = serviceField.getKey();
-      portSelector.getServiceForName(serviceName).ifPresent(serviceType -> {
-        JsonNode portNode = serviceField.getValue();
-        serviceToPort.put(serviceType, portNode.intValue());
-      });
-    });
-    return serviceToPort;
+  private static Map<String, Integer> parseServices(@Nullable ObjectNode servicesNode) {
+    return servicesNode == null
+        ? emptyMap()
+        : Mapper.convertValue(servicesNode, MAP_STRING_TO_INT);
   }
 
+  private static class HostAndRawServicePorts {
+    private final String host;
+    private final Map<String, Integer> rawServicePorts;
+
+    /**
+     * @param rawServicePorts unfiltered, straight from the config json
+     */
+    public HostAndRawServicePorts(String host, Map<String, Integer> rawServicePorts) {
+      this.host = requireNonNull(host);
+      this.rawServicePorts = requireNonNull(rawServicePorts);
+    }
+  }
 }

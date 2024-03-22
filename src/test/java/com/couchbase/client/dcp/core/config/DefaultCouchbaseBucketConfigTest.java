@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.OptionalInt;
 
+import static com.couchbase.client.core.util.CbCollections.listOf;
+import static com.couchbase.client.dcp.core.utils.CbCollections.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -186,9 +188,28 @@ public class DefaultCouchbaseBucketConfigTest {
 
     assertEquals(32790, nodes.get(0).port(ServiceType.MANAGER).orElse(0));
 
+    // Ketama authority is always host and non-TLS KV port from "default" network,
+    // regardless of the port selector.
+    List<HostAndPort> expectedKetamaAuthorities = listOf(
+        new HostAndPort("172.17.0.2", 11210),
+        new HostAndPort("172.17.0.3", 11210),
+        new HostAndPort("172.17.0.4", 11210)
+    );
+
+    assertEquals(
+        expectedKetamaAuthorities,
+        transform(config.nodes(), NodeInfo::ketamaAuthority)
+    );
+
     // Again, TLS port this time
     config = read("config_with_external.json", "127.0.0.1", PortSelector.TLS, NetworkSelector.EXTERNAL);
     assertEquals(32773, config.nodes().get(0).port(ServiceType.MANAGER).orElse(0));
+
+    // Ketama authority is the same for non-TLS and TLS port selector.
+    assertEquals(
+        expectedKetamaAuthorities,
+        transform(config.nodes(), NodeInfo::ketamaAuthority)
+    );
   }
 
   private static CouchbaseBucketConfig read(String resourceName) {

@@ -18,6 +18,8 @@ package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.core.env.SeedNode;
 import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.util.HostAndPort;
+import reactor.util.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Objects;
@@ -40,14 +42,20 @@ import static java.util.Objects.requireNonNull;
 public class NodeInfo {
   // Placeholder for a node that can't be reached, because it doesn't have an alternate address
   // for the requested network. (Can't just ignore it, because bucket config refers to nodes by index.)
-  public static final NodeInfo INACCESSIBLE = new NodeInfo("<inaccessible>", emptyMap());
+  public static final NodeInfo INACCESSIBLE = new NodeInfo("<inaccessible>", emptyMap(), null);
 
   private final String host;
   private final Map<ServiceType, Integer> ports;
+  @Nullable private final HostAndPort ketamaAuthority;
 
-  public NodeInfo(String host, Map<ServiceType, Integer> ports) {
+  public NodeInfo(
+      String host,
+      Map<ServiceType, Integer> ports,
+      @Nullable HostAndPort ketamaAuthority
+  ) {
     this.host = requireNonNull(host);
     this.ports = unmodifiableMap(newEnumMap(ServiceType.class, ports));
+    this.ketamaAuthority = ketamaAuthority;
   }
 
   public boolean inaccessible() {
@@ -60,6 +68,20 @@ public class NodeInfo {
 
   public String host() {
     return host;
+  }
+
+  /**
+   * Returns the host and non-TLS KV port from the "default" network.
+   * <p>
+   * Used with Memcached buckets to determine which document IDs
+   * this node is responsible for.
+   * <p>
+   * If the node has no non-TLS KV port, then this method returns
+   * null, and the node cannot participate in a ketama ring.
+   */
+  @Nullable
+  public HostAndPort ketamaAuthority() {
+    return ketamaAuthority;
   }
 
   public OptionalInt port(ServiceType serviceType) {
@@ -108,6 +130,7 @@ public class NodeInfo {
     return "NodeConfig{" +
         "host='" + redactSystem(host) + '\'' +
         ", serviceToPort=" + redactSystem(ports) +
+        ", ketamaAuthority=" + redactSystem(ketamaAuthority) +
         '}';
   }
 
