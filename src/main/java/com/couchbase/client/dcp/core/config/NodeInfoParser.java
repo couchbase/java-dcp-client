@@ -56,9 +56,17 @@ public class NodeInfoParser {
       NetworkResolution network = NetworkResolution.valueOf(it.getKey());
       NodeInfo alternate = parseOne((ObjectNode) it.getValue(), "ports", portSelector);
 
-      // The server may omit the host or ports from the alternate address entry
-      // if they are the same as on the default network, or so I'm told...
-      alternate = alternate.withMissingInfoFrom(defaultConfig);
+      // If the alternate has at least one port, then no other services
+      // are available on that interface, and the SDK MUST NOT
+      // use ports from the default config.
+
+      // The server MAY advertise an alternate address with no ports
+      // if all ports are the same as on the default network.
+      // However, as of March 2024 no server version uses this optimization.
+      // Nevertheless:
+      if (alternate.ports().isEmpty()) {
+        alternate = new NodeInfo(alternate.host(), defaultConfig.ports());
+      }
 
       result.put(network, alternate);
     });

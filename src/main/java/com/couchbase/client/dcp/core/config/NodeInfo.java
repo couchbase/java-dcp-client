@@ -19,18 +19,15 @@ package com.couchbase.client.dcp.core.config;
 import com.couchbase.client.core.env.SeedNode;
 import com.couchbase.client.core.service.ServiceType;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSystem;
 import static com.couchbase.client.dcp.core.utils.CbCollections.newEnumMap;
-import static com.couchbase.client.dcp.core.utils.CbStrings.defaultIfEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
-
 
 /**
  * Used for locating the services running on a node.
@@ -114,13 +111,6 @@ public class NodeInfo {
         '}';
   }
 
-  public NodeInfo withMissingInfoFrom(NodeInfo other) {
-    Map<ServiceType, Integer> completePorts = new HashMap<>(other.ports());
-    completePorts.putAll(ports());
-    String completeHost = defaultIfEmpty(host(), other.host());
-    return new NodeInfo(completeHost, completePorts);
-  }
-
   /**
    * @deprecated Please use {@link #host()} instead.
    */
@@ -128,7 +118,6 @@ public class NodeInfo {
   public String hostname() {
     return host();
   }
-
 
   /**
    * @deprecated Please use {@link #ports()} instead.
