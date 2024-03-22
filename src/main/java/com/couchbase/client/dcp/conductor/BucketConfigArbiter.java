@@ -16,12 +16,14 @@
 
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
+import com.couchbase.client.core.json.Mapper;
 import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
+import com.couchbase.client.dcp.core.config.ClusterConfig;
+import com.couchbase.client.dcp.core.config.ClusterConfigParser;
 import com.couchbase.client.dcp.core.config.ConfigRevision;
-import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
-import com.couchbase.client.dcp.core.config.CouchbaseBucketConfigParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -33,7 +35,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSystem;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -80,8 +81,8 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
       try {
         currentRev = rev;
 
-        CouchbaseBucketConfig config = CouchbaseBucketConfigParser.parse(
-            rawConfig.getBytes(UTF_8),
+        ClusterConfig config = ClusterConfigParser.parse(
+            (ObjectNode) Mapper.decodeIntoTree(rawConfig),
             origin.host(),
             environment.portSelector(),
             environment.networkSelector()

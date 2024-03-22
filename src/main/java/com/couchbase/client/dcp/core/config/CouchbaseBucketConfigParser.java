@@ -38,28 +38,7 @@ import static java.util.Collections.emptySet;
 
 public class CouchbaseBucketConfigParser {
 
-  /**
-   * @param originHost Hostname or IP literal of the address this config was retrieved from.
-   * Must not include a port. If it's an IPv6 literal, must not include square brackets.
-   * @param portSelector TLS or non-TLS?
-   * @param networkSelector A pre-determined network? Or auto-detect based on the seed nodes?
-   */
-  public static CouchbaseBucketConfig parse(
-      byte[] json,
-      String originHost,
-      PortSelector portSelector,
-      NetworkSelector networkSelector
-  ) {
-    ObjectNode configNode = JacksonHelper.readObject(json);
-
-    ClusterConfig clusterConfig = ClusterConfigParser.parse(
-        configNode,
-        originHost,
-        portSelector,
-        networkSelector
-    );
-
-    List<NodeInfo> nodes = clusterConfig.nodes();
+  public static CouchbaseBucketConfig parse(ObjectNode configNode, List<NodeInfo> nodes) {
     ObjectNode vBucketServerMap = (ObjectNode) configNode.get("vBucketServerMap");
 
     PartitionMap partitionMap = parsePartitionMap(
@@ -76,7 +55,6 @@ public class CouchbaseBucketConfigParser {
     boolean ephemeral = parseEphemeral(configNode, bucketCapabilities);
 
     return new CouchbaseBucketConfig(
-        clusterConfig,
         configNode.path("name").asText(),
         configNode.path("uuid").asText(),
         bucketCapabilities,

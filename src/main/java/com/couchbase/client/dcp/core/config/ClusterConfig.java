@@ -17,6 +17,7 @@
 package com.couchbase.client.dcp.core.config;
 
 import com.couchbase.client.core.env.NetworkResolution;
+import reactor.util.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
@@ -32,12 +33,14 @@ public class ClusterConfig {
   private final List<NodeInfo> nodes;
   private final Set<ClusterCapability> capabilities;
   private final NetworkResolution network;
+  @Nullable private final BucketConfig bucket;
 
   public ClusterConfig(
       ConfigRevision revision,
       List<NodeInfo> nodes,
       Set<ClusterCapability> capabilities,
-      NetworkResolution network
+      NetworkResolution network,
+      @Nullable BucketConfig bucket
   ) {
     if (network.equals(NetworkResolution.AUTO)) {
       throw new IllegalArgumentException("Must resolve 'auto' network before creating config.");
@@ -47,6 +50,7 @@ public class ClusterConfig {
     this.nodes = copyToUnmodifiableList(requireNonNull(nodes));
     this.capabilities = unmodifiableSet(newEnumSet(ClusterCapability.class, capabilities));
     this.network = requireNonNull(network);
+    this.bucket = bucket;
   }
 
   public ConfigRevision revision() {
@@ -69,6 +73,11 @@ public class ClusterConfig {
     return capabilities;
   }
 
+  @Nullable
+  public BucketConfig bucket() {
+    return bucket;
+  }
+
   @Override
   public String toString() {
     return "ClusterConfig{" +
@@ -76,6 +85,7 @@ public class ClusterConfig {
         ", nodes=" + nodes +
         ", capabilities=" + capabilities +
         ", network=" + network +
+        ", bucket=" + bucket +
         '}';
   }
 }

@@ -16,10 +16,8 @@
 
 package com.couchbase.client.dcp.core.config;
 
-import com.couchbase.client.core.service.ServiceType;
 import reactor.util.annotation.Nullable;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -29,10 +27,9 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
-public class CouchbaseBucketConfig {
+public class CouchbaseBucketConfig implements BucketConfig {
   static final int PARTITION_NOT_EXISTENT = -2;
 
-  private final ClusterConfig clusterConfig;
   private final String name;
   private final String uuid;
   private final boolean ephemeral;
@@ -44,7 +41,6 @@ public class CouchbaseBucketConfig {
   private final Set<String> primaryPartitionHosts;
 
   public CouchbaseBucketConfig(
-      ClusterConfig clusterConfig,
       String name,
       String uuid,
       Set<BucketCapability> capabilities,
@@ -53,7 +49,6 @@ public class CouchbaseBucketConfig {
       PartitionMap partitions,
       @Nullable PartitionMap partitionsForward
   ) {
-    this.clusterConfig = requireNonNull(clusterConfig);
     this.name = requireNonNull(name);
     this.uuid = requireNonNull(uuid);
     this.replicas = replicas;
@@ -70,40 +65,19 @@ public class CouchbaseBucketConfig {
     );
   }
 
-  public ConfigRevision revision() {
-    return globalConfig().revision();
-  }
-
-  public List<NodeInfo> nodes() {
-    return globalConfig().nodes();
-  }
-
-  public ClusterConfig globalConfig() {
-    return clusterConfig;
-  }
-
+  @Override
   public String name() {
     return name;
   }
 
+  @Override
   public String uuid() {
     return uuid;
   }
 
+  @Override
   public Set<BucketCapability> capabilities() {
     return capabilities;
-  }
-
-  public Set<ClusterCapability> clusterCapabilities() {
-    return globalConfig().capabilities();
-  }
-
-  public boolean hasCapability(BucketCapability capability) {
-    return capabilities.contains(capability);
-  }
-
-  public boolean hasCapability(ClusterCapability capability) {
-    return clusterConfig.hasCapability(capability);
   }
 
   public boolean ephemeral() {
@@ -157,31 +131,16 @@ public class CouchbaseBucketConfig {
         .orElse(PARTITION_NOT_EXISTENT);
   }
 
-  /**
-   * Only used for testing? Should tests be more specific?
-   */
-  @Deprecated
-  boolean serviceEnabled(ServiceType serviceType) {
-    return nodes().stream().anyMatch(it -> it.has(serviceType));
-  }
-
-  @Deprecated // temporary bridge?
-  public NodeInfo nodeAtIndex(int nodeIndex) {
-    return nodes().get(nodeIndex);
-  }
-
   @Override
   public String toString() {
     return "CouchbaseBucketConfig{" +
-        "clusterConfig=" + clusterConfig +
-        ", name='" + name + '\'' +
+        "name='" + name + '\'' +
         ", uuid='" + uuid + '\'' +
         ", ephemeral=" + ephemeral +
         ", capabilities=" + capabilities +
         ", replicas=" + replicas +
         ", partitions=" + partitions +
         ", partitionsForward=" + partitionsForward +
-        ", primaryPartitionHosts=" + primaryPartitionHosts +
         '}';
   }
 }

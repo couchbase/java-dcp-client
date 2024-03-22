@@ -64,11 +64,14 @@ public class ClusterConfigParser {
     // the node indexes required by the KV partition map.
     List<NodeInfo> resolvedNodes = transform(nodes, it -> it.getOrDefault(resolvedNetwork, NodeInfo.INACCESSIBLE));
 
+    BucketConfig bucket = CouchbaseBucketConfigParser.parse(clusterConfig, resolvedNodes);
+
     return new ClusterConfig(
         ConfigRevision.parse(clusterConfig),
         resolvedNodes,
         parseCapabilities(clusterConfig),
-        resolvedNetwork
+        resolvedNetwork,
+        bucket
     );
   }
 

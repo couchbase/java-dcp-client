@@ -16,22 +16,23 @@
 
 package com.couchbase.client.dcp.core.config;
 
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
 import com.couchbase.client.core.env.NetworkResolution;
+import com.couchbase.client.core.json.Mapper;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.core.util.Resources;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.OptionalInt;
 
 import static com.couchbase.client.core.util.CbCollections.listOf;
 import static com.couchbase.client.dcp.core.utils.CbCollections.transform;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -41,75 +42,59 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class DefaultCouchbaseBucketConfigTest {
   @Test
   void magmaBucketIsNotEphemeral() {
-    CouchbaseBucketConfig config = read("config_magma_two_nodes.json");
-    assertEquals("foo", config.name());
-    assertFalse(config.ephemeral());
+    ClusterConfig config = read("config_magma_two_nodes.json");
+    CouchbaseBucketConfig bucket = requireCouchbaseBucket(config);
+    assertEquals("foo", bucket.name());
+    assertFalse(bucket.ephemeral());
   }
 
   @Test
   void parsesRevEpoch() {
-    CouchbaseBucketConfig config = read("config_magma_two_nodes.json");
+    ClusterConfig config = read("config_magma_two_nodes.json");
     assertEquals(new ConfigRevision(1, 1017), config.revision());
   }
 
   @Test
-  @Disabled("The input JSON is from a version of Couchbase Server that's too old.")
-  void shouldHavePrimaryPartitionsOnNode() {
-    CouchbaseBucketConfig config = read("config_with_mixed_partitions.json");
-
-    assertTrue(config.hasPrimaryPartitionsOnNode("1.2.3.4"));
-    assertFalse(config.hasPrimaryPartitionsOnNode("2.3.4.5"));
-    assertFalse(config.ephemeral());
-    //assertTrue(config.nodes().get(0).alternateAddresses().isEmpty());
-  }
-
-  @Test
   void shouldReplaceHostPlaceholder() {
-    CouchbaseBucketConfig config = read("config_with_host_placeholder.json", "example.com");
-    assertEquals("example.com", config.nodes().get(0).hostname());
+    ClusterConfig config = read("config_with_host_placeholder.json", "example.com");
+    assertEquals("example.com", config.nodes().get(0).host());
   }
 
   @Test
   void shouldReplaceHostPlaceholderIpv6() {
-    CouchbaseBucketConfig config = read("config_with_host_placeholder.json", new HostAndPort("::1", 0).host());
-    assertEquals("0:0:0:0:0:0:0:1", config.nodes().get(0).hostname());
-  }
-
-  @Disabled("The input JSON is from a version of Couchbase Server that's too old.")
-  @Test
-  void shouldFallbackToNodeHostnameIfNotInNodesExt() {
-    CouchbaseBucketConfig config = read("nodes_ext_without_hostname.json");
-
-    assertEquals(1, config.nodes().size());
-    assertEquals("1.2.3.4", config.nodes().get(0).hostname());
-    assertFalse(config.ephemeral());
+    ClusterConfig config = read("config_with_host_placeholder.json", new HostAndPort("::1", 0).host());
+    assertEquals("0:0:0:0:0:0:0:1", config.nodes().get(0).host());
   }
 
   @Test
   void shouldGracefullyHandleEmptyPartitions() {
-    CouchbaseBucketConfig config = read("config_with_no_partitions.json");
-
-    assertEquals(-2, config.nodeIndexForActive(24, false));
-    assertEquals(-2, config.nodeIndexForReplica(24, 1, false));
-    assertFalse(config.ephemeral());
+    ClusterConfig config = read("config_with_no_partitions.json");
+    CouchbaseBucketConfig bucket = requireCouchbaseBucket(config);
+    assertEquals(-2, bucket.nodeIndexForActive(24, false));
+    assertEquals(-2, bucket.nodeIndexForReplica(24, 1, false));
+    assertFalse(bucket.ephemeral());
   }
 
   @Test
   void shouldLoadEphemeralBucketConfig() {
-    CouchbaseBucketConfig config = read("ephemeral_bucket_config.json");
+    ClusterConfig config = read("ephemeral_bucket_config.json");
 
-    assertTrue(config.ephemeral());
-    assertTrue(config.serviceEnabled(ServiceType.KV));
-    assertTrue(config.serviceEnabled(ServiceType.VIEWS));
+    assertTrue(requireCouchbaseBucket(config).ephemeral());
+    assertTrue(hasService(config, ServiceType.KV));
+    assertTrue(hasService(config, ServiceType.VIEWS));
+  }
+
+  private static boolean hasService(ClusterConfig config, ServiceType service) {
+    return config.nodes().stream().anyMatch(it -> it.has(service));
   }
 
   @Test
   void shouldLoadConfigWithSameNodesButDifferentPorts() {
-    CouchbaseBucketConfig config = read("cluster_run_two_nodes_same_host.json");
-
-    assertFalse(config.ephemeral());
-    assertEquals(1, config.numberOfReplicas());
-    assertEquals(1024, config.partitions().size());
+    ClusterConfig config = read("cluster_run_two_nodes_same_host.json");
+    CouchbaseBucketConfig bucket = requireCouchbaseBucket(config);
+    assertFalse(bucket.ephemeral());
+    assertEquals(1, bucket.numberOfReplicas());
+    assertEquals(1024, bucket.partitions().size());
     assertEquals(2, config.nodes().size());
     assertEquals("192.168.1.194", config.nodes().get(0).host());
     assertEquals(OptionalInt.of(9000), config.nodes().get(0).port(ServiceType.MANAGER));
@@ -117,30 +102,18 @@ public class DefaultCouchbaseBucketConfigTest {
     assertEquals(OptionalInt.of(9001), config.nodes().get(1).port(ServiceType.MANAGER));
   }
 
-  @Disabled("The input JSON is from a version of Couchbase Server that's too old.")
-  @Test
-  void shouldLoadConfigWithMDS() {
-    CouchbaseBucketConfig config = read("cluster_run_three_nodes_mds_with_localhost.json");
-
-    assertEquals(3, config.nodes().size());
-    assertEquals("192.168.0.102", config.nodes().get(0).hostname());
-    assertEquals("127.0.0.1", config.nodes().get(1).hostname());
-    assertEquals("127.0.0.1", config.nodes().get(2).hostname());
-    assertTrue(config.nodes().get(0).services().containsKey(ServiceType.KV));
-    assertTrue(config.nodes().get(1).services().containsKey(ServiceType.KV));
-    assertFalse(config.nodes().get(2).services().containsKey(ServiceType.KV));
-  }
 
   @Test
   void shouldLoadConfigWithIPv6() {
-    CouchbaseBucketConfig config = read("config_with_ipv6.json", new HostAndPort("::1", 0).host());
+    ClusterConfig config = read("config_with_ipv6.json", new HostAndPort("::1", 0).host());
+    CouchbaseBucketConfig bucket = requireCouchbaseBucket(config);
 
     assertEquals(2, config.nodes().size());
-    assertEquals("fd63:6f75:6368:2068:1471:75ff:fe25:a8be", config.nodes().get(0).hostname());
-    assertEquals("fd63:6f75:6368:2068:c490:b5ff:fe86:9cf7", config.nodes().get(1).hostname());
+    assertEquals("fd63:6f75:6368:2068:1471:75ff:fe25:a8be", config.nodes().get(0).host());
+    assertEquals("fd63:6f75:6368:2068:c490:b5ff:fe86:9cf7", config.nodes().get(1).host());
 
-    assertEquals(1, config.numberOfReplicas());
-    assertEquals(1024, config.numberOfPartitions());
+    assertEquals(1, bucket.numberOfReplicas());
+    assertEquals(1024, bucket.numberOfPartitions());
   }
 
   /**
@@ -149,22 +122,8 @@ public class DefaultCouchbaseBucketConfigTest {
    */
   @Test
   void shouldIgnoreUnknownBucketCapabilities() {
-    CouchbaseBucketConfig config = read("config_with_invalid_capability.json");
+    ClusterConfig config = read("config_with_invalid_capability.json");
     assertEquals(1, config.nodes().size());
-  }
-
-  @Disabled("The input JSON is from a version of Couchbase Server that's too old.")
-  @Test
-  void shouldReadBucketUuid() {
-    CouchbaseBucketConfig config = read("config_with_mixed_partitions.json");
-    assertEquals("aa4b515529fa706f1e5f09f21abb5c06", config.uuid());
-  }
-
-  @Disabled("All supported versions of Couchbase Server always include a UUID")
-  @Test
-  void shouldHandleMissingBucketUuid() throws Exception {
-    CouchbaseBucketConfig config = read("config_without_uuid.json");
-    assertNull(config.uuid());
   }
 
   /**
@@ -172,11 +131,11 @@ public class DefaultCouchbaseBucketConfigTest {
    */
   @Test
   void shouldIncludeExternalIfPresent() {
-    CouchbaseBucketConfig config = read("config_with_external.json", "127.0.0.1", PortSelector.NON_TLS, NetworkSelector.EXTERNAL);
+    ClusterConfig config = read("config_with_external.json", "127.0.0.1", PortSelector.NON_TLS, NetworkSelector.EXTERNAL);
 
     List<NodeInfo> nodes = config.nodes();
     assertEquals(3, nodes.size());
-    assertEquals(NetworkResolution.EXTERNAL, config.globalConfig().network());
+    assertEquals(NetworkResolution.EXTERNAL, config.network());
 
     for (NodeInfo node : nodes) {
       assertFalse(node.inaccessible());
@@ -212,21 +171,29 @@ public class DefaultCouchbaseBucketConfigTest {
     );
   }
 
-  private static CouchbaseBucketConfig read(String resourceName) {
+  private static ClusterConfig read(String resourceName) {
     return read(resourceName, "127.0.0.1");
   }
 
-  private static CouchbaseBucketConfig read(String resourceName, String originHost) {
+  private static ClusterConfig read(String resourceName, String originHost) {
     return read(resourceName, originHost, PortSelector.NON_TLS, NetworkSelector.DEFAULT);
   }
 
-  private static CouchbaseBucketConfig read(String resourceName, String originHost, PortSelector portSelector, NetworkSelector networkSelector) {
+  private static ClusterConfig read(String resourceName, String originHost, PortSelector portSelector, NetworkSelector networkSelector) {
     String json = Resources.read(resourceName, DefaultCouchbaseBucketConfigTest.class);
-    return CouchbaseBucketConfigParser.parse(
-        json.getBytes(UTF_8),
+    return ClusterConfigParser.parse(
+        (ObjectNode) Mapper.decodeIntoTree(json),
         originHost,
         portSelector,
         networkSelector
     );
+  }
+  
+  public CouchbaseBucketConfig requireCouchbaseBucket(ClusterConfig config) {
+    try {
+      return (CouchbaseBucketConfig) requireNonNull(config.bucket());
+    } catch (Exception e) {
+      throw new NoSuchElementException("config has no couchbase bucket");
+    }
   }
 }

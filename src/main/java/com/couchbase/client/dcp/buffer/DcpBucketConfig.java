@@ -19,6 +19,7 @@ package com.couchbase.client.dcp.buffer;
 import com.couchbase.client.core.service.ServiceType;
 import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.core.config.BucketCapability;
+import com.couchbase.client.dcp.core.config.ClusterConfig;
 import com.couchbase.client.dcp.core.config.ConfigRevision;
 import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
 import com.couchbase.client.dcp.core.config.NodeInfo;
@@ -32,17 +33,18 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 /**
- * A wrapper around a {@link CouchbaseBucketConfig} that automatically resolves alternate addresses
- * and analyzes the partition map to support persistence polling.
+ * A wrapper around a {@link ClusterConfig} that exposes just the bits the DCP client cares about.
  */
 public class DcpBucketConfig {
-  private final CouchbaseBucketConfig config;
+  private final ClusterConfig config;
+  private final CouchbaseBucketConfig bucket;
   private final NodeToPartitionMultimap map;
   private final List<NodeInfo> allKvNodes;
 
-  public DcpBucketConfig(final CouchbaseBucketConfig config) {
+  public DcpBucketConfig(final ClusterConfig config) {
     this.config = requireNonNull(config);
-    this.map = new NodeToPartitionMultimap(config);
+    this.bucket = (CouchbaseBucketConfig) requireNonNull(config.bucket());
+    this.map = new NodeToPartitionMultimap(bucket);
 
     allKvNodes = unmodifiableList(
         config.nodes().stream()
@@ -56,7 +58,7 @@ public class DcpBucketConfig {
   }
 
   public int numberOfPartitions() {
-    return config.partitions().size();
+    return bucket.partitions().size();
   }
 
   public List<NodeInfo> nodes() {
@@ -87,7 +89,7 @@ public class DcpBucketConfig {
   }
 
   public HostAndPort getActiveNodeKvAddress(int partition) {
-    NodeInfo node = config.partitions().active(partition)
+    NodeInfo node = bucket.partitions().active(partition)
         .orElseThrow(() -> new IllegalStateException("No active node for partition " + partition));
     return getAddress(node);
   }
@@ -104,10 +106,10 @@ public class DcpBucketConfig {
   }
 
   public int numberOfReplicas() {
-    return config.numberOfReplicas();
+    return bucket.numberOfReplicas();
   }
 
   public boolean hasCapability(BucketCapability capability) {
-    return config.hasCapability(capability);
+    return bucket.hasCapability(capability);
   }
 }
