@@ -35,6 +35,7 @@ public enum StreamFlag {
    * then set the remote nodes VBucket to active state and the source nodes VBucket to dead.
    */
   TAKEOVER(0x01),
+
   /**
    * Specifies that the stream should only send items only if they are on disk. The first
    * item sent is specified by the start sequence number and items will be sent up to the
@@ -42,12 +43,14 @@ public enum StreamFlag {
    * the stream is created.
    */
   DISK_ONLY(0x02),
+
   /**
    * Specifies that the server should stream all mutations up to the current sequence number
    * for that VBucket. The server will overwrite the value of the end sequence number field
    * with the value of the latest sequence number.
    */
   LATEST(0x04),
+
   /**
    * Specifies that the server should stream only item key and metadata in the mutations
    * and not stream the value of the item.
@@ -56,18 +59,32 @@ public enum StreamFlag {
    */
   @Deprecated
   NO_VALUE(0x08),
+
   /**
    * Indicate the server to add stream only if the VBucket is active.
-   * If the VBucket is not active, the stream request fails with ERR_NOT_MY_VBUCKET (0x07)
+   * If the VBucket is not active, the stream request fails with ERR_NOT_MY_VBUCKET (0x07).
+   * <p>
+   * <b>NOTE:</b> This is the only mode supported in modern Couchbase Server versions.
+   * The client always requests this flag.
    */
+  @SinceCouchbase("5.0")
   ACTIVE_VB_ONLY(0x10),
+
   /**
    * Indicate the server to check for vb_uuid match even at start_seqno 0 before
    * adding the stream successfully.
    * If the flag is set and there is a vb_uuid mismatch at start_seqno 0, then
    * the server returns ENGINE_ROLLBACK error.
    */
+  @SinceCouchbase("5.1")
   STRICT_VB_UUID(0x20),
+
+  /**
+   Specifies that the server should stream mutations from the current sequence number,
+   this means the start parameter is ignored.
+   */
+  @SinceCouchbase("7.2")
+  FROM_LATEST(0x40),
 
   /**
    * Specifies that the server should skip rollback if the client is behind

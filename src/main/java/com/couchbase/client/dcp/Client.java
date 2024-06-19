@@ -1639,7 +1639,13 @@ public class Client implements Closeable {
       configRefreshInterval = builder.configRefreshInterval;
       dcpControl = builder.dcpControl;
       connectionFlags = unmodifiableSet(EnumSet.copyOf(builder.connectionFlags));
-      streamFlags = unmodifiableSet(newEnumSet(StreamFlag.class, builder.streamFlags));
+
+      Set<StreamFlag> tempStreamFlags = newEnumSet(StreamFlag.class, builder.streamFlags);
+      // Some 7.x server versions behave poorly if StreamFlag.ACTIVE_VB_ONLY is not set,
+      // and the Java DCP client is designed to stream only from active vbuckets anyway.
+      tempStreamFlags.add(StreamFlag.ACTIVE_VB_ONLY);
+      streamFlags = unmodifiableSet(tempStreamFlags);
+
       eventLoopGroup = Optional.ofNullable(builder.eventLoopGroup)
           .orElseGet(Client::newEventLoopGroup);
       eventLoopGroupIsPrivate = builder.eventLoopGroup == null;
