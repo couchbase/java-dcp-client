@@ -53,6 +53,9 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.user;
+import static com.couchbase.client.dcp.message.MessageUtil.DCP_DELETION_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.DCP_EXPIRATION_OPCODE;
+import static com.couchbase.client.dcp.message.MessageUtil.DCP_MUTATION_OPCODE;
 import static com.couchbase.client.dcp.message.MessageUtil.getOpcode;
 import static java.util.Objects.requireNonNull;
 
@@ -227,51 +230,45 @@ public class EventHandlerAdapter implements ControlEventHandler, SystemEventHand
 
   private final DataEventHandler dataEventHandler = (flowController, event) -> {
     int vbucket = -1;
-
+    final FlowControlReceipt receipt = FlowControlReceipt.forMessage(flowController, event);
     try {
-      final FlowControlReceipt receipt = FlowControlReceipt.forMessage(flowController, event);
       vbucket = MessageUtil.getVbucket(event);
       final CollectionsManifest manifest = getCurrentManifest(vbucket);
 
       final byte opcode = event.getByte(1);
-      switch (opcode) {
-        case MessageUtil.DCP_MUTATION_OPCODE: {
-          final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
-          final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
-          if (collectionInfo == null) {
-            log.warn("Unrecognized collection ID {} for key {}; assuming collection was deleted, and skipping",
-                collectionIdAndKey.collectionId(), user(collectionIdAndKey.key()));
-
-            dispatch(new SeqnoAdvanced(vbucket, newOffset(event, vbucket)));
-            return;
-          }
-
-          dispatch(new Mutation(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket)));
-          return;
-        }
-
-        case MessageUtil.DCP_DELETION_OPCODE: {
-          final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
-          final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
-
-          dispatch(new Deletion(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket), false));
-          return;
-        }
-
-        case MessageUtil.DCP_EXPIRATION_OPCODE: {
-          final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
-          final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
-
-          dispatch(new Deletion(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket), true));
-          return;
-        }
-
-        default:
-          receipt.acknowledge();
-          log.warn("Unexpected data event type: {}", MessageUtil.getShortOpcodeName(event));
+      if (opcode != DCP_MUTATION_OPCODE
+          && opcode != DCP_DELETION_OPCODE
+          && opcode != DCP_EXPIRATION_OPCODE
+      ) {
+        log.warn("Ignoring unexpected data event type: {}", MessageUtil.getShortOpcodeName(event));
+        receipt.acknowledge();
+        return;
       }
+
+      final CollectionIdAndKey collectionIdAndKey = extractKey(vbucket, event);
+      final CollectionsManifest.CollectionInfo collectionInfo = manifest.getCollection(collectionIdAndKey.collectionId());
+
+      if (collectionInfo == null) {
+        log.warn("Unrecognized collection ID {} for key {}; assuming collection was deleted, and skipping. Opcode was: {}",
+            collectionIdAndKey.collectionId(), user(collectionIdAndKey.key()), MessageUtil.getShortOpcodeName(event));
+
+        // Auto-ACK, just like we would for a "real" SeqnoAdvanced message
+        // in EventHandlerAdapter.onEvent(ChannelFlowController, ByteBuf).
+        receipt.acknowledge();
+
+        dispatch(new SeqnoAdvanced(vbucket, newOffset(event, vbucket)));
+        return;
+      }
+
+      if (opcode == DCP_MUTATION_OPCODE) {
+        dispatch(new Mutation(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket)));
+      } else {
+        dispatch(new Deletion(event, collectionInfo, collectionIdAndKey.key(), receipt, newOffset(event, vbucket), opcode == DCP_EXPIRATION_OPCODE));
+      }
+
     } catch (Throwable t) {
       log.error("Failed to dispatch data event", t);
+      receipt.acknowledge();
       dispatchOrLogError(new StreamFailure(vbucket, t));
 
     } finally {
