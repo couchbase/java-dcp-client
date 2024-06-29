@@ -15,10 +15,10 @@
  */
 package com.couchbase.client.dcp.message;
 
+import com.couchbase.client.core.compression.snappy.SnappyCodec;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBufUtil;
 import com.couchbase.client.core.deps.io.netty.buffer.Unpooled;
-import com.couchbase.client.core.deps.org.iq80.snappy.Snappy;
 import com.couchbase.client.dcp.highlevel.internal.CollectionIdAndKey;
 import com.couchbase.client.dcp.highlevel.internal.KeyExtractor;
 
@@ -89,6 +89,8 @@ public enum MessageUtil {
   private static final String[] FORMATTED_OPCODE_NAMES = initFormattedOpcodeNames();
 
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
+  private static final SnappyCodec snappy = SnappyCodec.instance();
 
   private static String[] initOpcodeNames() {
     final String[] names = new String[256];
@@ -359,12 +361,12 @@ public enum MessageUtil {
     }
 
     if (rawContent.hasArray()) {
-      return Snappy.uncompress(
+      return snappy.decompress(
           rawContent.array(), rawContent.arrayOffset() + rawContent.readerIndex(), rawContent.readableBytes());
     }
 
     final byte[] compressed = ByteBufUtil.getBytes(rawContent);
-    return Snappy.uncompress(compressed, 0, compressed.length);
+    return snappy.decompress(compressed);
   }
 
   /**
