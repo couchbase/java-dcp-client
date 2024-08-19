@@ -138,7 +138,10 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     void issueRequest(ChannelHandlerContext ctx) {
       ByteBuf request = ctx.alloc().buffer();
       DcpOpenConnectionRequest.init(request, env.connectionFlags());
-      DcpOpenConnectionRequest.connectionName(request, connectionName);
+
+      // Remove curly braces as a workaround for MB-48655. Prior to Couchbase Server 7.1,
+      // DCP clients with { or } in the name are not logged properly from within memcached.
+      DcpOpenConnectionRequest.connectionName(request, withoutCurlyBraces(connectionName));
       ctx.writeAndFlush(request);
     }
 
@@ -255,7 +258,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   @Override
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
     try {
-      connectionName = connectionNameWorkaround(connectionNameGenerator.name());
+      connectionName = connectionNameGenerator.name();
       step.issueRequest(ctx);
 
     } catch (Throwable t) {
@@ -263,10 +266,8 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     }
   }
 
-  private static String connectionNameWorkaround(String name) {
-    // Workaround for MB-48655. Prior to Couchbase Server 7.1, DCP clients with { or }
-    // in the name are not logged properly from within memcached.
-    return name
+  private static String withoutCurlyBraces(String s) {
+    return s
         .replace("{", "")
         .replace("}", "");
   }
