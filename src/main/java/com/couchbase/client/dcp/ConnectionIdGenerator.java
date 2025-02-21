@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Couchbase, Inc.
+ * Copyright 2025 Couchbase, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package com.couchbase.client.dcp.core.utils;
+package com.couchbase.client.dcp;
 
-import reactor.util.annotation.Nullable;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class CbStrings {
-  private CbStrings() {
-    throw new AssertionError("not instantiable");
+public class ConnectionIdGenerator {
+  private static final String clientId = paddedHex(randomLong());
+
+  public String next() {
+    return clientId + "/" + paddedHex(randomLong());
   }
 
-  public static String defaultIfEmpty(@Nullable String s, String defaultValue) {
-    return s == null || s.isEmpty()
-        ? defaultValue
-        : s;
+  private static String paddedHex(long number) {
+    return String.format("%016X", number);
   }
 
-  public static String truncate(String s, int maxLength) {
-    return s.length() <= maxLength ? s : s.substring(0, maxLength);
+  private static long randomLong() {
+    return ThreadLocalRandom.current().nextLong();
   }
 }

@@ -20,7 +20,6 @@ import com.couchbase.client.core.deps.io.netty.channel.Channel;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.core.deps.io.netty.util.AttributeKey;
 import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.ConnectionNameGenerator;
 import com.couchbase.client.dcp.buffer.DcpOps;
 import com.couchbase.client.dcp.config.CompressionMode;
 import com.couchbase.client.dcp.config.DcpControl;
@@ -38,10 +37,12 @@ import org.slf4j.LoggerFactory;
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactMeta;
 import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.message.HelloFeature.COLLECTIONS;
 import static com.couchbase.client.dcp.message.HelloFeature.SELECT_BUCKET;
 import static com.couchbase.client.dcp.message.MessageUtil.GET_CLUSTER_CONFIG_OPCODE;
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -189,15 +190,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
 
   private final Client.Environment env;
 
-  /**
-   * Generates the connection name for the dcp connection.
-   */
-  private final ConnectionNameGenerator connectionNameGenerator;
-
-  /**
-   * The generated connection name, set fresh once a channel becomes active.
-   */
-  private String connectionName;
+  private final String connectionName;
 
   /**
    * The bucket name used with select bucket request
@@ -245,9 +238,9 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
     return features;
   }
 
-  DcpConnectHandler(final Client.Environment env) {
+  DcpConnectHandler(final Client.Environment env, final String connectionName) {
     this.env = requireNonNull(env);
-    this.connectionNameGenerator = env.connectionNameGenerator();
+    this.connectionName = requireNonNull(connectionName);
     this.bucket = env.bucket();
     this.dcpControl = env.dcpControl();
   }
@@ -258,7 +251,7 @@ public class DcpConnectHandler extends ConnectInterceptingHandler<ByteBuf> {
   @Override
   public void channelActive(final ChannelHandlerContext ctx) throws Exception {
     try {
-      connectionName = connectionNameGenerator.name();
+      LOGGER.info("{} Established DCP socket connection with name: {}", describe(ctx), redactMeta(connectionName));
       step.issueRequest(ctx);
 
     } catch (Throwable t) {

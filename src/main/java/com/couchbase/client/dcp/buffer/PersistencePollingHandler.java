@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.Objects.requireNonNull;
 
 public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
@@ -85,25 +86,26 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
   }
 
   private void reconfigure(final ChannelHandlerContext ctx, final DcpBucketConfig bucketConfig) {
-    LOGGER.debug("Reconfiguring persistence pollers.");
+    Object description = describe(ctx);
+    LOGGER.debug("{} Reconfiguring persistence pollers.", description);
 
     // stops active group
     final int groupId = ++activeGroupId;
 
     this.persistedSeqnos.reset(bucketConfig);
 
-    LOGGER.debug("Starting persistence polling group {}", groupId);
+    LOGGER.debug("{} Starting persistence polling group {}", description, groupId);
 
     try {
       for (PartitionInstance absentInstance : bucketConfig.getAbsentPartitionInstances()) {
-        LOGGER.debug("Partition instance {} is absent, will assume all seqnos persisted.", absentInstance);
+        LOGGER.debug("{} Partition instance {} is absent, will assume all seqnos persisted.", description, absentInstance);
         this.persistedSeqnos.markAsAbsent(absentInstance);
       }
 
       final HostAndPort nodeAddress = DcpChannel.getHostAndPort(ctx.channel());
       final List<PartitionInstance> partitions = bucketConfig.getHostedPartitions(nodeAddress);
 
-      LOGGER.debug("Node {} hosts partitions {}", nodeAddress, partitions);
+      LOGGER.debug("{} Node {} hosts partitions {}", description, nodeAddress, partitions);
 
       for (PartitionInstance partitionInstance : partitions) {
         final PartitionInstance pas = partitionInstance;
@@ -154,12 +156,14 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
                                 final int groupId) {
 
     if (activeGroupId != groupId) {
-      LOGGER.debug("Polling group {} is no longer active; stopping polling for {}", groupId, partitionInstance);
+      LOGGER.debug("{} Polling group {} is no longer active; stopping polling for {}", describe(ctx), groupId, partitionInstance);
       return;
     }
 
     if (!env.streamEventBuffer().hasBufferedEvents(partitionInstance.partition())) {
-      LOGGER.trace("No buffered events; skipping observeSeqno for partition instance {}", partitionInstance);
+      if (LOGGER.isTraceEnabled()) {
+        LOGGER.trace("{} No buffered events; skipping observeSeqno for partition instance {}", describe(ctx), partitionInstance);
+      }
       scheduleObserveAndRepeat(ctx, partitionInstance, vbuuid, groupId, 1);
       return;
     }
@@ -168,7 +172,7 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
         .doOnSuccess(observeSeqnoResponse -> {
           try {
             if (activeGroupId != groupId) {
-              LOGGER.debug("Polling group {} is no longer active; stopping polling for {}", groupId, partitionInstance);
+              LOGGER.debug("{} Polling group {} is no longer active; stopping polling for {}", describe(ctx), groupId, partitionInstance);
               return;
             }
 
@@ -184,15 +188,15 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
         .onErrorResume(t -> {
           if (activeGroupId != groupId || t instanceof NotConnectedException) {
             // Graceful shutdown. Ignore any exception.
-            LOGGER.debug("Polling group {} is no longer active; stopping polling for {}",
-                groupId, partitionInstance);
+            LOGGER.debug("{} Polling group {} is no longer active; stopping polling for {}",
+                describe(ctx), partitionInstance);
             return Mono.empty();
           }
 
           if (t instanceof DcpOps.BadResponseStatusException) {
             DcpOps.BadResponseStatusException e = (DcpOps.BadResponseStatusException) t;
             if (e.status().isTemporary()) {
-              LOGGER.debug("observeSeqno failed with status code " + e.status() + " ; will retry after an extended delay.");
+              LOGGER.debug("{} observeSeqno failed with status code " + e.status() + " ; will retry after an extended delay.", describe(ctx));
               // schedule with an extended delay
               scheduleObserveAndRepeat(ctx, partitionInstance, vbuuid, groupId, 10);
             } else {
@@ -208,10 +212,14 @@ public class PersistencePollingHandler extends ChannelInboundHandlerAdapter {
 
   private void logWarningAndClose(ChannelHandlerContext ctx, String msg, Object... params) {
     if (loggedClosureWarning.compareAndSet(false, true)) {
-      LOGGER.warn("Closing channel; " + msg, params);
+      if (LOGGER.isWarnEnabled()) {
+        LOGGER.warn(describe(ctx) + " Closing channel; " + msg, params);
+      }
       ctx.close();
     } else {
-      LOGGER.trace("Closing channel; " + msg, params);
+      if (LOGGER.isTraceEnabled()) {
+        LOGGER.trace(describe(ctx) + " Closing channel; " + msg, params);
+      }
     }
   }
 }

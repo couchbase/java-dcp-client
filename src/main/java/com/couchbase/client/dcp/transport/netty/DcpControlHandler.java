@@ -34,6 +34,7 @@ import static com.couchbase.client.dcp.core.logging.RedactableArgument.redactSys
 import static com.couchbase.client.dcp.message.ResponseStatus.INVALID_ARGUMENTS;
 import static com.couchbase.client.dcp.message.ResponseStatus.NOT_SUPPORTED;
 import static com.couchbase.client.dcp.transport.netty.DcpConnectHandler.getServerVersion;
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -81,7 +82,7 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
     if (remainingControls.hasNext()) {
       currentControl = remainingControls.next();
 
-      log.debug("Negotiating DCP Control {}", currentControl);
+      log.debug("{} Negotiating DCP Control {}", describe(ctx), currentControl);
       ByteBuf request = ctx.alloc().buffer();
       DcpControlRequest.init(request);
       DcpControlRequest.key(currentControl.name(), request);
@@ -89,8 +90,8 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
 
       ctx.writeAndFlush(request);
     } else {
-      log.info("DCP control negotiation complete for node {} ; {}",
-          redactSystem(ctx.channel().remoteAddress()), negotiatedControls);
+      log.info("{} DCP control negotiation complete; {}",
+          describe(ctx), negotiatedControls);
 
       originalPromise().setSuccess();
       ctx.pipeline().remove(this);
@@ -117,10 +118,10 @@ public class DcpControlHandler extends ConnectInterceptingHandler<ByteBuf> {
 
     if (status.isSuccess()) {
       negotiatedControls.add(currentControl);
-      log.debug("Successfully negotiated DCP control: {}", currentControl);
+      log.debug("{} Successfully negotiated DCP control: {}", describe(ctx), currentControl);
 
     } else if ((status == INVALID_ARGUMENTS || status == NOT_SUPPORTED) && currentControl.isOptional()) {
-      log.debug("Server rejected optional DCP control: {} ; status = {}", currentControl, status);
+      log.debug("{} Server rejected optional DCP control: {} ; status = {}", describe(ctx), currentControl, status);
 
     } else {
       originalPromise().setFailure(

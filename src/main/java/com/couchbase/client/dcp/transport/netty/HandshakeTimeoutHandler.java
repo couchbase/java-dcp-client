@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,12 +59,12 @@ public class HandshakeTimeoutHandler extends ChannelOutboundHandlerAdapter {
        */
       @Override
       public void run() {
-        LOGGER.debug("Firing handshake deadline event.");
+        LOGGER.debug("{} Firing handshake deadline event.", describe(ctx));
         ctx.fireUserEventTriggered(HANDSHAKE_DEADLINE_EVENT);
       }
     };
 
-    LOGGER.debug("Handshake timeout is {} {}.", timeout, timeoutUnit);
+    LOGGER.debug("{} Handshake timeout is {} {}.", describe(ctx), timeout, timeoutUnit);
     ctx.executor().schedule(fireDeadlineEvent, timeout, timeoutUnit);
   }
 }

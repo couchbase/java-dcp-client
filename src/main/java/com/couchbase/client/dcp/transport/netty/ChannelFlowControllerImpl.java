@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.couchbase.client.dcp.message.MessageUtil.requiresFlowControlAck;
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.Objects.requireNonNull;
 
 public class ChannelFlowControllerImpl implements ChannelFlowController {
@@ -55,7 +56,7 @@ public class ChannelFlowControllerImpl implements ChannelFlowController {
       int bufferAckPercent = environment.bufferAckWatermark();
       int bufferSize = Integer.parseInt(environment.dcpControl().get(DcpControl.Names.CONNECTION_BUFFER_SIZE));
       this.bufferAckWatermark = (int) Math.round(bufferSize / 100.0 * bufferAckPercent);
-      LOGGER.debug("BufferAckWatermark absolute is {}", bufferAckWatermark);
+      LOGGER.debug("{} BufferAckWatermark absolute is {}", describe(channel), bufferAckWatermark);
     } else {
       this.bufferAckWatermark = 0;
     }
@@ -78,38 +79,45 @@ public class ChannelFlowControllerImpl implements ChannelFlowController {
     try {
       synchronized (this) {
         bufferAckCounter += numBytes;
-        LOGGER.trace("BufferAckCounter is now {}", bufferAckCounter);
+        if (LOGGER.isTraceEnabled()) {
+          LOGGER.trace("{} BufferAckCounter is now {}", describe(channel), bufferAckCounter);
+        }
         if (bufferAckCounter >= bufferAckWatermark) {
           if (!channel.isActive()) {
-            LOGGER.trace("Skipping flow control ACK because channel is no longer active.");
+            if (LOGGER.isTraceEnabled()) {
+              LOGGER.trace("{} Skipping flow control ACK because channel is no longer active.", describe(channel));
+            }
           } else {
             final int bytesToAck = bufferAckCounter;
-            LOGGER.trace("BufferAckWatermark reached on {}, acking now against the server.",
-                channel.remoteAddress());
+            if (LOGGER.isTraceEnabled()) {
+              LOGGER.trace("{} BufferAckWatermark reached; acking now against the server.", describe(channel));
+            }
             ByteBuf buffer = channel.alloc().buffer();
             DcpBufferAckRequest.init(buffer);
             DcpBufferAckRequest.ackBytes(buffer, bytesToAck);
             channel.writeAndFlush(buffer).addListener(future -> {
               if (future.isSuccess()) {
-                LOGGER.debug("Flow control ACK success, confirmed {} bytes against channel {}", bytesToAck, channel);
+                LOGGER.debug("{} Flow control ACK success, confirmed {} bytes", describe(channel), bytesToAck);
               } else {
                 // ACK failure is bad news. If ignored, it can lead to stream deadlock.
-                LOGGER.error("Flow control ACK failed; closing channel.", future.cause());
+                LOGGER.error("{} Flow control ACK failed; closing channel.", describe(channel), future.cause());
                 channel.close();
               }
             });
           }
           bufferAckCounter = 0;
         }
-        LOGGER.trace("Acknowledging {} bytes against connection {}.", numBytes, channel.remoteAddress());
+        if (LOGGER.isTraceEnabled()) {
+          LOGGER.trace("{} Acknowledging {} bytes.", numBytes, describe(channel));
+        }
       }
     } catch (Throwable t) {
       if (!channel.isActive()) {
-        LOGGER.debug("Flow control ack failed (channel already closed?)", t);
+        LOGGER.debug("{} Flow control ack failed (channel already closed?)", describe(channel), t);
         return;
       }
 
-      LOGGER.error("Flow control ACK failed; closing channel.", t);
+      LOGGER.error("{} Flow control ACK failed; closing channel.", describe(channel), t);
       channel.close();
 
       if (t instanceof Error) {

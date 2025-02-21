@@ -50,13 +50,11 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 import static com.couchbase.client.core.deps.io.netty.util.ReferenceCountUtil.safeRelease;
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Handles the "business logic" of incoming DCP mutation and control messages.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements DcpRequestDispatcher {
 
@@ -181,7 +179,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
       try {
         request.promise.setFailure(connectionClosed);
       } catch (Throwable t) {
-        LOGGER.error("Failed to set promise failure", t);
+        LOGGER.error("{} Failed to set promise failure", describe(ctx), t);
       }
     }
     outstandingRequests.clear();
@@ -333,8 +331,8 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
 
         // Should never happen so long as all requests are made via sendRequest()
         // and successfully written to the channel.
-        LOGGER.error("Unexpected response with opaque {} (expected {}); closing connection",
-            MessageUtil.getOpaque(message), request == null ? "none" : request.opaque);
+        LOGGER.error("{} Unexpected response with opaque {} (expected {}); closing connection",
+            describe(ctx), MessageUtil.getOpaque(message), request == null ? "none" : request.opaque);
         ctx.close();
         return;
 
@@ -355,7 +353,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
       IdleStateEvent e = (IdleStateEvent) evt;
       if (e.state() == IdleState.READER_IDLE) {
         metrics.incrementDeadConnections();
-        LOGGER.warn("Closing dead connection.");
+        LOGGER.warn("{} Closing dead connection.", describe(ctx));
         ctx.close();
         return;
       }
@@ -387,7 +385,7 @@ public class DcpMessageHandler extends ChannelInboundHandlerAdapter implements D
       }
     } else {
       try {
-        LOGGER.warn("Unknown DCP Message, ignoring. \n{}", MessageUtil.humanize(message));
+        LOGGER.warn("{} Unknown DCP Message, ignoring. \n{}", describe(ctx), MessageUtil.humanize(message));
       } finally {
         message.release();
       }

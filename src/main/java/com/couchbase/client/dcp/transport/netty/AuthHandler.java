@@ -49,6 +49,7 @@ import static com.couchbase.client.dcp.core.logging.RedactableArgument.system;
 import static com.couchbase.client.dcp.core.utils.CbCollections.setOf;
 import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_CONTINUE;
 import static com.couchbase.client.dcp.message.ResponseStatus.AUTH_ERROR;
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,7 +83,7 @@ public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements 
       // When the connection is secured by TLS, SCRAM-SHA provides no extra security.
       // Use PLAIN because unlike SCRAM-SHA it works with LDAP users.
       // Save a round trip by assuming PLAIN is always supported.
-      LOGGER.debug("Using SASL mechanism PLAIN because connection is secure.");
+      LOGGER.debug("{} Using SASL mechanism PLAIN because connection is secure.", describe(ctx));
       selectMechanismAndStartAuth(ctx, listOf("PLAIN"));
       return;
     }
@@ -126,7 +127,7 @@ public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements 
           }
         }
 
-        LOGGER.debug("Successfully authenticated against node {}", ctx.channel().remoteAddress());
+        LOGGER.debug("{} Successfully authenticated", describe(ctx));
         ctx.pipeline().remove(this);
         originalPromise().setSuccess();
         ctx.fireChannelActive();
@@ -196,7 +197,7 @@ public class AuthHandler extends ConnectInterceptingHandler<ByteBuf> implements 
       }
 
       selectedMechanism = saslClient.getMechanismName();
-      LOGGER.debug("Selected SASL mechanism: {}", selectedMechanism);
+      LOGGER.debug("{} Selected SASL mechanism: {}", describe(ctx), selectedMechanism);
 
       byte[] payload = saslClient.hasInitialResponse()
           ? saslClient.evaluateChallenge(EMPTY_BYTE_ARRAY)

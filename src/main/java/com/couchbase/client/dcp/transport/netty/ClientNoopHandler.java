@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.TimeUnit;
 
 import static com.couchbase.client.dcp.message.MessageUtil.NOOP_OPCODE;
+import static com.couchbase.client.dcp.transport.netty.DcpPipeline.describe;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -45,8 +46,8 @@ public class ClientNoopHandler extends IdleStateHandler {
 
   @Override
   protected void channelIdle(ChannelHandlerContext ctx, IdleStateEvent evt) throws Exception {
-    LOGGER.debug("Nothing read from channel {} for {} seconds; sending client-side NOOP request.",
-        ctx.channel(), MILLISECONDS.toSeconds(getReaderIdleTimeInMillis()));
+    LOGGER.debug("{} Nothing read from channel for {} seconds; sending client-side NOOP request.",
+        describe(ctx), MILLISECONDS.toSeconds(getReaderIdleTimeInMillis()));
 
     ctx.pipeline().get(DcpMessageHandler.class)
         .sendRequest(newNoopRequest())
@@ -57,15 +58,15 @@ public class ClientNoopHandler extends IdleStateHandler {
             try {
               final ResponseStatus status = dcpResponse.status();
               if (status.isSuccess()) {
-                LOGGER.debug("Got successful response to client-side NOOP for channel {}", ctx.channel());
+                LOGGER.debug("{} Got successful response to client-side NOOP", describe(ctx));
               } else {
-                LOGGER.warn("Got error response to client-side NOOP for channel {}: {}", ctx.channel(), status);
+                LOGGER.warn("{} Got error response to client-side NOOP: {}", describe(ctx), status);
               }
             } finally {
               buffer.release();
             }
           } else {
-            LOGGER.warn("Failed to send client-side NOOP for channel {}", ctx.channel(), future.cause());
+            LOGGER.warn("{} Failed to send client-side NOOP", describe(ctx), future.cause());
           }
         });
   }

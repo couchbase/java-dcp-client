@@ -16,16 +16,18 @@
 package com.couchbase.client.dcp.transport.netty;
 
 import com.couchbase.client.core.deps.io.netty.channel.Channel;
+import com.couchbase.client.core.deps.io.netty.channel.ChannelHandlerContext;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelInitializer;
 import com.couchbase.client.core.deps.io.netty.channel.ChannelPipeline;
 import com.couchbase.client.core.deps.io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import com.couchbase.client.core.deps.io.netty.handler.logging.LogLevel;
 import com.couchbase.client.core.deps.io.netty.handler.logging.LoggingHandler;
 import com.couchbase.client.core.deps.io.netty.handler.timeout.IdleStateHandler;
+import com.couchbase.client.core.deps.io.netty.util.AttributeKey;
 import com.couchbase.client.dcp.Client;
+import com.couchbase.client.dcp.DefaultConnectionNameGenerator;
 import com.couchbase.client.dcp.buffer.PersistencePollingHandler;
 import com.couchbase.client.dcp.conductor.BucketConfigArbiter;
-import com.couchbase.client.dcp.conductor.DcpChannel;
 import com.couchbase.client.dcp.conductor.DcpChannelControlHandler;
 import com.couchbase.client.dcp.config.DcpControl;
 import com.couchbase.client.dcp.message.MessageUtil;
@@ -36,22 +38,20 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.couchbase.client.core.util.CbObjects.defaultIfNull;
+import static com.couchbase.client.dcp.conductor.DcpChannel.getHostAndPort;
+import static com.couchbase.client.dcp.core.utils.CbStrings.truncate;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Sets up the pipeline for the actual DCP communication channels.
- *
- * @author Michael Nitschinger
- * @since 1.0.0
  */
 public class DcpPipeline extends ChannelInitializer<Channel> {
-
-  /**
-   * The logger used.
-   */
   private static final Logger LOGGER = LoggerFactory.getLogger(DcpPipeline.class);
+
+  private static final AttributeKey<Object> DESCRIPTION = AttributeKey.valueOf("desc");
 
   /**
    * The stateful environment.
@@ -82,12 +82,27 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     this.clientMetrics = requireNonNull(clientMetrics);
   }
 
+  public static Object describe(ChannelHandlerContext ctx) {
+    return describe(ctx.channel());
+  }
+
+  public static Object describe(Channel ch) {
+    return ch.attr(DESCRIPTION).get();
+  }
+
   /**
    * Initializes the full pipeline with all handlers needed (some of them may remove themselves during
    * steady state, like auth and feature negotiation).
    */
   @Override
   protected void initChannel(final Channel ch) throws Exception {
+    String connectionName = environment.connectionNameGenerator().name();
+    String connectionId = defaultIfNull(
+        DefaultConnectionNameGenerator.extractConnectionId(connectionName),
+        () -> truncate(connectionName, 64)
+    );
+    ch.attr(DESCRIPTION).set("Channel{id='" + connectionId + "', remote=" + getHostAndPort(ch) + "}");
+
     ChannelPipeline pipeline = ch.pipeline();
 
     final int gracePeriodMillis = Integer.parseInt(System.getProperty("com.couchbase.connectCallbackGracePeriod", "2000"));
@@ -100,7 +115,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
       pipeline.addLast(SslHandlerFactory.get(
           ch.alloc(),
           environment.securityConfig(),
-          DcpChannel.getHostAndPort(ch),
+          getHostAndPort(ch),
           environment.authenticator()));
     }
     pipeline.addLast(
@@ -119,7 +134,7 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
         // BucketConfigHandler comes before connect handler because a clustermap change notification
         // could arrive at any time during the connection setup.
         .addLast(new BucketConfigHandler(bucketConfigArbiter, environment.configRefreshInterval()))
-        .addLast(new DcpConnectHandler(environment))
+        .addLast(new DcpConnectHandler(environment, connectionName))
         .addLast(new DcpControlHandler(control));
 
     if (control.noopEnabled()) {
