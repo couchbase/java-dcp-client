@@ -101,7 +101,8 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
         DefaultConnectionNameGenerator.extractConnectionId(connectionName),
         () -> truncate(connectionName, 64)
     );
-    ch.attr(DESCRIPTION).set("Channel{id='" + connectionId + "', remote=" + getHostAndPort(ch) + "}");
+    String channelDesc = "Channel{id='" + connectionId + "', remote=" + getHostAndPort(ch) + "}";
+    ch.attr(DESCRIPTION).set(channelDesc);
 
     ChannelPipeline pipeline = ch.pipeline();
 
@@ -124,6 +125,8 @@ public class DcpPipeline extends ChannelInitializer<Channel> {
     if (LOGGER.isTraceEnabled()) {
       pipeline.addLast(new LoggingHandler(LogLevel.TRACE));
     }
+
+    pipeline.addLast(new FlowControlDiagnosticHandler(channelDesc));
 
     DcpControl control = environment.dcpControl();
 
