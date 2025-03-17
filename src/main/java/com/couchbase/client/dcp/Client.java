@@ -26,6 +26,7 @@ import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFact
 import com.couchbase.client.core.env.NetworkResolution;
 import com.couchbase.client.core.env.SeedNode;
 import com.couchbase.client.core.util.ConnectionString;
+import com.couchbase.client.core.util.Golang;
 import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.buffer.PersistedSeqnos;
 import com.couchbase.client.dcp.buffer.StreamEventBuffer;
@@ -76,6 +77,7 @@ import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import com.couchbase.client.dcp.util.PartitionSet;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
@@ -106,6 +108,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.couchbase.client.core.util.CbStrings.emptyToNull;
 import static com.couchbase.client.core.util.CbStrings.isNullOrEmpty;
 import static com.couchbase.client.core.util.ConnectionString.Scheme.COUCHBASES;
 import static com.couchbase.client.core.util.ConnectionStringUtil.seedNodesFromConnectionString;
@@ -472,9 +475,38 @@ public class Client implements Closeable {
       throw new IllegalArgumentException("A ControlEventHandler needs to be provided!");
     }
     LOGGER.info("Connecting to seed nodes and bootstrapping bucket {}.", meta(env.bucket()));
-    return conductor.connect().onErrorResume(throwable ->
-        disconnect()
-            .then(Mono.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable))));
+    return conductor.connect()
+        .then(maybeDelayForTesting())
+        .onErrorResume(throwable ->
+            disconnect()
+                .then(Mono.error(new BootstrapException("Could not connect to Cluster/Bucket", throwable)))
+        );
+  }
+
+  private static final String TEST_CONNECTION_DELAY_ENVAR_NAME = "CB_DCP_TEST_CONNECTION_DELAY";
+
+  private static @Nullable Duration parseDurationFromEnvironmentVariable(String name) {
+    String delay = emptyToNull(System.getenv(name));
+    try {
+      return delay == null ? null : Golang.parseDuration(delay);
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Bad value '" + delay + "' for environment variable " + name, e);
+    }
+  }
+
+  private static Mono<Void> maybeDelayForTesting() {
+    Duration delay = parseDurationFromEnvironmentVariable(TEST_CONNECTION_DELAY_ENVAR_NAME);
+    if (delay == null) {
+      return Mono.empty();
+    }
+
+    return Mono.fromRunnable(() -> LOGGER.warn(
+            "Adding artificial delay before reporting connection success, because environment variable {}={}",
+            TEST_CONNECTION_DELAY_ENVAR_NAME,
+            delay
+        ))
+        .then(Mono.delay(delay))
+        .then();
   }
 
   /**
