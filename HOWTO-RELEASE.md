@@ -64,15 +64,21 @@ there will be no more changes. Otherwise it can be a pain to remove an unwanted 
 
 ## Go! Go! Go!
 
+Make sure you don't have any uncommitted files in your workspace:
+
+    git status
+
+should say "nothing to commit, working tree clean".
+
 Here it is, the moment of truth. When you're ready to deploy to the Maven Central Repository:
 
-    mvn clean deploy -Prelease
+    ./mvnw clean deploy -Prelease
 
 Alternatively, if you prefer to inspect the staging repository and
 [complete the release manually](https://central.sonatype.org/pages/releasing-the-deployment.html),
 set this additional property:
 
-    mvn clean deploy -Prelease -DautoReleaseAfterClose=false
+    ./mvnw clean deploy -Prelease -DautoReleaseAfterClose=false
 
 Whew, you did it! Or the build failed and you're looking at a cryptic error message, in which
 case you might want to check out the Troubleshooting section below.
@@ -92,7 +98,7 @@ Commit and push to Gerrit. Breathe in. Breathe out.
 
 After every passing nightly build, a snapshot should be published to the Sonatype OSS snapshot repository by running this command:
 
-    mvn clean deploy -Psnapshot
+    ./mvnw clean deploy -Psnapshot
 
 ## Troubleshooting
 
