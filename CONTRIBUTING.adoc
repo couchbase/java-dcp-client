@@ -2,10 +2,10 @@
 
 == Bug reports and feature requests
 
-If you come across a bug or find something unintuitive, let us know and we’ll work to fix it in an upcoming release.
+If you come across a bug or find something unintuitive, let us know.
+We’ll work to fix it in an upcoming release.
 
-To file a bug report or feature request, go to the https://issues.couchbase.com[Couchbase Jira site].
-If this is your first visit, request an account using the "Jira Administrators" link below the Login form.
+To file a bug report or feature request, go to the https://github.com/couchbase/java-dcp-client/issues[GitHub Issues tab].
 
 When filing a bug report, please include:
 
@@ -40,4 +40,3 @@ Fill out the agreement under **Settings > Agreements**.
 We encourage you to submit patch sets directly to the Gerrit server.
 That makes things easier for us, but if you're new to Gerrit it might be intimidating.
 Alternatively, free to submit a pull request on GitHub.
-A robot will automatically import your change into Gerrit.

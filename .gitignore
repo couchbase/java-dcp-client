@@ -6,4 +6,5 @@ target/
 .settings/
 .DS_Store
 dependency-reduced-pom.xml
+.flattened-pom.xml
 .gradle
