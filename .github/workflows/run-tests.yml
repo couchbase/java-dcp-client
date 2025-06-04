@@ -47,7 +47,12 @@ jobs:
           ./mvnw verify --batch-mode -Dmaven.test.failure.ignore=true -Dmaven.javadoc.skip=true -Djvm=${TEST_JAVA_HOME}/bin/java
 
       - name: Check ResourceLeakDetector results
-        run: ! grep "LEAK:" target/surefire-reports/*.xml
+        run: |
+          if grep "LEAK:" target/surefire-reports/*.xml > leaks.txt; then
+            cat leaks.txt
+            echo "Memory leak detected; see task summary for details" >> $GITHUB_STEP_SUMMARY
+            false
+          fi
 
       - name: Publish test results
         run: |
