@@ -8,8 +8,12 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'README.md'
-      - '*/examples/**'
+      - '*.md'
+      - '*.adoc'
+      - '.gitignore'
+      - '.editorconfig'
+      - 'perf/**'
+      - 'examples/**'
       - '.github/workflows/**'
       - '!.github/workflows/deploy-snapshot.yml'
 
