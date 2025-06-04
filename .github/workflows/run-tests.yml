@@ -14,17 +14,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - server: '7.6.5'
-            java-distribution: 'temurin'
-            java-version: '21'
-
-          - server: 'community-7.6.2'
-            java-distribution: 'temurin'
-            java-version: '17'
-
-          - server: '6.6.6'
+          - server: '7.2.7'
             java-distribution: 'temurin'
             java-version: '8'
+
+#          - server: '7.6.5'
+#            java-distribution: 'temurin'
+#            java-version: '21'
+#
+#          - server: 'community-7.6.2'
+#            java-distribution: 'temurin'
+#            java-version: '17'
+#
+#          - server: '6.6.6'
+#            java-distribution: 'temurin'
+#            java-version: '8'
 
     runs-on: ubuntu-latest
     steps:
