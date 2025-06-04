@@ -14,10 +14,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - java-distribution: 'temurin'
+          - server: '7.6.5'
+            java-distribution: 'temurin'
             java-version: '21'
 
-          - java-distribution: 'temurin'
+          - server: 'community-7.6.2'
+            java-distribution: 'temurin'
+            java-version: '17'
+
+          - server: '6.6.6'
+            java-distribution: 'temurin'
             java-version: '8'
 
     runs-on: ubuntu-latest
@@ -34,9 +40,14 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 40
+        env:
+          COUCHBASE: ${{ matrix.server }}
         run: |
           TEST_JAVA_HOME=$JAVA_HOME_${{ matrix.java-version }}_X64
           ./mvnw verify --batch-mode -Dmaven.test.failure.ignore=true -Dmaven.javadoc.skip=true -Djvm=${TEST_JAVA_HOME}/bin/java
+
+      - name: Check ResourceLeakDetector results
+        run: ! grep "LEAK:" target/surefire-reports/*.xml
 
       - name: Publish test results
         run: |
