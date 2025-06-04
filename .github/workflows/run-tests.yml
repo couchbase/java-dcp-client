@@ -1,0 +1,44 @@
+name: Run Tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - java-distribution: 'temurin'
+            java-version: '21'
+
+          - java-distribution: 'temurin'
+            java-version: '8'
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: ${{ matrix.java-distribution }}
+          # Version from the matrix is for running tests. Second version is for building the SDK.
+          java-version: |
+            ${{ matrix.java-version }}
+            17
+
+      - name: Run tests
+        timeout-minutes: 40
+        run: |
+          TEST_JAVA_HOME=$JAVA_HOME_${{ matrix.java-version }}_X64
+          ./mvnw verify --batch-mode -Dmaven.test.failure.ignore=true -Dmaven.javadoc.skip=true -Djvm=${TEST_JAVA_HOME}/bin/java
+
+      - name: Publish test results
+        run: |
+          curl https://raw.githubusercontent.com/couchbaselabs/junit-markdown/refs/heads/main/JunitMarkdown.java --output ${{ runner.temp }}/JunitMarkdown.java
+          java ${{ runner.temp }}/JunitMarkdown.java . >> $GITHUB_STEP_SUMMARY
