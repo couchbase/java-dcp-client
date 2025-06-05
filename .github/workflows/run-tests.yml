@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - server: '7.2.7'
+          - server: '7.2.3'
             java-distribution: 'temurin'
             java-version: '8'
 
