@@ -17,12 +17,12 @@
 package com.couchbase.client.dcp.buffer;
 
 import com.couchbase.client.core.service.ServiceType;
+import com.couchbase.client.core.topology.BucketCapability;
+import com.couchbase.client.core.topology.ClusterTopologyWithBucket;
+import com.couchbase.client.core.topology.CouchbaseBucketTopology;
+import com.couchbase.client.core.topology.HostAndServicePorts;
+import com.couchbase.client.core.topology.TopologyRevision;
 import com.couchbase.client.core.util.HostAndPort;
-import com.couchbase.client.dcp.core.config.BucketCapability;
-import com.couchbase.client.dcp.core.config.ClusterConfig;
-import com.couchbase.client.dcp.core.config.ConfigRevision;
-import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
-import com.couchbase.client.dcp.core.config.NodeInfo;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -33,35 +33,35 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 /**
- * A wrapper around a {@link ClusterConfig} that exposes just the bits the DCP client cares about.
+ * A wrapper around a {@link ClusterTopologyWithBucket} that exposes just the bits the DCP client cares about.
  */
 public class DcpBucketConfig {
-  private final ClusterConfig config;
-  private final CouchbaseBucketConfig bucket;
+  private final ClusterTopologyWithBucket topology;
+  private final CouchbaseBucketTopology bucket;
   private final NodeToPartitionMultimap map;
-  private final List<NodeInfo> allKvNodes;
+  private final List<HostAndServicePorts> allKvNodes;
 
-  public DcpBucketConfig(final ClusterConfig config) {
-    this.config = requireNonNull(config);
-    this.bucket = (CouchbaseBucketConfig) requireNonNull(config.bucket());
+  public DcpBucketConfig(final ClusterTopologyWithBucket topology) {
+    this.topology = requireNonNull(topology);
+    this.bucket = (CouchbaseBucketTopology) topology.bucket();
     this.map = new NodeToPartitionMultimap(bucket);
 
     allKvNodes = unmodifiableList(
-        config.nodes().stream()
+        topology.nodes().stream()
             .filter(node -> node.has(ServiceType.KV))
             .collect(toList())
     );
   }
 
-  public ConfigRevision rev() {
-    return config.revision();
+  public TopologyRevision rev() {
+    return topology.revision();
   }
 
   public int numberOfPartitions() {
     return bucket.partitions().size();
   }
 
-  public List<NodeInfo> nodes() {
+  public List<HostAndServicePorts> nodes() {
     return allKvNodes;
   }
 
@@ -73,13 +73,13 @@ public class DcpBucketConfig {
   /**
    * Returns an unmodifiable list containing only those nodes that are running the KV service.
    */
-  public List<NodeInfo> getKvNodes() {
+  public List<HostAndServicePorts> getKvNodes() {
     return allKvNodes;
   }
 
   public int getNodeIndex(final HostAndPort nodeAddress) throws NoSuchElementException {
     int nodeIndex = 0;
-    for (NodeInfo node : nodes()) {
+    for (HostAndServicePorts node : nodes()) {
       if (nodeAddress.equals(getAddress(node))) {
         return nodeIndex;
       }
@@ -89,7 +89,7 @@ public class DcpBucketConfig {
   }
 
   public HostAndPort getActiveNodeKvAddress(int partition) {
-    NodeInfo node = bucket.partitions().active(partition)
+    HostAndServicePorts node = bucket.partitions().active(partition)
         .orElseThrow(() -> new IllegalStateException("No active node for partition " + partition));
     return getAddress(node);
   }
@@ -98,7 +98,7 @@ public class DcpBucketConfig {
     return map.getAbsent();
   }
 
-  public HostAndPort getAddress(final NodeInfo node) {
+  public HostAndPort getAddress(final HostAndServicePorts node) {
     return new HostAndPort(
         node.host(),
         node.port(ServiceType.KV)

@@ -16,14 +16,13 @@
 
 package com.couchbase.client.dcp.buffer;
 
-import com.couchbase.client.dcp.core.config.CouchbaseBucketConfig;
+import com.couchbase.client.core.topology.CouchbaseBucketTopology;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.couchbase.client.core.config.CouchbaseBucketConfig.PARTITION_NOT_EXISTENT;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 
@@ -33,11 +32,13 @@ import static java.util.Collections.unmodifiableList;
  * Immutable.
  */
 class NodeToPartitionMultimap {
+  private static final int PARTITION_NOT_EXISTENT = -2;
+
 
   private final Map<Integer, List<PartitionInstance>> nodeIndexToHostedPartitions =
       new HashMap<>();
 
-  NodeToPartitionMultimap(final CouchbaseBucketConfig bucketConfig) {
+  NodeToPartitionMultimap(final CouchbaseBucketTopology bucketConfig) {
     bucketConfig.partitions().forEach((partition, info) -> {
       put(info.nodeIndexForActive().orElse(PARTITION_NOT_EXISTENT), new PartitionInstance(partition, 0));
 

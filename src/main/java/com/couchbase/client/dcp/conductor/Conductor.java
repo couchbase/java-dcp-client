@@ -17,13 +17,13 @@ package com.couchbase.client.dcp.conductor;
 
 import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.core.deps.io.netty.util.concurrent.DefaultThreadFactory;
+import com.couchbase.client.core.topology.BucketCapability;
+import com.couchbase.client.core.topology.HostAndServicePorts;
 import com.couchbase.client.core.util.ConnectionString;
 import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.core.util.NanoTimestamp;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import com.couchbase.client.dcp.core.config.BucketCapability;
-import com.couchbase.client.dcp.core.config.NodeInfo;
 import com.couchbase.client.dcp.core.state.LifecycleState;
 import com.couchbase.client.dcp.core.state.NotConnectedException;
 import com.couchbase.client.dcp.error.RollbackException;
@@ -416,7 +416,7 @@ public class Conductor {
 
     metrics.incrementReconfigure();
 
-    final List<NodeInfo> nodes = configHelper.getKvNodes();
+    final List<HostAndServicePorts> nodes = configHelper.getKvNodes();
     if (nodes.isEmpty()) {
       throw new IllegalStateException("Bucket config helper returned no data nodes");
     }

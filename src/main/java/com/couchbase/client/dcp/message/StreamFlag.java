@@ -17,7 +17,7 @@
 package com.couchbase.client.dcp.message;
 
 import com.couchbase.client.core.annotation.SinceCouchbase;
-import com.couchbase.client.dcp.core.config.BucketCapability;
+import com.couchbase.client.core.topology.BucketCapability;
 
 import java.util.Arrays;
 import java.util.EnumSet;

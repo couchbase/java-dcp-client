@@ -16,15 +16,13 @@
 
 package com.couchbase.client.dcp.conductor;
 
-import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.node.ObjectNode;
-import com.couchbase.client.core.json.Mapper;
+import com.couchbase.client.core.node.StandardMemcachedHashingStrategy;
+import com.couchbase.client.core.topology.ClusterTopologyWithBucket;
+import com.couchbase.client.core.topology.TopologyParser;
+import com.couchbase.client.core.topology.TopologyRevision;
 import com.couchbase.client.core.util.HostAndPort;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.buffer.DcpBucketConfig;
-import com.couchbase.client.dcp.core.config.ClusterConfig;
-import com.couchbase.client.dcp.core.config.ClusterConfigParser;
-import com.couchbase.client.dcp.core.config.ConfigRevision;
-import com.couchbase.client.dcp.core.config.StandardMemcachedHashingStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -53,7 +51,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   private final Object revLock = new Object();
 
   // @GuardedBy("revLock")
-  private ConfigRevision currentRev = ConfigRevision.ZERO;
+  private TopologyRevision currentRev = TopologyRevision.ZERO;
 
   private final Client.Environment environment;
 
@@ -62,7 +60,7 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
   }
 
   @Override
-  public void accept(HostAndPort origin, String rawConfig, ConfigRevision rev) {
+  public void accept(HostAndPort origin, String rawConfig, TopologyRevision rev) {
     synchronized (revLock) {
       if (!rev.newerThan(currentRev)) {
         log.debug("Ignoring config revision {} from {}; not newer than current revision {}", rev, origin, currentRev);
@@ -82,13 +80,12 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
       try {
         currentRev = rev;
 
-        ClusterConfig config = ClusterConfigParser.parse(
-            (ObjectNode) Mapper.decodeIntoTree(rawConfig),
-            origin.host(),
-            environment.portSelector(),
+        TopologyParser parser = new TopologyParser(
             environment.networkSelector(),
+            environment.portSelector(),
             StandardMemcachedHashingStrategy.INSTANCE // doesn't matter for DCP, which doesn't support Memcached buckets
         );
+        ClusterTopologyWithBucket config = parser.parse(rawConfig, origin.host()).requireBucket();
 
         configSink.next(new DcpBucketConfig(config));
 
@@ -120,12 +117,12 @@ public class BucketConfigArbiter implements BucketConfigSink, BucketConfigSource
     return m.find() ? OptionalLong.of(Long.parseLong(m.group(1))) : OptionalLong.empty();
   }
 
-  private static ConfigRevision getRev(String rawConfig) {
+  private static TopologyRevision getRev(String rawConfig) {
     long rev = matchLong(REV_PATTERN, rawConfig).orElseThrow(() ->
         new IllegalArgumentException("Failed to locate revision property in " + redactSystem(rawConfig)));
 
     long epoch = matchLong(REV_EPOCH_PATTERN, rawConfig).orElse(0);
 
-    return new ConfigRevision(epoch, rev);
+    return new TopologyRevision(epoch, rev);
   }
 }

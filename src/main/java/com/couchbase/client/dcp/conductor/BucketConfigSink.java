@@ -16,11 +16,11 @@
 
 package com.couchbase.client.dcp.conductor;
 
+import com.couchbase.client.core.topology.TopologyRevision;
 import com.couchbase.client.core.util.HostAndPort;
-import com.couchbase.client.dcp.core.config.ConfigRevision;
 
 public interface BucketConfigSink {
   void accept(HostAndPort origin, String rawConfig);
 
-  void accept(HostAndPort origin, String rawConfig, ConfigRevision rev);
+  void accept(HostAndPort origin, String rawConfig, TopologyRevision rev);
 }
