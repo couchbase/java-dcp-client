@@ -58,12 +58,23 @@
         </developer>
     </developers>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.couchbase.client</groupId>
+                <artifactId>couchbase-client-bom</artifactId>
+                <version>3.9.2</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Exposed, Required Dependencies -->
         <dependency>
             <groupId>com.couchbase.client</groupId>
             <artifactId>core-io</artifactId>
-            <version>3.9.0</version>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
@@ -80,7 +91,6 @@
         <dependency>
             <groupId>com.couchbase.client</groupId>
             <artifactId>java-client</artifactId>
-            <version>3.9.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
