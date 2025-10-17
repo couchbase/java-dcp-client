@@ -42,6 +42,8 @@ jobs:
             ${{ matrix.java-version }}
             17
 
+          cache: 'maven'
+
       - name: Run tests
         timeout-minutes: 40
         env:
@@ -62,3 +64,6 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/couchbaselabs/junit-markdown/refs/heads/main/JunitMarkdown.java --output ${{ runner.temp }}/JunitMarkdown.java
           java ${{ runner.temp }}/JunitMarkdown.java . >> $GITHUB_STEP_SUMMARY
+
+      - name: Remove artifacts from Maven repo so they're not cached
+        run: rm -rfv ~/.m2/repository/com/couchbase/client/
