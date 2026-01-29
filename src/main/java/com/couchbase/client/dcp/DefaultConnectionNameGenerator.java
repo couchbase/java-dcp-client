@@ -44,6 +44,7 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
 
   private final String userAgent;
   private final String untruncatedUserAgent;
+  private final String primaryProductName;
 
   /**
    * Returns a new connection name generator that includes the given product information in the User Agent string.
@@ -64,12 +65,14 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
         .appendOs();
 
     this.untruncatedUserAgent = userAgentBuilder.build();
+    this.primaryProductName = untruncatedUserAgent.split("/")[0] + ":";
 
     // Connection names are limited to 200 bytes (see https://issues.couchbase.com/browse/MB-34280).
-    // Of the 200 bytes, 46 are consumed by the fixed length "i" field and various JSON bits and pieces. That leaves
-    // 154 bytes for the JSON form of the user agent string, including enclosing quotes and any JSON escape sequences.
+    // Of the 200 bytes, 46 are consumed by the fixed length "i" field and various JSON bits and pieces.
+    // A variable amount of bytes are taken up by the primary product name, which is prepended to the connection name.
+    // That leaves <154 bytes for the JSON form of the user agent string, including enclosing quotes and any JSON escape sequences.
     // We can assume 1 byte per character, since the User Agent builder only outputs ASCII characters.
-    final int userAgentJsonMaxLength = ConnectionNameGenerator.CONNECTION_NAME_MAX_UTF8_BYTES - 46;
+    final int userAgentJsonMaxLength = ConnectionNameGenerator.CONNECTION_NAME_MAX_UTF8_BYTES - 46 - primaryProductName.length();
     this.userAgent = truncateAsJson(userAgentBuilder.build(), userAgentJsonMaxLength);
   }
 
@@ -82,7 +85,7 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
     name.put("a", userAgent);
 
     try {
-      return DefaultObjectMapper.writeValueAsString(name);
+      return primaryProductName + DefaultObjectMapper.writeValueAsString(name);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
@@ -94,10 +97,16 @@ public class DefaultConnectionNameGenerator implements ConnectionNameGenerator {
    */
   public static @Nullable String extractConnectionId(String connectionName) {
     try {
-      return DefaultObjectMapper.readTree(connectionName).path("i").textValue();
+      String connectionNameJson = removePreJsonConnectionName(connectionName);
+      return DefaultObjectMapper.readTree(connectionNameJson).path("i").textValue();
     } catch (IOException e) {
       return null;
     }
+  }
+
+  private static String removePreJsonConnectionName(String connectionName) {
+    int braceIndex = connectionName.indexOf('{');
+    return connectionName.substring(braceIndex);
   }
 
   /**
