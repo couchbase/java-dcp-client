@@ -29,6 +29,7 @@ import com.couchbase.client.dcp.SecurityConfig;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import java.security.cert.X509Certificate;
+import java.util.List;
 
 /**
  * This factory creates {@link SslHandler} based on a given configuration.
@@ -48,6 +49,11 @@ public class SslHandlerFactory {
       context.trustManager(config.trustManagerFactory());
     } else if (config.trustCertificates() != null && !config.trustCertificates().isEmpty()) {
       context.trustManager(config.trustCertificates().toArray(new X509Certificate[0]));
+    }
+
+    List<String> ciphers = config.ciphers();
+    if (!ciphers.isEmpty()) {
+      context.ciphers(ciphers);
     }
 
     authenticator.applyTlsProperties(context);
