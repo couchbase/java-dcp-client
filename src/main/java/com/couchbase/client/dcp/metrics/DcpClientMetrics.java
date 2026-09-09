@@ -39,7 +39,7 @@ public class DcpClientMetrics {
 
   public DcpClientMetrics(MetricsContext ctx) {
     this.ctx = requireNonNull(ctx);
-    this.reconfigure = ctx.newEventCounter("reconfigure").build();
+    this.reconfigure = ctx.newEventCounter("reconfigure").logLevel(LogLevel.DEBUG).build();
     this.addChannel = ctx.newEventCounter("add.channel").build();
     this.removeChannel = ctx.newEventCounter("remove.channel").build();
     this.scheduledPollingTasks = ctx.registry().gauge("dcp.scheduled.polling.tasks", new LongAdder());
